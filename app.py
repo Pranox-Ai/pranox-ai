@@ -23,8 +23,10 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 def run_ai(prompt):
     try:
         chat = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama3-70b-8192"
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            model="mixtral-8x7b-32768"  # ✅ FIXED MODEL
         )
         return chat.choices[0].message.content
     except Exception as e:
@@ -45,7 +47,7 @@ def login():
 
 @app.route("/authorize")
 def authorize():
-    token = oauth.google.authorize_access_token()
+    oauth.google.authorize_access_token()
     user = oauth.google.get(
         "https://openidconnect.googleapis.com/v1/userinfo"
     ).json()
