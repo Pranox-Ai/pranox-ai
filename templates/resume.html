@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <h2>AI Resume Builder</h2>
+
+    <form method="POST">
+        <label>Full Name</label>
+        <input name="name">
+
+        <label>Skills</label>
+        <textarea name="skills"></textarea>
+
+        <label>Experience</label>
+        <textarea name="experience"></textarea>
+
+        <label>Education</label>
+        <textarea name="education"></textarea>
+
+        <label>Target Role</label>
+        <input name="role">
+
+        <button type="submit">Generate Resume</button>
+    </form>
+
+    {% if resume %}
+    <h3>Generated Resume</h3>
+    <pre>{{ resume }}</pre>
+    {% endif %}
+</div>
+
+{% endblock %}

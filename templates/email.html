@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <h2>AI Email Writer</h2>
+
+    <form method="POST">
+        <label>Email Topic / Details</label>
+        <textarea name="topic" rows="5"></textarea>
+
+        <label>Tone</label>
+        <select name="tone">
+            <option>professional</option>
+            <option>friendly</option>
+            <option>formal</option>
+        </select>
+
+        <button type="submit">Generate Email</button>
+    </form>
+
+    {% if email %}
+    <h3>Generated Email</h3>
+    <pre>{{ email }}</pre>
+    {% endif %}
+</div>
+
+{% endblock %}

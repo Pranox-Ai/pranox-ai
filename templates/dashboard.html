@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <h1>Welcome, {{ user.name }}</h1>
+    <p>Select a tool to begin:</p>
+
+    <a href="/email"><button>AI Email Writer</button></a>
+    <a href="/resume"><button>AI Resume Builder</button></a>
+</div>
+
+{% endblock %}
