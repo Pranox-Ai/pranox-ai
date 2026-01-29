@@ -26,9 +26,12 @@ def run_ai(prompt):
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            model="mixtral-8x7b-32768"  # ✅ FIXED MODEL
+            # ACTIVE + FREE MODEL
+            model="llama3-8b-8192",
+            temperature=0.7,
+            max_tokens=800
         )
-        return chat.choices[0].message.content
+        return chat.choices[0].message.content.strip()
     except Exception as e:
         return f"AI Error: {str(e)}"
 
