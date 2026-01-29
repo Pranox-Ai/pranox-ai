@@ -26,14 +26,14 @@ def run_ai(prompt):
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            # ACTIVE + FREE MODEL
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=800
         )
         return chat.choices[0].message.content.strip()
     except Exception as e:
         return f"AI Error: {str(e)}"
+
 
 # ---------------- LANDING ----------------
 
