@@ -1,5 +1,6 @@
 flask
 authlib
 python-dotenv
-gunicorn
+groq
 requests
+gunicorn

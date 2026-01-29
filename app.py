@@ -1,8 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import subprocess
 import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
+from groq import Groq
 
 # Load .env variables
 load_dotenv()
@@ -15,14 +15,20 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 # Initialize OAuth
 init_oauth(app)
 
+# Initialize Groq Client
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# ----------- AI FUNCTION (Groq) -----------
+
 def run_ai(prompt):
-    result = subprocess.run(
-        ["ollama", "run", "llama3.2:1b"],
-        input=prompt,
-        capture_output=True,
-        text=True
-    )
-    return result.stdout.strip()
+    try:
+        chat = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama3-70b-8192"
+        )
+        return chat.choices[0].message.content
+    except Exception as e:
+        return f"AI Error: {str(e)}"
 
 # ---------------- LANDING ----------------
 
