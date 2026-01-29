@@ -1,3 +1,4 @@
 flask
 authlib
 python-dotenv
+gunicorn
