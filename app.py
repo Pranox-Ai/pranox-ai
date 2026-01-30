@@ -109,7 +109,8 @@ def email():
 
     if request.method == "POST":
         if not check_limit():
-            return render_template("email.html", email="Daily limit reached. Try tomorrow.")
+            return render_template("email.html", email="", limit=True)
+
 
         topic = request.form["topic"]
         tone = request.form["tone"]
@@ -146,7 +147,8 @@ def resume():
 
     if request.method == "POST":
         if not check_limit():
-            return render_template("resume.html", resume="Daily limit reached. Try tomorrow.")
+            return render_template("resume.html", resume="", limit=True)
+
 
         name = request.form["name"]
         skills = request.form["skills"]
@@ -176,6 +178,10 @@ Education: {education}
         resume_text = run_ai(prompt)
 
     return render_template("resume.html", resume=resume_text)
+
+@app.route("/pro")
+def pro():
+    return render_template("pro.html")
 
 
 # ---------------- PRIVACY ----------------

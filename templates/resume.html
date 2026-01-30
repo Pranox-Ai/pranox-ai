@@ -19,6 +19,23 @@
 <pre id="outputText">{{ resume }}</pre>
 <button onclick="copyText()">Copy</button>
 {% endif %}
+
+{% if limit %}
+<div class="output-box">
+    Daily limit reached 🚫<br><br>
+    <a href="/pro" style="
+        background: gold;
+        padding: 12px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: black;
+        font-weight: bold;
+    ">
+        Upgrade to Pro
+    </a>
+</div>
+{% endif %}
+
 </div>
 
 <script>
