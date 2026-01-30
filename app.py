@@ -28,20 +28,28 @@ def run_ai(prompt):
 
         text = chat.choices[0].message.content
 
-        # -------- FORMAT FIX --------
-        text = text.replace("**", "")
-        text = text.replace("Subject:", "\nSubject:")
-        text = text.replace("Dear", "\nDear")
-        text = text.replace("Regards", "\n\nRegards")
-        text = text.replace("Experience:", "\n\nExperience:")
-        text = text.replace("Education:", "\n\nEducation:")
-        text = text.replace("Skills:", "\n\nSkills:")
-        text = text.strip()
+        # -------- STRONG FORMAT FIX --------
 
-        return text
+        # Remove markdown stars
+        text = text.replace("**", "")
+
+        # Split into sentences
+        sentences = text.split(". ")
+
+        # Join with new lines
+        formatted = "\n".join(sentences)
+
+        # Extra spacing for sections
+        formatted = formatted.replace("Subject:", "\nSubject:")
+        formatted = formatted.replace("Dear", "\nDear")
+        formatted = formatted.replace("Regards", "\n\nRegards")
+        formatted = formatted.replace("Sincerely", "\n\nSincerely")
+
+        return formatted.strip()
 
     except Exception as e:
         return f"AI Error: {str(e)}"
+
 
 # ---------- RESET DAILY ----------
 def reset_daily():
