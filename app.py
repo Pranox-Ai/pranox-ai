@@ -28,11 +28,8 @@ def run_ai(prompt):
         )
 
         text = chat.choices[0].message.content.strip()
-
-        # Clean markdown / stars
         text = text.replace("**", "")
         text = text.replace("*", "")
-
         return text
 
     except Exception as e:
@@ -92,15 +89,7 @@ def email():
 
         prompt = f"""
 Write a professional {tone} business email.
-
-STRICT RULES:
-- Plain text only
-- No bold
-- No markdown
-- No stars
-- Proper paragraphs
-- Corporate formatting
-
+Plain text only. No markdown. No stars.
 Details:
 {topic}
 """
@@ -127,16 +116,7 @@ def resume():
 
         prompt = f"""
 Create a professional resume.
-
-STRICT RULES:
-- Plain text only
-- No bold
-- No markdown
-- No stars
-- Headings in CAPITAL LETTERS
-- ATS friendly
-- Clean spacing
-
+Plain text only. No markdown. No stars.
 Name: {name}
 Role: {role}
 Skills: {skills}
@@ -146,6 +126,20 @@ Education: {education}
         resume_text = run_ai(prompt)
 
     return render_template("resume.html", resume=resume_text)
+
+
+# ---------------- PRIVACY ----------------
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+# ---------------- TERMS ----------------
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
 
 
 # ---------------- RUN ----------------
