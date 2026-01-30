@@ -1,146 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>PRANOX AI</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #000;
-            color: white;
-        }
+<meta charset="UTF-8">
+<title>Pranox AI</title>
 
-        /* NAVBAR */
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px 40px;
-            background: #000;
-            border-bottom: 1px solid #222;
-        }
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 
-        .logo {
-            font-size: 22px;
-            font-weight: bold;
-            letter-spacing: 2px;
-        }
-
-        .login-btn {
-            background: #111;
-            border: 1px solid #444;
-            color: white;
-            padding: 8px 18px;
-            cursor: pointer;
-        }
-
-        .login-btn:hover {
-            background: #222;
-        }
-
-        /* HERO SECTION */
-        .hero {
-            text-align: center;
-            padding-top: 120px;
-        }
-
-        .hero h1 {
-            font-size: 72px;
-            letter-spacing: 6px;
-            margin-bottom: 20px;
-        }
-
-        .tagline {
-     font-size: 22px;
-     background: linear-gradient(90deg, #00c6ff, #ff6ec4, #f9d423);
-     -webkit-background-clip: text;
-     background-clip: text;
-     color: transparent;
+<style>
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #020617, #0f172a);
+    color: white;
+    text-align: center;
+    overflow-x: hidden;
 }
 
+body::before {
+    content: "";
+    position: fixed;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, #6366f1 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: move 30s linear infinite;
+    opacity: 0.07;
+}
 
-        /* BUTTONS */
-        .tools {
-            margin-top: 60px;
-        }
+@keyframes move {
+    from { transform: translate(0,0); }
+    to { transform: translate(-60px,-60px); }
+}
 
-        .tool-btn {
-            background: #111;
-            border: 1px solid #555;
-            color: white;
-            padding: 15px 30px;
-            margin: 15px;
-            font-size: 16px;
-            cursor: pointer;
-        }
+.hero {
+    padding: 140px 20px;
+}
 
-        .tool-btn:hover {
-            background: #222;
-        }
+.hero h1 {
+    font-size: 64px;
+    letter-spacing: 3px;
+}
 
-        /* FEATURES */
-        .features {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-top: 120px;
-            padding-bottom: 80px;
-        }
+.tagline {
+    font-size: 22px;
+    color: #cbd5f5;
+    margin-bottom: 30px;
+}
 
-        .card {
-            background: #111;
-            border: 1px solid #222;
-            padding: 30px;
-            width: 260px;
-            text-align: center;
-        }
+.btn {
+    padding: 14px 34px;
+    background: linear-gradient(90deg, #6366f1, #ec4899);
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: bold;
+    transition: 0.3s;
+}
 
-        .card h3 {
-            margin-bottom: 10px;
-        }
-    </style>
+.btn:hover {
+    transform: scale(1.05);
+}
+
+.features {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    padding: 40px;
+    flex-wrap: wrap;
+}
+
+.card {
+    background: #111827;
+    padding: 30px;
+    border-radius: 14px;
+    width: 260px;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-8px);
+    background: #1f2937;
+}
+
+footer {
+    margin-top: 60px;
+    padding: 20px;
+    color: #94a3b8;
+}
+</style>
 </head>
 
 <body>
 
-<!-- NAVBAR -->
-<div class="navbar">
-    <div class="logo">PRANOX AI</div>
-    <button class="login-btn" onclick="location.href='/login'">Login</button>
-</div>
-
-<!-- HERO -->
 <div class="hero">
-    <h1>PRANOX</h1>
-    <div class="tagline">Create like a professional with AI.</div>
-
-    <div class="tools">
-        <button class="tool-btn" onclick="location.href='/login'">
-            AI Email Writer
-        </button>
-
-        <button class="tool-btn" onclick="location.href='/login'">
-            AI Resume Builder
-        </button>
-    </div>
+    <h1>PRANOX AI</h1>
+    <p class="tagline">Write Emails. Build Resumes. Smarter. Faster. Better.</p>
+    <a href="/login" class="btn">Login with Google</a>
 </div>
 
-<!-- FEATURES -->
 <div class="features">
     <div class="card">
-        <h3>⚡ Instant Results</h3>
-        <p>Generate emails and resumes in seconds.</p>
+        <h3>⚡ AI Powered</h3>
+        <p>Generate professional content instantly.</p>
     </div>
 
     <div class="card">
-        <h3>🔒 Secure Login</h3>
-        <p>Google authentication keeps your data safe.</p>
+        <h3>🔐 Secure Login</h3>
+        <p>Google OAuth keeps your data safe.</p>
     </div>
 
     <div class="card">
         <h3>🌍 Anywhere Access</h3>
-        <p>Use from mobile, tablet, or desktop.</p>
+        <p>Use on mobile, tablet, or desktop.</p>
     </div>
 </div>
+
+<footer>
+    © 2026 PRANOX AI — All Rights Reserved
+</footer>
 
 </body>
 </html>
