@@ -23,11 +23,23 @@ def run_ai(prompt):
     try:
         chat = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            temperature=0.7,
-            max_tokens=800
+            model="llama-3.1-8b-instant"
         )
-        return chat.choices[0].message.content.strip()
+
+        text = chat.choices[0].message.content
+
+        # -------- FORMAT FIX --------
+        text = text.replace("**", "")
+        text = text.replace("Subject:", "\nSubject:")
+        text = text.replace("Dear", "\nDear")
+        text = text.replace("Regards", "\n\nRegards")
+        text = text.replace("Experience:", "\n\nExperience:")
+        text = text.replace("Education:", "\n\nEducation:")
+        text = text.replace("Skills:", "\n\nSkills:")
+        text = text.strip()
+
+        return text
+
     except Exception as e:
         return f"AI Error: {str(e)}"
 
