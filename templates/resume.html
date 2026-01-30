@@ -1,69 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Resume Builder</title>
-<style>
-body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background: linear-gradient(135deg, #020617, #020617, #0f172a);
-    color: white;
-}
-
-.container {
-    width: 90%;
-    max-width: 900px;
-    margin: auto;
-    margin-top: 50px;
-    background: #111827;
-    padding: 30px;
-    border-radius: 14px;
-    box-shadow: 0 0 25px rgba(0,0,0,0.5);
-}
-
-h1 {
-    text-align: center;
-}
-
-input, textarea, button {
-    width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    border-radius: 8px;
-    border: none;
-    font-size: 14px;
-}
-
-input, textarea {
-    background: #1f2937;
-    color: white;
-}
-
-button {
-    background: #10b981;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 15px;
-}
-
-button:hover {
-    background: #059669;
-}
-
-.output {
-    margin-top: 25px;
-    background: #020617;
-    padding: 20px;
-    border-radius: 10px;
-    white-space: pre-wrap;
-}
-</style>
-</head>
-
-<body>
-<div class="container">
+{% extends "base.html" %}
+{% block content %}
 
 <h1>Resume Builder</h1>
 
@@ -78,11 +14,9 @@ button:hover {
 </form>
 
 {% if resume %}
-<div class="output">
+<div class="card">
 {{ resume }}
 </div>
 {% endif %}
 
-</div>
-</body>
-</html>
+{% endblock %}

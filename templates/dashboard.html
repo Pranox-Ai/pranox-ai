@@ -1,92 +1,38 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Dashboard - Pranox AI</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+{% extends "base.html" %}
+{% block content %}
 
 <style>
-body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: white;
-}
-
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    padding: 20px 40px;
-    background: #020617;
-    border-bottom: 1px solid #1f2937;
-}
-
-.logout {
-    color: #f87171;
-    text-decoration: none;
-}
-
 .tools {
     display: flex;
     justify-content: center;
-    gap: 40px;
-    margin-top: 100px;
+    gap: 30px;
     flex-wrap: wrap;
+    margin-top: 40px;
 }
 
 .tool-card {
     background: #111827;
-    padding: 40px;
+    padding: 30px;
     border-radius: 14px;
-    width: 260px;
+    width: 250px;
     text-align: center;
     text-decoration: none;
     color: white;
-    transition: 0.3s;
-}
-
-.tool-card:hover {
-    transform: translateY(-8px);
-    background: linear-gradient(90deg, #6366f1, #ec4899);
-}
-
-.pro-btn {
-    display: block;
-    margin: 60px auto;
-    padding: 14px 30px;
-    background: linear-gradient(90deg, #22c55e, #16a34a);
-    color: white;
-    text-decoration: none;
-    border-radius: 10px;
-    width: 220px;
-    text-align: center;
-    font-weight: bold;
 }
 </style>
-</head>
 
-<body>
-
-<div class="topbar">
-    <h2>Welcome {{ user.name }}</h2>
-    <a href="/logout" class="logout">Logout</a>
-</div>
+<h1>Welcome {{ user.name }}</h1>
 
 <div class="tools">
-
     <a href="/email" class="tool-card">
         <h3>Email Writer</h3>
-        <p>Professional emails instantly</p>
+        <p>Professional Emails</p>
     </a>
 
     <a href="/resume" class="tool-card">
         <h3>Resume Builder</h3>
-        <p>ATS-friendly resumes</p>
+        <p>ATS-Friendly Resumes</p>
     </a>
-
 </div>
 
-<a href="/pro" class="pro-btn">Upgrade to Pro 🚀</a>
-
-</body>
-</html>
+{% endblock %}

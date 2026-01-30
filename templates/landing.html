@@ -1,48 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Pranox AI</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+{% extends "base.html" %}
+{% block content %}
 
 <style>
-body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: white;
-    text-align: center;
-    overflow-x: hidden;
-}
-
-body::before {
-    content: "";
-    position: fixed;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, #6366f1 1px, transparent 1px);
-    background-size: 60px 60px;
-    animation: move 30s linear infinite;
-    opacity: 0.07;
-}
-
-@keyframes move {
-    from { transform: translate(0,0); }
-    to { transform: translate(-60px,-60px); }
-}
-
 .hero {
-    padding: 140px 20px;
+    text-align: center;
+    padding: 80px 20px;
 }
 
 .hero h1 {
-    font-size: 64px;
+    font-size: 48px;
     letter-spacing: 3px;
 }
 
 .tagline {
-    font-size: 22px;
+    font-size: 20px;
     color: #cbd5f5;
     margin-bottom: 30px;
 }
@@ -54,47 +25,28 @@ body::before {
     text-decoration: none;
     border-radius: 10px;
     font-weight: bold;
-    transition: 0.3s;
-}
-
-.btn:hover {
-    transform: scale(1.05);
+    display: inline-block;
 }
 
 .features {
     display: flex;
     justify-content: center;
-    gap: 30px;
-    padding: 40px;
+    gap: 20px;
     flex-wrap: wrap;
+    margin-top: 40px;
 }
 
 .card {
     background: #111827;
-    padding: 30px;
-    border-radius: 14px;
-    width: 260px;
-    transition: 0.3s;
-}
-
-.card:hover {
-    transform: translateY(-8px);
-    background: #1f2937;
-}
-
-footer {
-    margin-top: 60px;
     padding: 20px;
-    color: #94a3b8;
+    border-radius: 14px;
+    width: 250px;
 }
 </style>
-</head>
-
-<body>
 
 <div class="hero">
     <h1>PRANOX AI</h1>
-    <p class="tagline">Write Emails. Build Resumes. Smarter. Faster. Better.</p>
+    <p class="tagline">Write Emails. Build Resumes. Faster & Smarter.</p>
     <a href="/login" class="btn">Login with Google</a>
 </div>
 
@@ -105,19 +57,14 @@ footer {
     </div>
 
     <div class="card">
-        <h3>🔐 Secure Login</h3>
+        <h3>🔐 Secure</h3>
         <p>Google OAuth keeps your data safe.</p>
     </div>
 
     <div class="card">
-        <h3>🌍 Anywhere Access</h3>
-        <p>Use on mobile, tablet, or desktop.</p>
+        <h3>🌍 Anywhere</h3>
+        <p>Mobile, tablet & desktop friendly.</p>
     </div>
 </div>
 
-<footer>
-    © 2026 PRANOX AI — All Rights Reserved
-</footer>
-
-</body>
-</html>
+{% endblock %}
