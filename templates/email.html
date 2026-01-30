@@ -18,22 +18,33 @@
 
 {% if email %}
 <h3>Output</h3>
-<pre id="outputText">{{ email }}</pre>
+<pre id="outputText" class="output-box">{{ email }}</pre>
 <button onclick="copyText()">Copy</button>
 {% endif %}
 
 {% if limit %}
-<div class="output-box">
-    Daily limit reached 🚫<br><br>
+<div style="
+    background:#020617;
+    border:1px solid #1f2937;
+    padding:25px;
+    border-radius:12px;
+    text-align:center;
+    margin-top:20px;
+">
+    <h3 style="color:#f87171;">Daily Limit Reached</h3>
+    <p>You have used all free requests today.</p>
+
     <a href="/pro" style="
-        background: gold;
-        padding: 12px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        color: black;
-        font-weight: bold;
+        display:inline-block;
+        background:gold;
+        padding:14px 28px;
+        border-radius:10px;
+        text-decoration:none;
+        color:black;
+        font-weight:bold;
+        margin-top:10px;
     ">
-        Upgrade to Pro
+        Upgrade to Pro 🚀
     </a>
 </div>
 {% endif %}
@@ -42,8 +53,12 @@
 
 <script>
 function copyText(){
-  const text = document.getElementById("outputText").innerText;
-  navigator.clipboard.writeText(text);
+  const el = document.getElementById("outputText");
+  if(!el){
+    alert("Nothing to copy yet!");
+    return;
+  }
+  navigator.clipboard.writeText(el.innerText);
   alert("Copied!");
 }
 </script>
