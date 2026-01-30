@@ -28,28 +28,26 @@ def run_ai(prompt):
 
         text = chat.choices[0].message.content
 
-        # -------- STRONG FORMAT FIX --------
-
-        # Remove markdown stars
+        # Remove markdown
         text = text.replace("**", "")
 
-        # Split into sentences
-        sentences = text.split(". ")
+        # Strong paragraph formatting
+        text = text.replace("Subject:", "\nSubject:\n")
+        text = text.replace("Dear", "\nDear")
+        text = text.replace("Hello", "\nHello")
+        text = text.replace("Hi", "\nHi")
+        text = text.replace("Regards", "\n\nRegards")
+        text = text.replace("Sincerely", "\n\nSincerely")
+        text = text.replace("Thank you", "\n\nThank you")
 
-        # Join with new lines
-        formatted = "\n".join(sentences)
+        # Break long sentences
+        text = text.replace(". ", ".\n")
+        text = text.replace(": ", ":\n")
 
-        # Extra spacing for sections
-        formatted = formatted.replace("Subject:", "\nSubject:")
-        formatted = formatted.replace("Dear", "\nDear")
-        formatted = formatted.replace("Regards", "\n\nRegards")
-        formatted = formatted.replace("Sincerely", "\n\nSincerely")
-
-        return formatted.strip()
+        return text.strip()
 
     except Exception as e:
         return f"AI Error: {str(e)}"
-
 
 # ---------- RESET DAILY ----------
 def reset_daily():
@@ -101,26 +99,33 @@ def email():
     if "user" not in session:
         return redirect("/login")
 
-    reset_daily()
     email_text = ""
-    limit_msg = ""
-
     if request.method == "POST":
-        if session.get("email_count", 0) >= EMAIL_LIMIT:
-            limit_msg = "Daily limit reached. Upgrade to Pro for unlimited access."
-        else:
-            topic = request.form["topic"]
-            tone = request.form["tone"]
+        topic = request.form["topic"]
+        tone = request.form["tone"]
 
-            prompt = f"""
+        prompt = f"""
+You are a senior corporate email writer.
+
 Write a professional {tone} business email.
-Include subject. No emojis. No markdown.
-Details: {topic}
-"""
-            email_text = run_ai(prompt)
-            session["email_count"] += 1
 
-    return render_template("email.html", email=email_text, limit_msg=limit_msg)
+Rules:
+- Subject line required
+- Professional tone
+- No emojis
+- No markdown
+- Use proper paragraphs
+- Use line breaks after Subject, Greeting, Body, Closing
+- Output plain text only
+
+Details:
+{topic}
+"""
+
+        email_text = run_ai(prompt)
+
+    return render_template("email.html", email=email_text)
+
 
 # ---------- RESUME ----------
 @app.route("/resume", methods=["GET", "POST"])
