@@ -1,26 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Email Writer</title>
+<meta charset="UTF-8">
+<title>Email Generator</title>
+<style>
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #020617);
+    color: white;
+}
+
+.container {
+    width: 90%;
+    max-width: 800px;
+    margin: auto;
+    margin-top: 60px;
+    background: #111827;
+    padding: 30px;
+    border-radius: 14px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+input, select, button, textarea {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+}
+
+input, select, textarea {
+    background: #1f2937;
+    color: white;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+.output {
+    margin-top: 25px;
+    background: #020617;
+    padding: 20px;
+    border-radius: 10px;
+    white-space: pre-wrap;
+}
+</style>
 </head>
-<body style="background:black;color:white;text-align:center;font-family:sans-serif;">
 
-<h2>Email Generator</h2>
+<body>
+<div class="container">
 
-{% if limit_msg %}
-<p style="color:red;">{{ limit_msg }}</p>
-{% endif %}
+<h1>Email Generator</h1>
 
 <form method="POST">
-<input name="topic" placeholder="Email topic" required>
+<input name="topic" placeholder="Enter email topic..." required>
+
 <select name="tone">
-<option>Formal</option>
-<option>Friendly</option>
+<option value="Formal">Formal</option>
+<option value="Friendly">Friendly</option>
+<option value="Professional">Professional</option>
 </select>
-<button type="submit">Generate</button>
+
+<button type="submit">Generate Email</button>
 </form>
 
-<pre>{{ email }}</pre>
+{% if email %}
+<div class="output">
+{{ email }}
+</div>
+{% endif %}
 
+</div>
 </body>
 </html>
