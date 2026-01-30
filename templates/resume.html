@@ -1,20 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Resume Builder</h1>
+<h2>Resume Builder</h2>
 
 <form method="POST">
 <input name="name" placeholder="Full Name" required>
 <input name="role" placeholder="Target Job Role" required>
-<textarea name="skills" placeholder="Skills"></textarea>
-<textarea name="experience" placeholder="Experience"></textarea>
-<textarea name="education" placeholder="Education"></textarea>
+
+<textarea name="skills" rows="3" placeholder="Skills"></textarea>
+<textarea name="experience" rows="4" placeholder="Experience"></textarea>
+<textarea name="education" rows="3" placeholder="Education"></textarea>
 
 <button type="submit">Generate Resume</button>
 </form>
 
 {% if resume %}
-<div class="card">
+<div class="output-box">
 {{ resume }}
 </div>
 {% endif %}

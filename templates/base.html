@@ -1,125 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Pranox AI</title>
+<meta charset="UTF-8">
+<title>PRANOX AI</title>
 
-    <!-- MOBILE RESPONSIVE FIX -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- MOBILE FIX -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: linear-gradient(135deg, #0f172a, #020617);
-            color: white;
-        }
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg,#020617,#0f172a);
+    color: white;
+}
 
-        header {
-            padding: 15px 20px;
-            background: #020617;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
+/* NAVBAR */
+.navbar {
+    background: #020617;
+    padding: 18px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1f2937;
+}
 
-        header h2 {
-            margin: 0;
-            color: #38bdf8;
-        }
+.logo {
+    font-size: 22px;
+    font-weight: bold;
+    color: #38bdf8;
+}
 
-        nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 20px;
-            font-size: 14px;
-        }
+.nav-links a {
+    color: #cbd5f5;
+    margin-left: 20px;
+    text-decoration: none;
+    font-size: 14px;
+}
 
-        nav a:hover {
-            color: #38bdf8;
-        }
+.nav-links a:hover {
+    color: white;
+}
 
-        .container {
-            width: 60%;
-            margin: auto;
-            padding: 30px;
-        }
+/* MAIN CONTAINER */
+.container {
+    max-width: 850px;
+    margin: 40px auto;
+    padding: 25px;
+}
 
-        input, select, button, textarea {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 12px;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px;
-        }
+/* FORM INPUTS */
+input, textarea, select {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 18px;
+    background: #1f2937;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    font-size: 15px;
+}
 
-        button {
-            background: #38bdf8;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-        }
+button {
+    background: linear-gradient(90deg,#38bdf8,#0ea5e9);
+    border: none;
+    color: black;
+    padding: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+}
 
-        button:hover {
-            background: #0ea5e9;
-        }
+button:hover {
+    opacity: 0.9;
+}
 
-        .card {
-            background: #020617;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(56,189,248,0.15);
-        }
+/* OUTPUT BOX */
+.output-box {
+    background: #020617;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    border: 1px solid #1f2937;
+}
 
-        /* -------- MOBILE RESPONSIVE -------- */
-        @media (max-width: 768px) {
-            .container {
-                width: 95%;
-                padding: 10px;
-            }
+/* MOBILE */
+@media(max-width:768px){
+    .navbar{
+        flex-direction: column;
+        align-items: flex-start;
+    }
 
-            header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+    .nav-links{
+        margin-top:10px;
+    }
 
-            nav {
-                margin-top: 10px;
-            }
+    .nav-links a{
+        margin-left:0;
+        margin-right:15px;
+    }
 
-            nav a {
-                margin-left: 0;
-                margin-right: 15px;
-            }
-
-            h1 {
-                font-size: 24px;
-            }
-
-            input, select, button, textarea {
-                font-size: 18px;
-            }
-        }
-    </style>
+    .container{
+        padding:15px;
+    }
+}
+</style>
 </head>
 
 <body>
 
-<header>
-    <h2>Pranox AI</h2>
-    <nav>
-        <a href="/">Home</a>
+<div class="navbar">
+    <div class="logo">PRANOX AI</div>
+    <div class="nav-links">
         <a href="/dashboard">Dashboard</a>
         <a href="/email">Email</a>
         <a href="/resume">Resume</a>
         <a href="/logout">Logout</a>
-    </nav>
-</header>
+    </div>
+</div>
 
 <div class="container">
-    {% block content %}{% endblock %}
+{% block content %}{% endblock %}
 </div>
 
 </body>

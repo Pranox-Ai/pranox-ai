@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Email Generator</h1>
+<h2>Email Generator</h2>
 
 <form method="POST">
-<input name="topic" placeholder="Enter email topic..." required>
+<textarea name="topic" rows="5" placeholder="Enter email topic..." required></textarea>
 
 <select name="tone">
-<option value="Formal">Formal</option>
-<option value="Friendly">Friendly</option>
 <option value="Professional">Professional</option>
+<option value="Friendly">Friendly</option>
+<option value="Formal">Formal</option>
 </select>
 
 <button type="submit">Generate Email</button>
 </form>
 
 {% if email %}
-<div class="card">
+<div class="output-box">
 {{ email }}
 </div>
 {% endif %}
