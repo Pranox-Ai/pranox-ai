@@ -3,29 +3,26 @@ import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
 from groq import Groq
+from datetime import datetime
 
-# Load .env variables
 load_dotenv()
 
 app = Flask(__name__)
-
-# Secret key from .env
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
-# Initialize OAuth
 init_oauth(app)
 
-# Initialize Groq Client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# ----------- AI FUNCTION (Groq) -----------
+# ---------- LIMIT SETTINGS ----------
+EMAIL_LIMIT = 3
+RESUME_LIMIT = 1
 
+# ---------- AI FUNCTION ----------
 def run_ai(prompt):
     try:
         chat = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=800
@@ -34,14 +31,19 @@ def run_ai(prompt):
     except Exception as e:
         return f"AI Error: {str(e)}"
 
+# ---------- RESET DAILY ----------
+def reset_daily():
+    today = datetime.now().strftime("%Y-%m-%d")
+    if session.get("date") != today:
+        session["date"] = today
+        session["email_count"] = 0
+        session["resume_count"] = 0
 
-# ---------------- LANDING ----------------
+# ---------- ROUTES ----------
 
 @app.route("/")
 def landing():
     return render_template("landing.html")
-
-# ---------------- AUTH ----------------
 
 @app.route("/login")
 def login():
@@ -51,9 +53,7 @@ def login():
 @app.route("/authorize")
 def authorize():
     oauth.google.authorize_access_token()
-    user = oauth.google.get(
-        "https://openidconnect.googleapis.com/v1/userinfo"
-    ).json()
+    user = oauth.google.get("https://openidconnect.googleapis.com/v1/userinfo").json()
     session["user"] = user
     return redirect("/dashboard")
 
@@ -62,82 +62,71 @@ def logout():
     session.clear()
     return redirect("/")
 
-# ---------------- DASHBOARD ----------------
-
 @app.route("/dashboard")
 def dashboard():
     if "user" not in session:
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
-# ---------------- EMAIL TOOL ----------------
-
+# ---------- EMAIL ----------
 @app.route("/email", methods=["GET", "POST"])
 def email():
     if "user" not in session:
         return redirect("/login")
 
+    reset_daily()
     email_text = ""
+    limit_msg = ""
+
     if request.method == "POST":
-        topic = request.form["topic"]
-        tone = request.form["tone"]
+        if session.get("email_count", 0) >= EMAIL_LIMIT:
+            limit_msg = "Daily limit reached. Upgrade to Pro for unlimited access."
+        else:
+            topic = request.form["topic"]
+            tone = request.form["tone"]
 
-        prompt = f"""
-You are a senior corporate email writer.
-
+            prompt = f"""
 Write a professional {tone} business email.
-
-Rules:
-- Subject line required
-- Professional tone
-- No emojis
-- No markdown
-- Output only the email
-- Ready to send
-
-Details:
-{topic}
+Include subject. No emojis. No markdown.
+Details: {topic}
 """
-        email_text = run_ai(prompt)
+            email_text = run_ai(prompt)
+            session["email_count"] += 1
 
-    return render_template("email.html", email=email_text)
+    return render_template("email.html", email=email_text, limit_msg=limit_msg)
 
-# ---------------- RESUME TOOL ----------------
-
+# ---------- RESUME ----------
 @app.route("/resume", methods=["GET", "POST"])
 def resume():
     if "user" not in session:
         return redirect("/login")
 
+    reset_daily()
     resume_text = ""
+    limit_msg = ""
+
     if request.method == "POST":
-        name = request.form["name"]
-        skills = request.form["skills"]
-        experience = request.form["experience"]
-        education = request.form["education"]
-        role = request.form["role"]
+        if session.get("resume_count", 0) >= RESUME_LIMIT:
+            limit_msg = "Daily limit reached. Upgrade to Pro for unlimited resumes."
+        else:
+            name = request.form["name"]
+            skills = request.form["skills"]
+            experience = request.form["experience"]
+            education = request.form["education"]
+            role = request.form["role"]
 
-        prompt = f"""
-You are a senior HR resume writer.
-
-Create a complete professional resume.
-
-Rules:
-- Plain text only
-- No markdown
-- ATS friendly
-- Minimum 300 words
-- Ready to paste into Word
-
+            prompt = f"""
+Create a professional resume.
 Name: {name}
-Target Role: {role}
+Role: {role}
 Skills: {skills}
 Experience: {experience}
 Education: {education}
 """
-        resume_text = run_ai(prompt)
+            resume_text = run_ai(prompt)
+            session["resume_count"] += 1
 
-    return render_template("resume.html", resume=resume_text)
+    return render_template("resume.html", resume=resume_text, limit_msg=limit_msg)
 
 if __name__ == "__main__":
     app.run(debug=True)

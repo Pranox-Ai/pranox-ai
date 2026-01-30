@@ -1,27 +1,26 @@
-{% extends "base.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+<title>Email Writer</title>
+</head>
+<body style="background:black;color:white;text-align:center;font-family:sans-serif;">
 
-<div class="container">
-    <h2>AI Email Writer</h2>
+<h2>Email Generator</h2>
 
-    <form method="POST">
-        <label>Email Topic / Details</label>
-        <textarea name="topic" rows="5"></textarea>
+{% if limit_msg %}
+<p style="color:red;">{{ limit_msg }}</p>
+{% endif %}
 
-        <label>Tone</label>
-        <select name="tone">
-            <option>professional</option>
-            <option>friendly</option>
-            <option>formal</option>
-        </select>
+<form method="POST">
+<input name="topic" placeholder="Email topic" required>
+<select name="tone">
+<option>Formal</option>
+<option>Friendly</option>
+</select>
+<button type="submit">Generate</button>
+</form>
 
-        <button type="submit">Generate Email</button>
-    </form>
+<pre>{{ email }}</pre>
 
-    {% if email %}
-    <h3>Generated Email</h3>
-    <pre>{{ email }}</pre>
-    {% endif %}
-</div>
-
-{% endblock %}
+</body>
+</html>

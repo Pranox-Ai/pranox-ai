@@ -1,32 +1,26 @@
-{% extends "base.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+<title>Resume Builder</title>
+</head>
+<body style="background:black;color:white;text-align:center;font-family:sans-serif;">
 
-<div class="container">
-    <h2>AI Resume Builder</h2>
+<h2>Resume Builder</h2>
 
-    <form method="POST">
-        <label>Full Name</label>
-        <input name="name">
+{% if limit_msg %}
+<p style="color:red;">{{ limit_msg }}</p>
+{% endif %}
 
-        <label>Skills</label>
-        <textarea name="skills"></textarea>
+<form method="POST">
+<input name="name" placeholder="Name" required>
+<input name="role" placeholder="Target Role">
+<input name="skills" placeholder="Skills">
+<input name="experience" placeholder="Experience">
+<input name="education" placeholder="Education">
+<button type="submit">Generate</button>
+</form>
 
-        <label>Experience</label>
-        <textarea name="experience"></textarea>
+<pre>{{ resume }}</pre>
 
-        <label>Education</label>
-        <textarea name="education"></textarea>
-
-        <label>Target Role</label>
-        <input name="role">
-
-        <button type="submit">Generate Resume</button>
-    </form>
-
-    {% if resume %}
-    <h3>Generated Resume</h3>
-    <pre>{{ resume }}</pre>
-    {% endif %}
-</div>
-
-{% endblock %}
+</body>
+</html>
