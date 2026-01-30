@@ -1,23 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="container">
 <h2>Resume Builder</h2>
 
 <form method="POST">
-<input name="name" placeholder="Full Name" required>
-<input name="role" placeholder="Target Job Role" required>
-
-<textarea name="skills" rows="3" placeholder="Skills"></textarea>
-<textarea name="experience" rows="4" placeholder="Experience"></textarea>
-<textarea name="education" rows="3" placeholder="Education"></textarea>
+<input name="name" placeholder="Full Name">
+<input name="role" placeholder="Target Role">
+<textarea name="skills" placeholder="Skills"></textarea>
+<textarea name="experience" placeholder="Experience"></textarea>
+<textarea name="education" placeholder="Education"></textarea>
 
 <button type="submit">Generate Resume</button>
 </form>
 
 {% if resume %}
-<div class="output-box">
-{{ resume }}
-</div>
+<h3>Output</h3>
+<pre id="outputText">{{ resume }}</pre>
+<button onclick="copyText()">Copy</button>
 {% endif %}
+</div>
+
+<script>
+function copyText(){
+  const text = document.getElementById("outputText").innerText;
+  navigator.clipboard.writeText(text);
+  alert("Copied!");
+}
+</script>
 
 {% endblock %}

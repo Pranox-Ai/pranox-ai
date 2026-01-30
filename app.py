@@ -3,36 +3,61 @@ import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
 from groq import Groq
+from datetime import datetime
 
-# Load .env variables
+# Load env
 load_dotenv()
 
 app = Flask(__name__)
-
-# Secret key from .env
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
-# Initialize OAuth
+# OAuth
 init_oauth(app)
 
-# Initialize Groq Client
+# Groq Client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# ----------- AI FUNCTION (Groq) -----------
+# ----------- AI FUNCTION -----------
 
 def run_ai(prompt):
     try:
         chat = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=800
         )
-        return chat.choices[0].message.content.strip()
+
+        text = chat.choices[0].message.content.strip()
+
+        # CLEANUP MARKDOWN / STARS
+        text = text.replace("**", "")
+        text = text.replace("*", "")
+
+        return text
+
     except Exception as e:
         return f"AI Error: {str(e)}"
+
+
+# ----------- DAILY LIMIT FUNCTION -----------
+
+def check_limit():
+    today = str(datetime.now().date())
+
+    if "usage_date" not in session:
+        session["usage_date"] = today
+        session["usage_count"] = 0
+
+    if session["usage_date"] != today:
+        session["usage_date"] = today
+        session["usage_count"] = 0
+
+    if session["usage_count"] >= 5:
+        return False
+
+    session["usage_count"] += 1
+    return True
 
 
 # ---------------- LANDING ----------------
@@ -40,6 +65,7 @@ def run_ai(prompt):
 @app.route("/")
 def landing():
     return render_template("landing.html")
+
 
 # ---------------- AUTH ----------------
 
@@ -62,6 +88,7 @@ def logout():
     session.clear()
     return redirect("/")
 
+
 # ---------------- DASHBOARD ----------------
 
 @app.route("/dashboard")
@@ -70,7 +97,8 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
-# ---------------- EMAIL TOOL ----------------
+
+# ---------------- EMAIL ----------------
 
 @app.route("/email", methods=["GET", "POST"])
 def email():
@@ -78,21 +106,25 @@ def email():
         return redirect("/login")
 
     email_text = ""
+
     if request.method == "POST":
+        if not check_limit():
+            return render_template("email.html", email="Daily limit reached. Try tomorrow.")
+
         topic = request.form["topic"]
         tone = request.form["tone"]
 
         prompt = f"""
-You are a senior corporate email writer.
-
 Write a professional {tone} business email.
 
-Rules:
-- Subject line required
-- Professional tone
-- No emojis
-- No markdown
-- Output only the email
+STRICT RULES:
+- Output ONLY plain text
+- NO bold
+- NO markdown
+- NO stars
+- NO emojis
+- Proper paragraphs
+- Corporate formatting
 - Ready to send
 
 Details:
@@ -102,7 +134,8 @@ Details:
 
     return render_template("email.html", email=email_text)
 
-# ---------------- RESUME TOOL ----------------
+
+# ---------------- RESUME ----------------
 
 @app.route("/resume", methods=["GET", "POST"])
 def resume():
@@ -110,7 +143,11 @@ def resume():
         return redirect("/login")
 
     resume_text = ""
+
     if request.method == "POST":
+        if not check_limit():
+            return render_template("resume.html", resume="Daily limit reached. Try tomorrow.")
+
         name = request.form["name"]
         skills = request.form["skills"]
         experience = request.form["experience"]
@@ -118,19 +155,20 @@ def resume():
         role = request.form["role"]
 
         prompt = f"""
-You are a senior HR resume writer.
+Create a professional resume.
 
-Create a complete professional resume.
-
-Rules:
+STRICT RULES:
 - Plain text only
-- No markdown
+- NO bold
+- NO markdown
+- NO stars
+- Headings in CAPITAL LETTERS
+- Clean spacing
 - ATS friendly
-- Minimum 300 words
-- Ready to paste into Word
+- Corporate formatting
 
 Name: {name}
-Target Role: {role}
+Role: {role}
 Skills: {skills}
 Experience: {experience}
 Education: {education}
@@ -138,6 +176,23 @@ Education: {education}
         resume_text = run_ai(prompt)
 
     return render_template("resume.html", resume=resume_text)
+
+
+# ---------------- PRIVACY ----------------
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+# ---------------- TERMS ----------------
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
+# ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
     app.run(debug=True)
