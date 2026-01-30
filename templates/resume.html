@@ -1,59 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container">
 <h2>Resume Builder</h2>
 
 <form method="POST">
-<input name="name" placeholder="Full Name">
-<input name="role" placeholder="Target Role">
-<textarea name="skills" placeholder="Skills"></textarea>
-<textarea name="experience" placeholder="Experience"></textarea>
-<textarea name="education" placeholder="Education"></textarea>
+<input name="name" placeholder="Full Name" required>
+<input name="role" placeholder="Target Job Role" required>
+
+<textarea name="skills" rows="3" placeholder="Skills"></textarea>
+<textarea name="experience" rows="4" placeholder="Experience"></textarea>
+<textarea name="education" rows="3" placeholder="Education"></textarea>
 
 <button type="submit">Generate Resume</button>
 </form>
 
 {% if resume %}
 <h3>Output</h3>
-<pre id="outputText" class="output-box">{{ resume }}</pre>
+<pre class="output-box" id="outputText">{{ resume }}</pre>
 <button onclick="copyText()">Copy</button>
 {% endif %}
-
-{% if limit %}
-<div style="
-    background:#020617;
-    border:1px solid #1f2937;
-    padding:25px;
-    border-radius:12px;
-    text-align:center;
-    margin-top:20px;
-">
-    <h3 style="color:#f87171;">Daily Limit Reached</h3>
-    <p>You have used all free requests today.</p>
-
-    <a href="/pro" style="
-        display:inline-block;
-        background:gold;
-        padding:14px 28px;
-        border-radius:10px;
-        text-decoration:none;
-        color:black;
-        font-weight:bold;
-        margin-top:10px;
-    ">
-        Upgrade to Pro 🚀
-    </a>
-</div>
-{% endif %}
-
-</div>
 
 <script>
 function copyText(){
   const el = document.getElementById("outputText");
   if(!el){
-    alert("Nothing to copy yet!");
+    alert("Nothing to copy!");
     return;
   }
   navigator.clipboard.writeText(el.innerText);

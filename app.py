@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
 from groq import Groq
-from datetime import datetime
 
 # Load env
 load_dotenv()
@@ -30,7 +29,7 @@ def run_ai(prompt):
 
         text = chat.choices[0].message.content.strip()
 
-        # CLEANUP MARKDOWN / STARS
+        # Clean markdown / stars
         text = text.replace("**", "")
         text = text.replace("*", "")
 
@@ -38,26 +37,6 @@ def run_ai(prompt):
 
     except Exception as e:
         return f"AI Error: {str(e)}"
-
-
-# ----------- DAILY LIMIT FUNCTION -----------
-
-def check_limit():
-    today = str(datetime.now().date())
-
-    if "usage_date" not in session:
-        session["usage_date"] = today
-        session["usage_count"] = 0
-
-    if session["usage_date"] != today:
-        session["usage_date"] = today
-        session["usage_count"] = 0
-
-    if session["usage_count"] >= 5:
-        return False
-
-    session["usage_count"] += 1
-    return True
 
 
 # ---------------- LANDING ----------------
@@ -108,10 +87,6 @@ def email():
     email_text = ""
 
     if request.method == "POST":
-        if not check_limit():
-            return render_template("email.html", email="", limit=True)
-
-
         topic = request.form["topic"]
         tone = request.form["tone"]
 
@@ -119,14 +94,12 @@ def email():
 Write a professional {tone} business email.
 
 STRICT RULES:
-- Output ONLY plain text
-- NO bold
-- NO markdown
-- NO stars
-- NO emojis
+- Plain text only
+- No bold
+- No markdown
+- No stars
 - Proper paragraphs
 - Corporate formatting
-- Ready to send
 
 Details:
 {topic}
@@ -146,10 +119,6 @@ def resume():
     resume_text = ""
 
     if request.method == "POST":
-        if not check_limit():
-            return render_template("resume.html", resume="", limit=True)
-
-
         name = request.form["name"]
         skills = request.form["skills"]
         experience = request.form["experience"]
@@ -161,13 +130,12 @@ Create a professional resume.
 
 STRICT RULES:
 - Plain text only
-- NO bold
-- NO markdown
-- NO stars
+- No bold
+- No markdown
+- No stars
 - Headings in CAPITAL LETTERS
-- Clean spacing
 - ATS friendly
-- Corporate formatting
+- Clean spacing
 
 Name: {name}
 Role: {role}
@@ -179,26 +147,8 @@ Education: {education}
 
     return render_template("resume.html", resume=resume_text)
 
-@app.route("/pro")
-def pro():
-    return render_template("pro.html")
 
-
-# ---------------- PRIVACY ----------------
-
-@app.route("/privacy")
-def privacy():
-    return render_template("privacy.html")
-
-
-# ---------------- TERMS ----------------
-
-@app.route("/terms")
-def terms():
-    return render_template("terms.html")
-
-
-# ---------------- RUN APP ----------------
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     app.run(debug=True)
