@@ -68,6 +68,13 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
+@app.route("/pro")
+def pro():
+    if "user" not in session:
+        return redirect("/login")
+    return render_template("pro.html")
+
+
 # ---------- EMAIL ----------
 @app.route("/email", methods=["GET", "POST"])
 def email():
