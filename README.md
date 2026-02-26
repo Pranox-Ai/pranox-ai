@@ -10,4 +10,4 @@ Features:
 - Clean UI
 - Secure OAuth
 
-Built with Flask + Ollama.
+Built with Flask + Groq.
