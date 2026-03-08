@@ -15,21 +15,41 @@
 </form>
 
 {% if resume %}
+
 <h3>Output</h3>
+
 <pre class="output-box" id="outputText">{{ resume }}</pre>
+
+<div style="display:flex; gap:10px; margin-top:10px;">
+
 <button onclick="copyText()">Copy</button>
+
+<form action="/download_resume" method="post">
+<input type="hidden" name="resume" value="{{ resume }}">
+<button type="submit">Download PDF</button>
+</form>
+
+</div>
+
 {% endif %}
 
 <script>
+
 function copyText(){
-  const el = document.getElementById("outputText");
-  if(!el){
-    alert("Nothing to copy!");
-    return;
-  }
-  navigator.clipboard.writeText(el.innerText);
-  alert("Copied!");
+
+const el = document.getElementById("outputText");
+
+if(!el){
+alert("Nothing to copy!");
+return;
 }
+
+navigator.clipboard.writeText(el.innerText);
+
+alert("Copied!");
+
+}
+
 </script>
 
 {% endblock %}

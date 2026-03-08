@@ -4,3 +4,8 @@ python-dotenv
 groq
 requests
 gunicorn
+reportlab
+pdfplumber
+pytesseract
+pillow
+pdf2image

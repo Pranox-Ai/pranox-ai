@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="chat-layout">
+
+<div class="sidebar">
+
+<h2>Pranox</h2>
+
+<button onclick="newChat()" class="newchat">+ New Chat</button>
+
+<div id="history"></div>
+
+</div>
+
+<div class="chat-main">
+
+<div id="messages"></div>
+
+<div class="input-area">
+
+<label for="fileUpload" class="icon-btn">+</label>
+<input type="file" id="fileUpload" style="display:none">
+
+<input id="messageInput" placeholder="Message Pranox...">
+
+<button id="sendBtn">➤</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+
+const messages=document.getElementById("messages")
+const input=document.getElementById("messageInput")
+const sendBtn=document.getElementById("sendBtn")
+const historyDiv=document.getElementById("history")
+const fileUpload=document.getElementById("fileUpload")
+
+let attachedFile=null
+let lastUserMessage=""
+
+let chats=JSON.parse(localStorage.getItem("pranoxChats")||"[]")
+let currentChat=[]
+
+
+function saveChats(){
+localStorage.setItem("pranoxChats",JSON.stringify(chats))
+}
+
+
+function renderHistory(){
+
+historyDiv.innerHTML=""
+
+chats.forEach((chat,index)=>{
+
+let div=document.createElement("div")
+
+div.className="history-item"
+
+div.innerText=chat[0]?.text.slice(0,30) || "Chat"
+
+div.onclick=()=>loadChat(index)
+
+historyDiv.appendChild(div)
+
+})
+
+}
+
+
+function loadChat(index){
+
+messages.innerHTML=""
+
+currentChat=chats[index]
+
+currentChat.forEach(msg=>{
+addMessage(msg.text,msg.type,false)
+})
+
+}
+
+
+function newChat(){
+
+if(currentChat.length>0){
+chats.push(currentChat)
+saveChats()
+}
+
+messages.innerHTML=""
+currentChat=[]
+
+renderHistory()
+
+}
+
+
+function addMessage(text,type,save=true){
+
+let buttons=""
+
+if(type==="ai"){
+buttons=`
+<div class="msg-actions">
+<button onclick="copyText(this)">📋 Copy</button>
+<button onclick="regenerate()">🔁 Regenerate</button>
+</div>
+`
+}
+
+messages.innerHTML+=`
+<div class="message ${type}">
+<div class="bubble">
+<div class="msg-text">${marked.parse(text)}</div>
+${buttons}
+</div>
+</div>
+`
+
+messages.scrollTop=messages.scrollHeight
+
+if(save){
+currentChat.push({text,type})
+}
+
+}
+
+
+
+function typeWriter(text,element){
+
+let i=0
+let speed=12
+
+function typing(){
+
+if(i<text.length){
+
+element.innerHTML=marked.parse(text.substring(0,i+1))
+
+i++
+
+setTimeout(typing,speed)
+
+}
+
+}
+
+typing()
+
+}
+
+
+sendBtn.onclick=sendMessage
+
+
+input.addEventListener("keypress",e=>{
+if(e.key==="Enter") sendMessage()
+})
+
+
+async function sendMessage(){
+
+let text=input.value.trim()
+
+if(!text && !attachedFile) return
+
+lastUserMessage=text
+
+addMessage(text,"user")
+
+input.value=""
+
+let typing=document.createElement("div")
+
+typing.className="message ai"
+
+typing.innerHTML=`
+<div class="bubble">
+<div class="msg-text typing">Pranox is thinking...</div>
+</div>
+`
+
+messages.appendChild(typing)
+
+messages.scrollTop=messages.scrollHeight
+
+let reply=""
+
+try{
+
+if(attachedFile){
+
+let form=new FormData()
+
+form.append("file",attachedFile)
+form.append("message",text)
+
+let res=await fetch("/api/upload",{method:"POST",body:form})
+
+let data=await res.json()
+
+reply=data.reply
+
+attachedFile=null
+
+}else{
+
+let res=await fetch("/api/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({message:text})
+})
+
+let data=await res.json()
+
+reply=data.reply
+
+}
+
+}catch(err){
+
+reply="Error generating response."
+
+}
+
+typing.remove()
+
+messages.innerHTML+=`
+<div class="message ai">
+<div class="bubble">
+<div class="msg-text"></div>
+<div class="msg-actions">
+<button onclick="copyText(this)">📋 Copy</button>
+<button onclick="regenerate()">🔁 Regenerate</button>
+</div>
+</div>
+</div>
+`
+
+let aiText=document.querySelectorAll(".msg-text")
+aiText=aiText[aiText.length-1]
+
+typeWriter(reply,aiText)
+
+currentChat.push({text:reply,type:"ai"})
+
+saveChats()
+
+renderHistory()
+
+}
+
+
+function copyText(btn){
+
+let text=btn.parentElement.parentElement.querySelector(".msg-text").innerText
+
+navigator.clipboard.writeText(text)
+
+btn.innerText="Copied"
+
+setTimeout(()=>{
+btn.innerText="📋 Copy"
+},1500)
+
+}
+
+
+function regenerate(){
+
+input.value=lastUserMessage
+sendMessage()
+
+}
+
+
+fileUpload.onchange=function(){
+
+attachedFile=fileUpload.files[0]
+
+addMessage("📎 "+attachedFile.name+" attached","user")
+
+}
+
+
+renderHistory()
+
+</script>
+
+
+
+<style>
+
+.chat-layout{
+display:flex;
+height:90vh;
+background:#0f172a
+}
+
+.sidebar{
+width:260px;
+background:#020617;
+padding:20px;
+border-right:1px solid #1f2937;
+overflow-y:auto
+}
+
+.history-item{
+padding:10px;
+margin-bottom:10px;
+background:#111827;
+border-radius:6px;
+cursor:pointer;
+font-size:14px
+}
+
+.chat-main{
+flex:1;
+display:flex;
+flex-direction:column
+}
+
+#messages{
+flex:1;
+overflow-y:auto;
+padding:30px
+}
+
+.message{
+display:flex;
+margin-bottom:20px
+}
+
+.user{
+justify-content:flex-end
+}
+
+.ai{
+justify-content:flex-start
+}
+
+.bubble{
+max-width:70%;
+padding:14px 18px;
+border-radius:10px;
+line-height:1.6
+}
+
+.user .bubble{
+background:#2563eb;
+color:white
+}
+
+.ai .bubble{
+background:#111827;
+border:1px solid #1f2937
+}
+
+.msg-actions{
+margin-top:8px;
+display:flex;
+gap:10px
+}
+
+.msg-actions button{
+background:#1f2937;
+border:none;
+color:white;
+padding:4px 10px;
+border-radius:6px;
+cursor:pointer;
+font-size:12px
+}
+
+.typing{
+opacity:.7;
+font-style:italic
+}
+
+.input-area{
+display:flex;
+gap:10px;
+padding:15px;
+border-top:1px solid #1f2937
+}
+
+#messageInput{
+flex:1;
+padding:14px;
+background:#1f2937;
+border:none;
+border-radius:8px;
+color:white
+}
+
+#sendBtn{
+width:45px;
+height:45px;
+border-radius:50%;
+background:#2563eb;
+border:none;
+color:white
+}
+
+.icon-btn{
+width:40px;
+height:40px;
+display:flex;
+align-items:center;
+justify-content:center;
+background:#1f2937;
+border-radius:50%;
+color:white;
+cursor:pointer
+}
+
+</style>
+
+{% endblock %}
