@@ -1,7 +1,7 @@
 ## Hi there 👋
 # PRANOX AI
 
-AI Email Writer & Resume Builder powered by Local AI.
+General AI, AI Email Writer & Resume Builder powered by AI.
 
 Features:
 - Google Login
