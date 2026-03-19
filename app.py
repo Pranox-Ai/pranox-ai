@@ -41,14 +41,14 @@ def init_db():
 
 init_db()
 
-# ---------- INTERNET SEARCH (FIXED) ----------
+# ---------- INTERNET SEARCH ----------
 
 def search_internet(query):
     try:
         api_key = os.getenv("SERPER_API_KEY")
 
         if not api_key:
-            return "No internet access (API key missing)."
+            return "No internet access available."
 
         url = "https://google.serper.dev/search"
         payload = {"q": query}
@@ -69,8 +69,8 @@ def search_internet(query):
 
         return "\n".join(results) if results else "No latest results found."
 
-    except Exception as e:
-        return "Internet search failed."
+    except:
+        return "Internet search unavailable."
 
 # ---------- AI ----------
 
@@ -79,7 +79,7 @@ def run_ai(messages):
         model="llama-3.1-8b-instant",
         messages=messages,
         temperature=0.7,
-        max_tokens=400
+        max_tokens=900
     )
     return completion.choices[0].message.content
 
@@ -114,7 +114,7 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
-# ---------- EMAIL (FIXED) ----------
+# ---------- EMAIL ----------
 
 @app.route("/email", methods=["GET","POST"])
 def email():
@@ -136,7 +136,7 @@ def email():
 
     return render_template("email.html", email=email_output)
 
-# ---------- RESUME (FIXED) ----------
+# ---------- RESUME ----------
 
 @app.route("/resume", methods=["GET","POST"])
 def resume():
@@ -153,7 +153,7 @@ def resume():
         edu = request.form.get("education")
 
         prompt = f"""
-Create a professional resume WITHOUT using any markdown symbols like ** or ##.
+Create a professional resume WITHOUT using markdown symbols.
 
 Name: {name}
 Role: {role}
@@ -163,11 +163,10 @@ Education: {edu}
 """
 
         resume_output = run_ai([
-            {"role":"system","content":"You create clean professional resumes without markdown symbols."},
+            {"role":"system","content":"You create clean professional resumes."},
             {"role":"user","content":prompt}
         ])
 
-        # ✅ REMOVE MARKDOWN SYMBOLS (FINAL FIX)
         resume_output = resume_output.replace("**","").replace("##","")
 
     return render_template("resume.html", resume=resume_output)
@@ -207,11 +206,26 @@ def api_chat():
     messages=[{
         "role":"system",
         "content":"""
-You are Pranox AI.
+You are Pranox AI, a smart and advanced assistant.
 
-Founder: Chetansaipranav R created Pranox AI in Jan 2026.
+Founder Information:
+Chetansaipranav R is the founder of Pranox AI.
+He created Pranox AI in January 2026.
 
-Always give clear structured answers.
+If user asks about founder or creator, answer clearly with this info.
+
+Your job is to:
+- Give detailed and informative answers
+- Use headings and bullet points
+- Provide extra useful insights
+- Suggest related topics
+- Ask follow-up questions
+
+Rules:
+- Do NOT give short answers
+- Always expand properly
+- Avoid markdown symbols like ** or ##
+- Keep output clean and readable
 """
     }]
 
@@ -219,8 +233,8 @@ Always give clear structured answers.
         messages.append({"role":h["role"],"content":h["message"]})
 
     messages.append({
-        "role":"system",
-        "content":f"Latest internet data:\n{search_results}"
+        "role":"user",
+        "content":f"Use this latest internet data if relevant:\n{search_results}"
     })
 
     reply = run_ai(messages)
