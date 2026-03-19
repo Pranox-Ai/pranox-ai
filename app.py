@@ -7,6 +7,7 @@ from io import BytesIO
 from reportlab.pdfgen import canvas
 import sqlite3
 import requests
+import pdfplumber
 
 load_dotenv()
 
@@ -44,12 +45,15 @@ def search_internet(query):
         if not api_key:
             return ""
 
-        url = "https://google.serper.dev/search"
-        headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
-        response = requests.post(url, json={"q": query}, headers=headers)
-        data = response.json()
+        res = requests.post(
+            "https://google.serper.dev/search",
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"q": query}
+        )
 
-        results = []
+        data = res.json()
+
+        results=[]
         if "organic" in data:
             for r in data["organic"][:3]:
                 results.append(f"{r['title']} - {r['snippet']}")
@@ -59,13 +63,13 @@ def search_internet(query):
     except:
         return ""
 
-# FAST AI
+# AI (LONG + SMART)
 def run_ai(messages):
     completion = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        temperature=0.5,   # 🔥 faster
-        max_tokens=500     # 🔥 faster
+        temperature=0.7,
+        max_tokens=1200
     )
     return completion.choices[0].message.content
 
@@ -97,112 +101,119 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
-@app.route("/email", methods=["GET","POST"])
-def email():
-    if "user" not in session:
-        return redirect("/login")
-
-    email_output=""
-    if request.method=="POST":
-        topic=request.form.get("topic")
-        tone=request.form.get("tone")
-
-        email_output=run_ai([
-            {"role":"system","content":"Write clean human-like emails."},
-            {"role":"user","content":f"{tone} email about {topic}"}
-        ])
-
-    return render_template("email.html", email=email_output)
-
-@app.route("/resume", methods=["GET","POST"])
-def resume():
-    if "user" not in session:
-        return redirect("/login")
-
-    resume_output=""
-    if request.method=="POST":
-        prompt=f"""
-Create a clean resume WITHOUT symbols like ** or ##.
-
-Name: {request.form.get("name")}
-Role: {request.form.get("role")}
-Skills: {request.form.get("skills")}
-Experience: {request.form.get("experience")}
-Education: {request.form.get("education")}
-"""
-        resume_output=run_ai([
-            {"role":"system","content":"Professional resume writer"},
-            {"role":"user","content":prompt}
-        ])
-
-        resume_output=resume_output.replace("**","").replace("##","")
-
-    return render_template("resume.html", resume=resume_output)
-
 @app.route("/chat")
 def chat():
     if "user" not in session:
         return redirect("/login")
     return render_template("chat.html")
 
+# 🔥 CHAT API
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
+
     if "user" not in session:
         return jsonify({"reply":"Login required"})
 
-    user_message=request.json.get("message")
+    data=request.json
+    user_message=data.get("message")
+
     user_email=session["user"]["email"]
 
     db=get_db()
-    db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-               (user_email,"user",user_message))
+
+    # save user message
+    db.execute(
+        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+        (user_email,"user",user_message)
+    )
     db.commit()
 
+    search_results = search_internet(user_message)
+
     history=db.execute(
-        "SELECT role,message FROM chats WHERE user_email=? ORDER BY id ASC LIMIT 50",
+        "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
         (user_email,)
     ).fetchall()
-
-    search_results=search_internet(user_message)
 
     messages=[{
         "role":"system",
         "content":"""
 You are Pranox AI.
 
-Talk like a friendly human (like ChatGPT).
+Founder Information:
+The Founder of Pranox Ai is Chetansaipranav R in January 2026 at the age of 20 he created Pranox Groups a Parent Company of Pranox Ai.
 
-If user says hi:
-→ "Hey! 👋 How can I help you?"
+If someone asks:
+- Who created Pranox AI
+- Who is the founder
+- Tell me about yourself
 
-Be:
-- Friendly
-- Smart
-- Not robotic
+Answer clearly:
+"Chetansaipranav R is the founder of Pranox AI. He created Pranox AI in January 2026."
 
-Give:
-- Clear answers
-- Short if simple
-- Detailed if needed
-
-Avoid explaining obvious things.
+Always format answers clearly using headings, bullet points and paragraphs.
+Never show markdown symbols like **.
+Give the answers breifly and clearly and give suggestions to the user to ask next.
 """
     }]
 
-    for h in history:
-        messages.append({"role":h["role"],"content":h["message"]})
+    for h in reversed(history):
+        messages.append({
+            "role":h["role"],
+            "content":h["message"]
+        })
 
-    if search_results:
-        messages.append({"role":"system","content":search_results})
+    messages.append({
+        "role":"system",
+        "content":f"Latest internet search results:\n{search_results}"
+    })
 
-    reply=run_ai(messages)
+    reply = run_ai(messages)
 
-    db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-               (user_email,"assistant",reply))
+    db.execute(
+        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+        (user_email,"assistant",reply)
+    )
     db.commit()
 
     return jsonify({"reply":reply})
 
+# 🔥 FILE UPLOAD (PDF SUPPORT)
+@app.route("/api/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"reply":"No file uploaded"})
+
+    file = request.files["file"]
+
+    text = ""
+
+    try:
+        if file.filename.endswith(".pdf"):
+            with pdfplumber.open(file) as pdf:
+                for page in pdf.pages:
+                    text += page.extract_text() or ""
+        else:
+            text = file.read().decode("utf-8")
+
+        messages=[{
+            "role":"system",
+            "content":"Explain the uploaded file clearly and in detail."
+        }]
+
+        messages.append({
+            "role":"user",
+            "content":text[:8000]
+        })
+
+        reply = run_ai(messages)
+
+        return jsonify({"reply":reply})
+
+    except Exception as e:
+        return jsonify({"reply":"Error reading file"})
+
+# PDF DOWNLOAD
 @app.route("/download_resume",methods=["POST"])
 def download_resume():
     buffer=BytesIO()
@@ -218,5 +229,6 @@ def download_resume():
 
     return send_file(buffer,as_attachment=True,download_name="resume.pdf")
 
+# RUN
 if __name__=="__main__":
     app.run(debug=True)
