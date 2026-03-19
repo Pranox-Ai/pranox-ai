@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PRANOX AI</title>
-
-<!-- MOBILE FIX -->
+<title>PRANOX AI">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+
 body {
     margin: 0;
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -18,7 +17,7 @@ body {
 /* NAVBAR */
 .navbar {
     background: #020617;
-    padding: 18px 30px;
+    padding: 18px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -29,6 +28,16 @@ body {
     font-size: 22px;
     font-weight: bold;
     color: #38bdf8;
+}
+
+.menu-toggle{
+display:none;
+font-size:22px;
+cursor:pointer;
+}
+
+.nav-links {
+display:flex;
 }
 
 .nav-links a {
@@ -42,14 +51,13 @@ body {
     color: white;
 }
 
-/* MAIN CONTAINER */
+/* CONTAINER */
 .container {
 width:100%;
-margin:0;
-padding:0;
+padding:10px;
 }
 
-/* FORM INPUTS */
+/* FORM */
 input, textarea, select {
     width: 100%;
     padding: 14px;
@@ -58,13 +66,11 @@ input, textarea, select {
     border: none;
     color: white;
     border-radius: 8px;
-    font-size: 15px;
 }
 
 button {
     background: linear-gradient(90deg,#38bdf8,#0ea5e9);
     border: none;
-    color: black;
     padding: 14px;
     border-radius: 8px;
     cursor: pointer;
@@ -72,41 +78,41 @@ button {
     width: 100%;
 }
 
-button:hover {
-    opacity: 0.9;
-}
-
-/* OUTPUT BOX */
 .output-box {
     background: #020617;
     padding: 20px;
     border-radius: 12px;
     margin-top: 20px;
     white-space: pre-wrap;
-    line-height: 1.6;
     border: 1px solid #1f2937;
 }
 
-/* MOBILE */
+/* MOBILE FIX */
 @media(max-width:768px){
-    .navbar{
-        flex-direction: column;
-        align-items: flex-start;
-    }
 
-    .nav-links{
-        margin-top:10px;
-    }
-
-    .nav-links a{
-        margin-left:0;
-        margin-right:15px;
-    }
-
-    .container{
-        padding:15px;
-    }
+.menu-toggle{
+display:block;
 }
+
+.nav-links{
+display:none;
+flex-direction:column;
+width:100%;
+background:#020617;
+margin-top:10px;
+padding:10px;
+}
+
+.nav-links.active{
+display:flex;
+}
+
+.nav-links a{
+margin:10px 0;
+}
+
+}
+
 </style>
 </head>
 
@@ -114,7 +120,10 @@ button:hover {
 
 <div class="navbar">
     <div class="logo">PRANOX AI</div>
-    <div class="nav-links">
+
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+    <div class="nav-links" id="navLinks">
         <a href="/dashboard">Dashboard</a>
         <a href="/email">Email</a>
         <a href="/resume">Resume</a>
@@ -123,9 +132,16 @@ button:hover {
     </div>
 </div>
 
+<script>
+function toggleMenu(){
+    document.getElementById("navLinks").classList.toggle("active");
+}
+</script>
+
 <div class="container">
 {% block content %}{% endblock %}
 </div>
+
 <footer style="text-align:center;padding:20px;color:#888;">
 © 2026 Pranox AI • 
 <a href="/privacy">Privacy</a> • 

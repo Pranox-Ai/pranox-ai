@@ -198,43 +198,52 @@ def api_chat():
 
     search_results = search_internet(user_message)
 
+    # ✅ FIXED MEMORY ORDER
     history=db.execute(
-        "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+        "SELECT role,message FROM chats WHERE user_email=? ORDER BY id ASC LIMIT 50",
         (user_email,)
     ).fetchall()
 
     messages=[{
         "role":"system",
         "content":"""
-You are Pranox AI, a smart and advanced assistant.
+You are Pranox AI.
 
-Founder Information:
-Chetansaipranav R is the founder of Pranox AI.
-He created Pranox AI in January 2026.
-
-If user asks about founder or creator, answer clearly with this info.
-
-Your job is to:
-- Give detailed and informative answers
-- Use headings and bullet points
-- Provide extra useful insights
-- Suggest related topics
-- Ask follow-up questions
+Talk like a friendly smart assistant (like ChatGPT).
+Be natural, not robotic.
 
 Rules:
-- Do NOT give short answers
-- Always expand properly
-- Avoid markdown symbols like ** or ##
-- Keep output clean and readable
+- If user says "hi" or "hello", reply like:
+  "Hey! 👋 How can I help you?"
+
+- Do NOT explain obvious things like greetings.
+
+- Be:
+  Friendly, helpful, slightly casual.
+
+- Give:
+  Clear answers + useful extra info.
+
+- If simple question:
+  → Short friendly answer.
+
+- If complex:
+  → Structured explanation.
+
+- Always try to continue conversation.
+
+Founder Info:
+Chetansaipranav R is the founder of Pranox AI.
+He created it in January 2026 at age 20.
 """
     }]
 
-    for h in reversed(history):
+    for h in history:
         messages.append({"role":h["role"],"content":h["message"]})
 
     messages.append({
         "role":"user",
-        "content":f"Use this latest internet data if relevant:\n{search_results}"
+        "content":f"Use this latest data if helpful:\n{search_results}"
     })
 
     reply = run_ai(messages)
