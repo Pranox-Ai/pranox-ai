@@ -6,9 +6,6 @@ from groq import Groq
 from io import BytesIO
 from reportlab.pdfgen import canvas
 import sqlite3
-import pdfplumber
-from pdf2image import convert_from_bytes
-import pytesseract
 import requests
 
 load_dotenv()
@@ -20,8 +17,7 @@ init_oauth(app)
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# ---------------- DATABASE ----------------
-
+# DATABASE
 def get_db():
     conn = sqlite3.connect("pranox.db")
     conn.row_factory = sqlite3.Row
@@ -41,50 +37,39 @@ def init_db():
 
 init_db()
 
-# ---------- INTERNET SEARCH ----------
-
+# INTERNET SEARCH
 def search_internet(query):
     try:
         api_key = os.getenv("SERPER_API_KEY")
-
         if not api_key:
-            return "No internet access available."
+            return ""
 
         url = "https://google.serper.dev/search"
-        payload = {"q": query}
-
-        headers = {
-            "X-API-KEY": api_key,
-            "Content-Type": "application/json"
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
+        headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+        response = requests.post(url, json={"q": query}, headers=headers)
         data = response.json()
 
         results = []
-
         if "organic" in data:
-            for r in data["organic"][:5]:
+            for r in data["organic"][:3]:
                 results.append(f"{r['title']} - {r['snippet']}")
 
-        return "\n".join(results) if results else "No latest results found."
+        return "\n".join(results)
 
     except:
-        return "Internet search unavailable."
+        return ""
 
-# ---------- AI ----------
-
+# FAST AI
 def run_ai(messages):
     completion = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        temperature=0.7,
-        max_tokens=900
+        temperature=0.5,   # 🔥 faster
+        max_tokens=500     # 🔥 faster
     )
     return completion.choices[0].message.content
 
-# ---------- ROUTES ----------
-
+# ROUTES
 @app.route("/")
 def landing():
     return render_template("landing.html")
@@ -97,9 +82,7 @@ def login():
 @app.route("/authorize")
 def authorize():
     oauth.google.authorize_access_token()
-    user = oauth.google.get(
-        "https://openidconnect.googleapis.com/v1/userinfo"
-    ).json()
+    user = oauth.google.get("https://openidconnect.googleapis.com/v1/userinfo").json()
     session["user"] = user
     return redirect("/dashboard")
 
@@ -114,64 +97,47 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html", user=session["user"])
 
-# ---------- EMAIL ----------
-
 @app.route("/email", methods=["GET","POST"])
 def email():
     if "user" not in session:
         return redirect("/login")
 
-    email_output = ""
+    email_output=""
+    if request.method=="POST":
+        topic=request.form.get("topic")
+        tone=request.form.get("tone")
 
-    if request.method == "POST":
-        topic = request.form.get("topic")
-        tone = request.form.get("tone")
-
-        prompt = f"Write a {tone} email about: {topic}"
-
-        email_output = run_ai([
-            {"role":"system","content":"You are a professional email writer."},
-            {"role":"user","content":prompt}
+        email_output=run_ai([
+            {"role":"system","content":"Write clean human-like emails."},
+            {"role":"user","content":f"{tone} email about {topic}"}
         ])
 
     return render_template("email.html", email=email_output)
-
-# ---------- RESUME ----------
 
 @app.route("/resume", methods=["GET","POST"])
 def resume():
     if "user" not in session:
         return redirect("/login")
 
-    resume_output = ""
+    resume_output=""
+    if request.method=="POST":
+        prompt=f"""
+Create a clean resume WITHOUT symbols like ** or ##.
 
-    if request.method == "POST":
-        name = request.form.get("name")
-        role = request.form.get("role")
-        skills = request.form.get("skills")
-        exp = request.form.get("experience")
-        edu = request.form.get("education")
-
-        prompt = f"""
-Create a professional resume WITHOUT using markdown symbols.
-
-Name: {name}
-Role: {role}
-Skills: {skills}
-Experience: {exp}
-Education: {edu}
+Name: {request.form.get("name")}
+Role: {request.form.get("role")}
+Skills: {request.form.get("skills")}
+Experience: {request.form.get("experience")}
+Education: {request.form.get("education")}
 """
-
-        resume_output = run_ai([
-            {"role":"system","content":"You create clean professional resumes."},
+        resume_output=run_ai([
+            {"role":"system","content":"Professional resume writer"},
             {"role":"user","content":prompt}
         ])
 
-        resume_output = resume_output.replace("**","").replace("##","")
+        resume_output=resume_output.replace("**","").replace("##","")
 
     return render_template("resume.html", resume=resume_output)
-
-# ---------- CHAT ----------
 
 @app.route("/chat")
 def chat():
@@ -184,89 +150,66 @@ def api_chat():
     if "user" not in session:
         return jsonify({"reply":"Login required"})
 
-    data=request.json
-    user_message=data.get("message")
+    user_message=request.json.get("message")
     user_email=session["user"]["email"]
 
     db=get_db()
-
-    db.execute(
-        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-        (user_email,"user",user_message)
-    )
+    db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+               (user_email,"user",user_message))
     db.commit()
 
-    search_results = search_internet(user_message)
-
-    # ✅ FIXED MEMORY ORDER
     history=db.execute(
         "SELECT role,message FROM chats WHERE user_email=? ORDER BY id ASC LIMIT 50",
         (user_email,)
     ).fetchall()
+
+    search_results=search_internet(user_message)
 
     messages=[{
         "role":"system",
         "content":"""
 You are Pranox AI.
 
-Talk like a friendly smart assistant (like ChatGPT).
-Be natural, not robotic.
+Talk like a friendly human (like ChatGPT).
 
-Rules:
-- If user says "hi" or "hello", reply like:
-  "Hey! 👋 How can I help you?"
+If user says hi:
+→ "Hey! 👋 How can I help you?"
 
-- Do NOT explain obvious things like greetings.
+Be:
+- Friendly
+- Smart
+- Not robotic
 
-- Be:
-  Friendly, helpful, slightly casual.
+Give:
+- Clear answers
+- Short if simple
+- Detailed if needed
 
-- Give:
-  Clear answers + useful extra info.
-
-- If simple question:
-  → Short friendly answer.
-
-- If complex:
-  → Structured explanation.
-
-- Always try to continue conversation.
-
-Founder Info:
-Chetansaipranav R is the founder of Pranox AI.
-He created it in January 2026 at age 20.
+Avoid explaining obvious things.
 """
     }]
 
     for h in history:
         messages.append({"role":h["role"],"content":h["message"]})
 
-    messages.append({
-        "role":"user",
-        "content":f"Use this latest data if helpful:\n{search_results}"
-    })
+    if search_results:
+        messages.append({"role":"system","content":search_results})
 
-    reply = run_ai(messages)
+    reply=run_ai(messages)
 
-    db.execute(
-        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-        (user_email,"assistant",reply)
-    )
+    db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+               (user_email,"assistant",reply))
     db.commit()
 
     return jsonify({"reply":reply})
 
-# ---------- PDF ----------
-
 @app.route("/download_resume",methods=["POST"])
 def download_resume():
-    text=request.form["resume"]
-
     buffer=BytesIO()
     p=canvas.Canvas(buffer)
 
     y=800
-    for line in text.split("\n"):
+    for line in request.form["resume"].split("\n"):
         p.drawString(40,y,line)
         y-=20
 
@@ -274,16 +217,6 @@ def download_resume():
     buffer.seek(0)
 
     return send_file(buffer,as_attachment=True,download_name="resume.pdf")
-
-# ---------- LEGAL ----------
-
-@app.route("/privacy")
-def privacy():
-    return render_template("privacy.html")
-
-@app.route("/terms")
-def terms():
-    return render_template("terms.html")
 
 if __name__=="__main__":
     app.run(debug=True)
