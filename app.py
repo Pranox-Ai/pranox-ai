@@ -231,5 +231,16 @@ def download_resume():
 
     return send_file(buffer,as_attachment=True,download_name="resume.pdf")
 
+# ✅ PRIVACY PAGE
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+# ✅ TERMS PAGE
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
 if __name__=="__main__":
     app.run(debug=True)
