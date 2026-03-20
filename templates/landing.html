@@ -1,21 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Pranox AI</title>
+{% extends "base.html" %}
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+{% block content %}
 
 <style>
+
+/* REMOVE BASE NAVBAR SPACE */
+.navbar {
+    display: none;
+}
+
+/* FULL SCREEN FIX */
+.container {
+    padding: 0;
+}
+
+/* ORIGINAL DESIGN */
 body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: white;
     text-align: center;
     overflow-x: hidden;
 }
 
+/* BACKGROUND ANIMATION */
 body::before {
     content: "";
     position: fixed;
@@ -82,15 +87,7 @@ body::before {
     background: #1f2937;
 }
 
-footer {
-    margin-top: 60px;
-    padding: 20px;
-    color: #94a3b8;
-}
 </style>
-</head>
-
-<body>
 
 <div class="hero">
     <h1>PRANOX AI</h1>
@@ -115,9 +112,4 @@ footer {
     </div>
 </div>
 
-<footer>
-    © 2026 PRANOX AI — All Rights Reserved
-</footer>
-
-</body>
-</html>
+{% endblock %}
