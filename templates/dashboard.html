@@ -1,19 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Dashboard - Pranox AI</title>
+{% extends "base.html" %}
 
+{% block content %}
+
+<!-- PAGE TITLE -->
+<script>
+document.title = "Dashboard - Pranox AI";
+</script>
+
+<!-- FONT -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 
 <style>
-body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: white;
-}
-
 .topbar {
     display: flex;
     justify-content: space-between;
@@ -59,9 +56,6 @@ p {
     color: #cbd5f5;
 }
 </style>
-</head>
-
-<body>
 
 <div class="topbar">
     <h2>Welcome {{ user.name }}</h2>
@@ -87,5 +81,4 @@ p {
 
 </div>
 
-</body>
-</html>
+{% endblock %}
