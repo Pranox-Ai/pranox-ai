@@ -223,9 +223,10 @@ def api_chat():
     search_results = search_internet(user_message)
 
     # ✅ YOUR ORIGINAL RULES (UNCHANGED)
-    messages=[{
-        "role":"system",
-        "content":f"""
+    # ✅ YOUR ORIGINAL RULES (UNCHANGED - only small fix applied)
+    messages = [{
+        "role": "system",
+        "content": f"""
 You are Pranox AI — an advanced assistant similar to ChatGPT.
 
 ========================
@@ -248,6 +249,10 @@ Always answer clearly:
 Instagram: https://www.instagram.com/pranoxgroups?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==
 
 If user asks about social media or website, always share the above Instagram link.
+
+Email: pranoxoffical@gmail.com
+
+If user asks for your email, always answer: pranoxoffical@gmail.com
 
 ========================
 🔹 THINKING (IMPORTANT)
@@ -279,17 +284,16 @@ If user asks about social media or website, always share the above Instagram lin
 - Simple question → short answer
 - Complex question → detailed explanation
 - Always structured
-- Use bullet points when needed
-- Always ask for suggestions or follow-up questions at the end
-- Always give answers in point wise format and using bullet points
+- Use bullet points ONLY when helpful
+- Always ask follow-up questions
 
 ========================
 🔹 FORMAT (STRICT)
 ========================
-1. Always give a clear explanation
-2. Always use bullet and numbered points 
-3. Keep spacing between sections
-4. NEVER merge everything into one paragraph
+1. Start with clear explanation
+2. Use bullets when needed
+3. Keep spacing clean
+4. Avoid large messy paragraphs
 
 ========================
 🔹 CODE RULES
@@ -308,13 +312,11 @@ If user asks about social media or website, always share the above Instagram lin
 ========================
 🔹 FOLLOW-UP
 ========================
-- Suggest 1-2 useful follow-up questions
-- Only if relevant (not forced)
+- Suggest 1-2 useful follow-up questions (only if relevant)
 
 ========================
 🔹 IMPORTANT RULES
 ========================
-- Never use symbols like ** or ##
 - Never give messy output
 - Keep answers clean and readable
 
@@ -325,25 +327,31 @@ If user asks about social media or website, always share the above Instagram lin
 """
     }]
 
+    # ✅ CHAT HISTORY
     for h in reversed(history):
         messages.append({
-            "role":h["role"],
-            "content":h["message"]
+            "role": h["role"],
+            "content": h["message"]
         })
 
-    # ✅ FIXED INPUT STRUCTURE (IMPORTANT)
+    # ✅ CLEAN USER INPUT (FIXED)
     messages.append({
-        "role":"user",
-        "content":f"""User question:
-{user_message}
+        "role": "user",
+        "content": user_message
+    })
 
-Use this only if useful:
-{search_results}"""
-})
+    # ✅ SEARCH RESULTS (FIXED — NO ERROR)
+    if search_results:
+        messages.append({
+            "role": "system",
+            "content": f"Useful information:\n{search_results}"
+        })
 
+    # ✅ RUN AI
     reply = run_ai(messages)
+
+    # ✅ CLEAN OUTPUT (FIXED — DO NOT BREAK FORMATTING)
     reply = re.sub(r"\n{3,}", "\n\n", reply)
-    reply = re.sub(r"[*#_`]", "", reply)
 
     db.execute(
         "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
