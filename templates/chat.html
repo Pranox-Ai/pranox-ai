@@ -34,6 +34,27 @@
 
 <script>
 
+// 🔥 MARKDOWN FIX (IMPORTANT)
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
+
+// 🔥 FINAL FORMATTER (LIKE CHATGPT)
+function formatText(text){
+
+    let html = marked.parse(text)
+
+    // REMOVE PARAGRAPH TAG GAPS
+    html = html.replace(/<p>/g,"")
+    html = html.replace(/<\/p>/g,"<br>")
+
+    // REMOVE EXTRA BREAKS
+    html = html.replace(/(<br>\s*){3,}/g,"<br><br>")
+
+    return html
+}
+
 const messages=document.getElementById("messages")
 const input=document.getElementById("messageInput")
 const sendBtn=document.getElementById("sendBtn")
@@ -79,6 +100,7 @@ currentChat=[]
 renderHistory()
 }
 
+// 🔥 MESSAGE ADD FIXED
 function addMessage(text,type,save=true){
 
 let buttons=""
@@ -91,14 +113,15 @@ buttons=`
 </div>`
 }
 
-messages.innerHTML+=`
+const html = `
 <div class="message ${type}">
 <div class="bubble">
-<div class="msg-text">${marked.parse(text)}</div>
+<div class="msg-text">${formatText(text)}</div>
 ${buttons}
 </div>
 </div>`
 
+messages.insertAdjacentHTML("beforeend", html)
 messages.scrollTop=messages.scrollHeight
 
 if(save){
@@ -106,15 +129,17 @@ currentChat.push({text,type})
 }
 }
 
+// 🔥 TYPEWRITER FIXED
 function typeWriter(text,element){
 let i=0
-let speed=8   // 🔥 faster typing
+
 function typing(){
 if(i<text.length){
-element.innerHTML=marked.parse(text.substring(0,i+1))
+element.innerHTML = formatText(text.substring(0,i+1))
 i++
-setTimeout(typing,speed)
-}}
+setTimeout(typing,5)
+}
+}
 typing()
 }
 
@@ -133,6 +158,7 @@ lastUserMessage=text
 addMessage(text,"user")
 input.value=""
 
+// THINKING UI
 let typing=document.createElement("div")
 typing.className="message ai"
 typing.innerHTML=`<div class="bubble"><div class="msg-text typing">⚡ Thinking...</div></div>`
@@ -165,13 +191,13 @@ let data=await res.json()
 reply=data.reply
 }
 
-}catch(err){
-reply="Error generating response."
+}catch{
+reply="⚠️ Error generating response"
 }
 
 typing.remove()
 
-messages.innerHTML+=`
+messages.insertAdjacentHTML("beforeend",`
 <div class="message ai">
 <div class="bubble">
 <div class="msg-text"></div>
@@ -180,7 +206,7 @@ messages.innerHTML+=`
 <button class="icon-btn" onclick="regenerate()">🔁</button>
 </div>
 </div>
-</div>`
+</div>`)
 
 let aiText=document.querySelectorAll(".msg-text")
 aiText=aiText[aiText.length-1]
@@ -192,21 +218,22 @@ saveChats()
 renderHistory()
 }
 
+// COPY
 function copyText(btn){
-let text=btn.parentElement.parentElement.querySelector(".msg-text").innerText
+let text=btn.closest(".bubble").querySelector(".msg-text").innerText
 navigator.clipboard.writeText(text)
 btn.innerText="✔"
 setTimeout(()=>{btn.innerText="📋"},1500)
 }
 
+// REGENERATE
 function regenerate(){
 input.value=lastUserMessage
 sendMessage()
 }
 
-/* 🎤 FINAL VOICE FIX */
+// VOICE
 function startVoice(){
-
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if(!SpeechRecognition){
@@ -216,16 +243,21 @@ return;
 
 const recognition = new SpeechRecognition();
 recognition.lang="en-IN";
-recognition.interimResults=false;
 
-recognition.onstart = ()=>console.log("Listening...")
+const btn = document.querySelector(".voice-btn");
+
+recognition.onstart = ()=>{
+btn.innerText="🎙️"
+btn.style.background="#ef4444"
+}
+
+recognition.onend = ()=>{
+btn.innerText="🎤"
+btn.style.background="#10b981"
+}
 
 recognition.onresult = (event)=>{
 input.value = event.results[0][0].transcript;
-};
-
-recognition.onerror = ()=>{
-alert("Mic blocked. Allow microphone.");
 };
 
 recognition.start();
@@ -268,6 +300,7 @@ overflow-y:auto;
 padding:20px;
 }
 
+/* MESSAGE */
 .message{
 display:flex;
 margin-bottom:20px;
@@ -276,10 +309,37 @@ margin-bottom:20px;
 .user{justify-content:flex-end}
 .ai{justify-content:flex-start}
 
-/* 🔥 BIGGER TEXT FIX */
-.message .msg-text{
-font-size:18px !important;
-line-height:1.7;
+/* 🔥 TEXT FIX (CRITICAL) */
+.msg-text{
+font-size:18px;
+line-height:1.6;
+white-space:pre-wrap;
+}
+
+.msg-text p{
+margin:0;
+}
+
+.msg-text ul{
+padding-left:20px;
+margin:8px 0;
+}
+
+.msg-text li{
+margin-bottom:6px;
+}
+
+/* CODE BLOCK */
+pre{
+background:#020617;
+padding:12px;
+border-radius:8px;
+overflow-x:auto;
+margin-top:10px;
+}
+
+code{
+color:#38bdf8;
 }
 
 /* BUBBLE */
@@ -298,7 +358,7 @@ background:#111827;
 border:1px solid #1f2937;
 }
 
-/* BUTTONS */
+/* ACTIONS */
 .msg-actions{
 margin-top:6px;
 display:flex;
