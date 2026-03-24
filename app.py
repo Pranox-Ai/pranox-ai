@@ -85,12 +85,16 @@ def search_internet(query):
         results=[]
         if "organic" in data:
             for r in data["organic"][:5]:
-                results.append(f"{r['title']} - {r['snippet']}")
-
+                results.append(f"{r['title']}: {r['link']}")
         return "\n".join(results)
 
     except:
         return ""
+# ================= 🔥 LARGE INPUT FIX (ADD ONLY) =================
+def safe_trim(text, limit=4000):
+    if len(text) <= limit:
+        return text
+    return text[:limit]
 
 # ================= AI =================
 def run_ai(messages):
@@ -105,8 +109,28 @@ def run_ai(messages):
 
     except Exception as e:
         print("AI ERROR:", e)
-        return "⚠️ Error generating response."
+        return None   # 🔥 IMPORTANT CHANGE (no error string)
+    
+def is_bad_response(reply):
+        if not reply:
+             return True
 
+        bad_patterns = [
+            "here's the corrected code",
+            "it seems like",
+            "flask application",
+            "example of how you could",
+            "missing code",
+        ]
+
+        reply_lower = reply.lower()
+
+        for pattern in bad_patterns:
+            if pattern in reply_lower:
+                return True
+
+        return False
+    
 # ================= ROUTES =================
 @app.route("/")
 def landing():
@@ -151,10 +175,14 @@ def email():
         topic=request.form.get("topic")
         tone=request.form.get("tone")
 
-        output=run_ai([
+        output = run_ai([
             {"role":"system","content":"Write a professional email with clear paragraphs. No markdown."},
             {"role":"user","content":f"{tone} email about {topic}"}
         ])
+
+        # 🔥 ADD THIS
+        if not output:
+            output = "Couldn't generate email. Please try again."
 
         output=re.sub(r"\n{3,}", "\n\n", output)
         output=re.sub(r"[ \t]+", " ", output)
@@ -180,10 +208,14 @@ Experience: {request.form.get("experience")}
 Education: {request.form.get("education")}
 """
 
-        output=run_ai([
+        output = run_ai([
             {"role":"system","content":"Professional resume writer. Clean format."},
             {"role":"user","content":prompt}
         ])
+
+        # 🔥 ADD THIS
+        if not output:
+            output = "Couldn't generate resume. Please try again."
 
         output=re.sub(r"\n{3,}", "\n\n", output)
         output=re.sub(r"[ \t]+", " ", output)
@@ -199,26 +231,33 @@ def api_chat():
         return jsonify({"reply":"Login required"})
 
     user_message = request.json.get("message","").strip()
+    user_message = safe_trim(user_message)   # 🔥 ADD THIS
     user_email = session["user"]["email"]
 
     db = get_db()
-
     db.execute(
-        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-        (user_email,"user",user_message)
-    )
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email,"user",user_message)
+        )
+
+
     db.commit()
 
     memory = get_memory(user_email)
 
     if "my name is" in user_message.lower():
-        name = user_message.split("is")[-1].strip()
-        save_memory(user_email,"name",name)
+        match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
+        if match:
+            name = match.group(1).strip().title()
+            save_memory(user_email, "name", name)
 
     history = db.execute(
         "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 15",
         (user_email,)
     ).fetchall()
+
+    # 🔥 REMOVE BAD RESPONSES FROM HISTORY
+    history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
 
     search_results = search_internet(user_message)
 
@@ -246,13 +285,52 @@ If user asks:
 Always answer clearly:
 "Chetansaipranav R is the founder of Pranox AI. He created it in January 2026."
 
+========================
+🔹 PRANOX LINKS (STRICT CONTROL)
+========================
+
 Instagram: https://www.instagram.com/pranoxgroups?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==
 
-If user asks about social media or website, always share the above Instagram link.
+RULES:
+- ONLY share this Instagram link when user asks specifically about:
+  - Pranox AI
+  - your social media
+  - your official pages
+  - your contact or links
 
+- DO NOT share this link when:
+  - user asks about other companies (ChatGPT, IPL, Google, etc.)
+  - user asks general knowledge questions
+  - user asks unrelated topics
+
+- NEVER mix Pranox links with other topics
+
+Examples:
+❌ Wrong:
+User: "official site of ChatGPT"
+→ Do NOT include Pranox Instagram
+
+✅ Correct:
+User: "Pranox social media"
+→ Share Instagram
+
+========================
+🔹 EMAIL RULE (STRICT)
+========================
 Email: pranoxoffical@gmail.com
 
-If user asks for your email, always answer: pranoxoffical@gmail.com
+- ONLY provide this email when user explicitly asks:
+  - "your email"
+  - "contact pranox"
+  - "how to contact you"
+
+- DO NOT include email in:
+  - general answers
+  - topic explanations (like IPL, tech, etc.)
+  - unrelated queries
+
+- Never add email automatically in any response
+- Only share when user directly inquires about contact information
 
 ========================
 🔹 THINKING (IMPORTANT)
@@ -270,6 +348,69 @@ If user asks for your email, always answer: pranoxoffical@gmail.com
 - Friendly and natural
 - Not robotic
 - Smart and helpful
+
+========================
+🔹 GREETING RULE (IMPORTANT)
+========================
+- If user says greetings like:
+  "hi", "hello", "hey", "hii", "good morning", "good evening"
+
+Then:
+- Respond with a friendly greeting
+- If user's name exists → include it
+
+Examples:
+- "Hi! How can I help you today?"
+- "Hello Pranav! What can I do for you?"
+- "Hey there! Need any help?"
+
+Rules:
+- Never say bye for greetings
+- Never give weird or unrelated responses
+- Even if user repeats greetings, respond politely
+- Keep it short and natural
+
+========================
+🔹 PERSONALIZATION (IMPORTANT)
+========================
+- If user's name is available in memory:
+  Use it naturally in responses
+
+Examples:
+- "Hi Pranav! How can I help you today?"
+- "Hey Pranav, what would you like to do?"
+
+Rules:
+- Do NOT overuse the name
+- Use mainly in greetings or first line
+- Keep it natural and friendly
+
+- If user tells their name:
+  Respond like:
+  "Nice to meet you <name>!"
+
+  ========================
+🔹 LINKS (IMPORTANT)
+========================
+- For every informative answer:
+  Provide 1-3 useful reference links
+
+- Links must be:
+  - Relevant
+  - Helpful
+  - From trusted sources
+
+- Format:
+  🔗 Useful links:
+  - Title: URL
+
+- Do NOT add links if not needed (like greetings)
+
+========================
+🔹 RELEVANCE RULE (CRITICAL)
+========================
+- Only include information that is directly related to the user's question
+- Do NOT add extra links, emails, or promotions unless explicitly asked
 
 ========================
 🔹 CONTEXT
@@ -318,7 +459,13 @@ If user asks for your email, always answer: pranoxoffical@gmail.com
 🔹 IMPORTANT RULES
 ========================
 - Never give messy output
+- NEVER include Pranox links unless user explicitly asks about Pranox
+- Never show error messages to user
+- If you can't generate answer to the previous question, then don't break the flow and continue to answer the next question in the conversation. Always keep the conversation going.
 - Keep answers clean and readable
+- Just give the answer what user exactly wants in a detailed , structured and clear way
+- Never mix Pranox-related links with unrelated topics
+- Always keep links relevant to user query
 
 ========================
 🔹 MEMORY
@@ -350,14 +497,27 @@ If user asks for your email, always answer: pranoxoffical@gmail.com
     # ✅ RUN AI
     reply = run_ai(messages)
 
+    if is_bad_response(reply):
+        links = search_internet(user_message)
+
+        if links:
+            reply = f"""I couldn't fully process that request, but here are some useful resources:
+
+    🔗 Helpful Links:
+    {links}
+    """
+        else:
+            reply = "I couldn't process that request properly. Try simplifying your question."
+            
     # ✅ CLEAN OUTPUT (FIXED — DO NOT BREAK FORMATTING)
     reply = re.sub(r"\n{3,}", "\n\n", reply)
 
-    db.execute(
-        "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-        (user_email,"assistant",reply)
-    )
-    db.commit()
+    if "couldn't fully process" not in reply.lower():
+        db.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email,"assistant",reply)
+        )
+        db.commit()
 
     return jsonify({"reply":reply})
 
@@ -391,11 +551,15 @@ def upload():
 
         if not text.strip():
             return jsonify({"reply":"Could not read file"})
+        text = safe_trim(text)
 
         reply = run_ai([
             {"role":"system","content":"Explain clearly with summary and bullet points."},
-            {"role":"user","content":text[:7000]}
+            {"role":"user","content":text}
         ])
+
+        if not reply:
+            reply = "Couldn't process file properly. Try smaller file or clearer content."
 
         return jsonify({"reply":reply})
 
