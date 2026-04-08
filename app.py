@@ -356,7 +356,7 @@ Email: pranoxoffical@gmail.com
 🔹 GREETING RULE (IMPORTANT)
 ========================
 - If user says greetings like:
-  "hi", "hello", "hey", "hii", "good morning", "good evening"
+  "hi","Hi","Hello", "hello", "hey", "hii", "good morning","good afternoon", "good evening"
 
 Then:
 - Respond with a friendly greeting
