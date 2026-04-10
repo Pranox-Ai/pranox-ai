@@ -27,6 +27,8 @@ def fix_indexing(response):
     # FORCE allow indexing
     response.headers["X-Robots-Tag"] = "index, follow"
 
+    response.headers["Cache-Control"] = "public, max-age=3600"
+
     return response
 
 init_oauth(app)
@@ -144,7 +146,8 @@ def is_bad_response(reply):
 # ================= ROUTES =================
 @app.route("/")
 def landing():
-    return render_template("landing.html")
+    return render_template("landing.html"),
+200
 
 @app.route("/login")
 def login():
@@ -170,8 +173,6 @@ def dashboard():
 
 @app.route("/chat")
 def chat():
-    if "user" not in session:
-        return redirect("/login")
     return render_template("chat.html")
 
 # ================= EMAIL =================
