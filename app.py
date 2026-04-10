@@ -20,8 +20,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY","dev-secret-key")
 
 @app.after_request
-def allow_indexing(response):
+def fix_indexing(response):
+    # REMOVE any existing noindex
+    response.headers.pop("X-Robots-Tag", None)
+
+    # FORCE allow indexing
     response.headers["X-Robots-Tag"] = "index, follow"
+
     return response
 
 init_oauth(app)
@@ -350,6 +355,7 @@ Email: pranoxoffical@gmail.com
 - Break into logical steps internally
 - Do NOT show reasoning
 - Give only final clean answer
+- Give answer from analysing previous conversation, not just current question
 
 ========================
 🔹 BEHAVIOR
