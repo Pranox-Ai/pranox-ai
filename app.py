@@ -19,6 +19,11 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY","dev-secret-key")
 
+@app.after_request
+def allow_indexing(response):
+    response.headers["X-Robots-Tag"] = "index, follow"
+    return response
+
 init_oauth(app)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
