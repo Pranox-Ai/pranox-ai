@@ -112,7 +112,7 @@ function renderHistory(){
         `
 
        div.onclick=(e)=>{
-           if(e.target.tagName !== "BUTTON"){
+           if(!e.target.closest("button")){
                loadChat(index)
     }
 }
@@ -278,8 +278,8 @@ messages.insertAdjacentHTML("beforeend",`
 </div>
 </div>`)
 
-let aiText=document.querySelectorAll(".msg-text")
-aiText=aiText[aiText.length-1]
+let aiContainer = messages.lastElementChild
+let aiText = aiContainer.querySelector(".msg-text")
 
 typeWriter(reply,aiText)
 
@@ -340,9 +340,18 @@ addMessage("📎 "+attachedFile.name+" attached","user")
 
 renderHistory()
 
+if(chats.length > 0){
+    currentChat = chats[chats.length - 1]
+    currentChat.forEach(msg=>{
+        addMessage(msg.text, msg.type, false)
+    })
+    document.getElementById("welcomeScreen").style.display = "none";
+}
+
 function toggleSidebar(){
     document.querySelector(".sidebar").classList.toggle("active")
     document.querySelector(".overlay").classList.toggle("active")
+    document.body.classList.toggle("no-scroll")
 }
 
 </script>
@@ -382,11 +391,6 @@ overflow-y:auto;
 transition:0.3s;
 }
 
-.chat-main{
-flex:1;
-display:flex;
-flex-direction:column;
-}
 .chat-main{
     flex:1;
     display:flex;
@@ -495,6 +499,10 @@ margin-top:6px;
 display:flex;
 gap:6px;
 opacity:0;
+}
+
+body.no-scroll{
+overflow:hidden;
 }
 
 .bubble:hover .msg-actions{
