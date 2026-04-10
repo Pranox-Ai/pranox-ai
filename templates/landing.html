@@ -1,22 +1,18 @@
-{% extends "base.html" %}
-
-{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PRANOX AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
 
 <style>
 
-/* REMOVE BASE NAVBAR SPACE */
-.navbar {
-    display: none;
-}
-
-/* FULL SCREEN FIX */
-.container {
-    padding: 0;
-}
-
-/* ORIGINAL DESIGN */
 body {
-    text-align: center;
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg,#020617,#0f172a);
+    color: white;
     overflow-x: hidden;
 }
 
@@ -29,7 +25,7 @@ body::before {
     background: radial-gradient(circle, #6366f1 1px, transparent 1px);
     background-size: 60px 60px;
     animation: move 30s linear infinite;
-    opacity: 0.07;
+    opacity: 0.06;
 }
 
 @keyframes move {
@@ -37,79 +33,174 @@ body::before {
     to { transform: translate(-60px,-60px); }
 }
 
+/* NAVBAR */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px 40px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: bold;
+    color: #e5e7eb;
+}
+
+.login-btn {
+    padding: 10px 20px;
+    background: #6366f1;
+    border-radius: 8px;
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+}
+
+/* HERO */
 .hero {
-    padding: 140px 20px;
+    text-align: center;
+    padding: 120px 20px 80px;
 }
 
 .hero h1 {
     font-size: 64px;
-    letter-spacing: 3px;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+}
+
+.hero span {
+    background: linear-gradient(90deg,#6366f1,#ec4899);
+    -webkit-background-clip: text;
+    background-clip: text; /* ✅ FIX ADDED */
+    -webkit-text-fill-color: transparent;
 }
 
 .tagline {
     font-size: 22px;
     color: #cbd5f5;
-    margin-bottom: 30px;
+    margin-bottom: 40px;
 }
 
-.btn {
-    padding: 14px 34px;
-    background: linear-gradient(90deg, #6366f1, #ec4899);
-    color: white;
+.cta-btn {
+    padding: 16px 40px;
+    font-size: 18px;
+    background: linear-gradient(90deg,#6366f1,#ec4899);
+    border-radius: 12px;
     text-decoration: none;
-    border-radius: 10px;
+    color: white;
     font-weight: bold;
     transition: 0.3s;
 }
 
-.btn:hover {
-    transform: scale(1.05);
+.cta-btn:hover {
+    transform: scale(1.08);
 }
 
+/* FEATURES */
 .features {
     display: flex;
     justify-content: center;
     gap: 30px;
-    padding: 40px;
+    padding: 60px 20px;
     flex-wrap: wrap;
 }
 
 .card {
     background: #111827;
     padding: 30px;
-    border-radius: 14px;
+    border-radius: 16px;
     width: 260px;
     transition: 0.3s;
+    border: 1px solid #1f2937;
 }
 
 .card:hover {
-    transform: translateY(-8px);
+    transform: translateY(-10px);
     background: #1f2937;
 }
 
-</style>
+.card h3 {
+    margin-bottom: 10px;
+}
 
-<div class="hero">
-    <h1>PRANOX AI</h1>
-    <p class="tagline">Write Emails. Build Resumes. Smarter. Faster. Better.</p>
-    <a href="/login" class="btn">Login with Google</a>
+.card p {
+    color: #9ca3af;
+}
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    padding: 30px;
+    color: #6b7280;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+.hero h1 { font-size: 40px; }
+.tagline { font-size: 18px; }
+}
+
+/* 🔥 FIX CLICK BLOCK */
+body::before {
+    pointer-events: none;
+}
+
+.hero, .navbar {
+    position: relative;
+    z-index: 10;
+}
+
+/* 🔥 MAKE BUTTON CLICKABLE */
+.cta-btn {
+    cursor: pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="logo">PRANOX AI</div>
+    <a href="/login" class="login-btn">Login</a>
 </div>
 
+<!-- HERO -->
+<div class="hero">
+    <h1><span>PRANOX AI</span></h1>
+    <p class="tagline">Write Emails. Build Resumes. Smarter. Faster. Better.</p>
+   <a href="/dashboard" class="cta-btn">
+    Get Started 🚀
+</a>
+
+</div>
+
+<!-- FEATURES -->
 <div class="features">
+
     <div class="card">
         <h3>⚡ AI Powered</h3>
-        <p>Generate professional content instantly.</p>
+        <p>Generate emails, resumes, and answers instantly with smart AI.</p>
     </div>
 
     <div class="card">
         <h3>🔐 Secure Login</h3>
-        <p>Google OAuth keeps your data safe.</p>
+        <p>Google OAuth ensures your data is protected and safe.</p>
     </div>
 
     <div class="card">
-        <h3>🌍 Anywhere Access</h3>
-        <p>Use on mobile, tablet, or desktop.</p>
+        <h3>🌍 Accessible Anywhere</h3>
+        <p>Use Pranox AI on mobile, tablet, or desktop anytime.</p>
     </div>
+
 </div>
 
-{% endblock %}
+<!-- FOOTER -->
+<div class="footer">
+    © 2026 Pranox AI • 
+    <a href="/privacy" style="color:#9ca3af;">Privacy</a> • 
+    <a href="/terms" style="color:#9ca3af;">Terms</a>
+</div>
+
+</body>
+</html>

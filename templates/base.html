@@ -141,7 +141,12 @@ margin:10px 0;
         <a href="/email">Email</a>
         <a href="/resume">Resume</a>
         <a href="/chat">AI Chat</a>
+
+        {% if session.get("user") %}
         <a href="/logout">Logout</a>
+        {% else %}
+        <a href="/login">Login</a>
+        {% endif %}
     </div>
 </div>
 

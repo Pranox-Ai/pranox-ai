@@ -2,6 +2,7 @@
 {% block content %}
 
 <div class="chat-layout">
+    <div class="overlay" onclick="toggleSidebar()"></div>
 
 <div class="sidebar">
 <h2>Pranox</h2>
@@ -10,6 +11,7 @@
 </div>
 
 <div class="chat-main">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
 
 <div id="welcomeScreen" class="welcome">
     <h1>What's in your mind ?</h1>
@@ -95,32 +97,67 @@ localStorage.setItem("pranoxChats",JSON.stringify(chats))
 }
 
 function renderHistory(){
-historyDiv.innerHTML=""
-chats.forEach((chat,index)=>{
-let div=document.createElement("div")
-div.className="history-item"
-div.innerText=chat[0]?.text.slice(0,30) || "Chat"
-div.onclick=()=>loadChat(index)
-historyDiv.appendChild(div)
-})
+    historyDiv.innerHTML=""
+
+    chats.forEach((chat,index)=>{
+
+        let preview = chat[0]?.text.slice(0,25) || "Chat"
+
+        let div=document.createElement("div")
+        div.className="history-item"
+
+        div.innerHTML = `
+            <span>${preview}...</span>
+            <button onclick="deleteChat(${index}, event)">🗑️</button>
+        `
+
+       div.onclick=(e)=>{
+           if(e.target.tagName !== "BUTTON"){
+               loadChat(index)
+    }
+}
+
+        historyDiv.appendChild(div)
+    })
+}
+
+function deleteChat(index, event){
+    event.stopPropagation() // 🔥 IMPORTANT (prevents opening chat)
+
+    chats.splice(index,1)
+    saveChats()
+    renderHistory()
 }
 
 function loadChat(index){
 messages.innerHTML=""
 currentChat=chats[index]
+
+// 🔥 ADD THIS
+document.getElementById("welcomeScreen").style.display = "none";
+
 currentChat.forEach(msg=>{
 addMessage(msg.text,msg.type,false)
 })
+
+// AUTO CLOSE SIDEBAR
+document.querySelector(".sidebar").classList.remove("active")
+document.querySelector(".overlay").classList.remove("active")
 }
 
 function newChat(){
-if(currentChat.length>0){
-chats.push(currentChat)
-saveChats()
-}
-messages.innerHTML=""
-currentChat=[]
-renderHistory()
+    if(currentChat.length){
+        chats.push(currentChat)
+        saveChats()
+    }
+    messages.innerHTML=""
+    currentChat=[]
+    renderHistory()
+
+    document.querySelector(".sidebar").classList.remove("active")
+    document.querySelector(".overlay").classList.remove("active")
+
+    document.getElementById("welcomeScreen").style.display = "block";
 }
 
 // 🔥 MESSAGE ADD FIXED
@@ -303,10 +340,32 @@ addMessage("📎 "+attachedFile.name+" attached","user")
 
 renderHistory()
 
+function toggleSidebar(){
+    document.querySelector(".sidebar").classList.toggle("active")
+    document.querySelector(".overlay").classList.toggle("active")
+}
+
 </script>
 
 <style>
 
+.overlay{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.5);
+opacity:0;
+pointer-events:none;
+transition:0.3s;
+z-index:900;
+}
+
+.overlay.active{
+opacity:1;
+pointer-events:auto;
+}
 /* LAYOUT */
 .chat-layout{
 display:flex;
@@ -316,9 +375,11 @@ background: #000000;;
 
 .sidebar{
 width:260px;
-background:#020617;
+background:#000000;
 padding:20px;
-border-right:1px solid #1f2937;
+border-right:1px solid #2a2b32;
+overflow-y:auto;
+transition:0.3s;
 }
 
 .chat-main{
@@ -412,7 +473,7 @@ line-height: 1.5;
 }
 
 .user .bubble{
-background:#363938;
+background:#0b3692;
 border-bottom-right-radius: 6px;
 border-top-right-radius: 18px;
 border-top-left-radius: 18px;
@@ -459,7 +520,7 @@ display:flex;
 align-items:flex-end;   /* 🔥 KEY FIX */
 gap:10px;
 padding:15px;
-border-top:1px solid #2a2b32;
+border-top:none;
 }
 
 #messageInput{
@@ -501,10 +562,28 @@ border:none;
 color:white;
 }
 
+.history-item span{
+flex:1;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+}
+
 /* MOBILE */
 @media(max-width:768px){
 .chat-layout{flex-direction:column;}
-.sidebar{display:none;}
+.sidebar{
+position:fixed;
+left:-260px;
+top:0;
+height:100%;
+z-index:1000;
+}
+
+.sidebar.active{
+left:0;
+}
+
 .bubble{max-width:90%;}
 }
 
@@ -573,6 +652,47 @@ transform:rotate(45deg);
 .bubble{
 position:relative;
 }
+
+.history-item{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:10px;
+margin-bottom:8px;
+background:#0a0a0a;
+border-radius:8px;
+font-size:14px;
+cursor:pointer;
+transition:0.2s;
+}
+
+.history-item:hover{
+background:#111;
+}
+
+.history-item button{
+background:none;
+border:none;
+color:#f87171;
+cursor:pointer;
+}
+
+.menu-btn{
+display:none;
+margin:10px;
+padding:8px 12px;
+background:#111827;
+color:white;
+border:none;
+border-radius:6px;
+}
+
+@media(max-width:768px){
+.menu-btn{
+display:block;
+}
+}
+
 </style>
 
 {% endblock %}

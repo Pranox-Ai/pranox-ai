@@ -50,22 +50,44 @@ p {
 </style>
 
 <div class="topbar">
-    <h2>Welcome {{ user.name }}</h2>
-    <a href="/logout" class="logout">Logout</a>
+
+    {% if user %}
+        <h2>Welcome {{ user.name }}</h2>
+        <a href="/logout" class="logout">Logout</a>
+    {% else %}
+        <h2>Welcome Guest</h2>
+        <a href="/login" class="logout">Login</a>
+    {% endif %}
+
 </div>
 
 <div class="tools">
 
-    <a href="/email" class="tool-card">
-        <h3>Email Writer</h3>
-        <p>Create professional emails instantly</p>
-    </a>
+    {% if user %}
+        <a href="/email" class="tool-card">
+            <h3>Email Writer</h3>
+            <p>Create professional emails instantly</p>
+        </a>
+    {% else %}
+        <a href="/login" class="tool-card">
+            <h3>🔒 Email Writer</h3>
+            <p>Login required</p>
+        </a>
+    {% endif %}
 
-    <a href="/resume" class="tool-card">
-        <h3>Resume Builder</h3>
-        <p>Generate ATS-friendly resumes</p>
-    </a>
+    {% if user %}
+        <a href="/resume" class="tool-card">
+            <h3>Resume Builder</h3>
+            <p>Generate ATS-friendly resumes</p>
+        </a>
+    {% else %}
+        <a href="/login" class="tool-card">
+            <h3>🔒 Resume Builder</h3>
+            <p>Login required</p>
+        </a>
+    {% endif %}
 
+    <!-- FREE FEATURE -->
     <a href="/chat" class="tool-card">
         <h3>General AI</h3>
         <p>Ask anything with AI assistant</p>

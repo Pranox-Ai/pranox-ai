@@ -134,8 +134,7 @@ def is_bad_response(reply):
 # ================= ROUTES =================
 @app.route("/")
 def landing():
-    return render_template("landing.html"),
-200
+    return render_template("landing.html")
 
 @app.route("/login")
 def login():
@@ -155,9 +154,7 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session:
-        return redirect("/login")
-    return render_template("dashboard.html", user=session["user"])
+    return render_template("dashboard.html", user=session.get("user"))
 
 @app.route("/chat")
 def chat():
@@ -167,7 +164,7 @@ def chat():
 @app.route("/email", methods=["GET","POST"])
 def email():
     if "user" not in session:
-        return redirect("/login")
+        return render_template("login_required.html")
 
     output=""
     if request.method=="POST":
@@ -193,18 +190,30 @@ def email():
 @app.route("/resume", methods=["GET","POST"])
 def resume():
     if "user" not in session:
-        return redirect("/login")
+        return render_template("login_required.html")
 
-    output=""
-    if request.method=="POST":
-        prompt=f"""
+    output = ""
+
+    if request.method == "POST":
+
+        name = request.form.get("name")
+        role = request.form.get("role")
+        skills = request.form.get("skills")
+        experience = request.form.get("experience")
+        education = request.form.get("education")
+
+        # ✅ VALIDATION (FIXED POSITION)
+        if not name or not role or not skills or not experience or not education:
+            return render_template("resume.html", resume="⚠️ Please fill all fields!")
+
+        prompt = f"""
 Create a professional resume.
 
-Name: {request.form.get("name")}
-Role: {request.form.get("role")}
-Skills: {request.form.get("skills")}
-Experience: {request.form.get("experience")}
-Education: {request.form.get("education")}
+Name: {name}
+Role: {role}
+Skills: {skills}
+Experience: {experience}
+Education: {education}
 """
 
         output = run_ai([
@@ -212,13 +221,12 @@ Education: {request.form.get("education")}
             {"role":"user","content":prompt}
         ])
 
-        # 🔥 ADD THIS
         if not output:
             output = "Couldn't generate resume. Please try again."
 
-        output=re.sub(r"\n{3,}", "\n\n", output)
-        output=re.sub(r"[ \t]+", " ", output)
-        output=re.sub(r"[*#_`]", "", output)
+        output = re.sub(r"\n{3,}", "\n\n", output)
+        output = re.sub(r"[ \t]+", " ", output)
+        output = re.sub(r"[*#_`]", "", output)
 
     return render_template("resume.html", resume=output)
 
@@ -226,12 +234,9 @@ Education: {request.form.get("education")}
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
 
-    if "user" not in session:
-        return jsonify({"reply":"Login required"})
-
     user_message = request.json.get("message","").strip()
     user_message = safe_trim(user_message)   # 🔥 ADD THIS
-    user_email = session["user"]["email"]
+    user_email = session["user"]["email"] if "user" in session else "guest"
 
     db = get_db()
     db.execute(
@@ -472,6 +477,7 @@ Rules:
 - Just give the answer what user exactly wants in a detailed , structured and clear way
 - Never mix Pranox-related links with unrelated topics
 - Always keep links relevant to user query
+- If user asks about latest news or information, browse the internet and give the response based on that.
 
 ========================
 🔹 MEMORY
@@ -502,6 +508,9 @@ Rules:
 
     # ✅ RUN AI
     reply = run_ai(messages)
+
+    if "user" not in session:
+        reply += "\n\n👉 Login to save your chats."
 
     if is_bad_response(reply):
         links = search_internet(user_message)
