@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory
 import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
@@ -596,6 +596,16 @@ def privacy():
 @app.route("/terms")
 def terms():
     return render_template("terms.html")
+
+from flask import send_from_directory
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory('static', 'sitemap.xml')
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('static', 'robots.txt')
 
 if __name__=="__main__":
     app.run(debug=True)
