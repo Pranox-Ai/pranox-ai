@@ -19,18 +19,6 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY","dev-secret-key")
 
-@app.after_request
-def fix_indexing(response):
-    # REMOVE any existing noindex
-    response.headers.pop("X-Robots-Tag", None)
-
-    # FORCE allow indexing
-    response.headers["X-Robots-Tag"] = "index, follow"
-
-    response.headers["Cache-Control"] = "public, max-age=3600"
-
-    return response
-
 init_oauth(app)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
