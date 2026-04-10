@@ -11,8 +11,11 @@
 
 <div class="chat-main">
 
-<div id="messages"></div>
+<div id="welcomeScreen" class="welcome">
+    <h1>What's in your mind ?</h1>
+</div>
 
+<div id="messages"></div>
 <div class="input-area">
 
 <label for="fileUpload" class="icon-btn">+</label>
@@ -178,6 +181,7 @@ input.addEventListener("input", () => {
 });
 
 async function sendMessage(){
+document.getElementById("welcomeScreen").style.display = "none";
 
 let text=input.value.trim()
 if(!text && !attachedFile) return
@@ -321,6 +325,27 @@ border-right:1px solid #1f2937;
 flex:1;
 display:flex;
 flex-direction:column;
+}
+.chat-main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    position: relative;   /* 🔥 IMPORTANT */
+}
+
+.welcome{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #9ca3af;
+    width: 100%;          /* 🔥 FIX CENTER WIDTH */
+}
+
+.welcome h1{
+    font-size: 32px;
+    font-weight: 500;
 }
 
 #messages{
