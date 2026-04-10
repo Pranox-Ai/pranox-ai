@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pranox-ai.onrender.com/static/sitemap.xml
