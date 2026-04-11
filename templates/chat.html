@@ -11,7 +11,11 @@
 </div>
 
 <div class="chat-main">
+
+<div class="chat-header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <span class="chat-title">Pranox AI</span>
+</div>
 
 <div id="welcomeScreen" class="welcome">
     <h1>What's in your mind ?</h1>
@@ -364,11 +368,33 @@ top:0;
 left:0;
 width:100%;
 height:100%;
-background:rgba(0,0,0,0.5);
+background:rgba(0,0,0,0.6);
 opacity:0;
 pointer-events:none;
 transition:0.3s;
 z-index:900;
+backdrop-filter: blur(3px); /* 🔥 premium blur */
+}
+
+.chat-header{
+display:flex;
+align-items:center;
+gap:12px;
+padding:12px 16px;
+background:#020617;
+border-bottom:1px solid #1f2937;
+position:sticky;
+top:0;
+z-index:500;
+
+backdrop-filter: blur(10px);
+background: rgba(2,6,23,0.8);
+}
+
+.chat-title{
+font-size:18px;
+font-weight:600;
+color:white;
 }
 
 .overlay.active{
@@ -378,17 +404,38 @@ pointer-events:auto;
 /* LAYOUT */
 .chat-layout{
 display:flex;
-height:calc(100vh - 80px);
+height:100vh;
 background: #000000;;
 }
 
+/* DESKTOP SIDEBAR */
 .sidebar{
-width:260px;
-background:#000000;
-padding:20px;
-border-right:1px solid #2a2b32;
-overflow-y:auto;
-transition:0.3s;
+    width:260px;
+    background:#020617;
+    padding:20px;
+    border-right:1px solid #1f2937;
+    overflow-y:auto;
+}
+
+/* MOBILE SIDEBAR */
+@media(max-width:768px){
+.sidebar{
+    position:fixed;
+    top:0;
+    left:0;
+    height:100%;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index:1000;
+}
+
+.sidebar.active{
+    transform: translateX(0);
+}
+}
+
+.sidebar.active{
+transform: translateX(0);
 }
 
 .chat-main{
@@ -509,63 +556,106 @@ overflow:hidden;
 opacity:1;
 }
 
-.icon-btn{
-width:35px;
-height:35px;
+.icon-btn,
+.voice-btn,
+#sendBtn{
+width:38px;
+height:38px;
+
+border-radius:50%;
+border:none;
+
 display:flex;
 align-items:center;
 justify-content:center;
-background:#40414f;
+
+cursor:pointer;
+transition:0.2s;
+}
+
+.icon-btn:hover,
+.voice-btn:hover{
+background:#1f2937;
+}
+
+#sendBtn{
+background:#2563eb;
+}
+
+#sendBtn:hover{
+background:#1d4ed8;
+}
+
+@media(min-width:768px){
+.input-area{
+max-width:800px;
+margin:10px auto;
+}
+}
+
+.newchat:active{
+transform: scale(0.95);
+}
+
+.sidebar h2{
+font-size:20px;
+margin-bottom:15px;
+}
+
+.newchat{
+width:100%;
+padding:10px;
+border-radius:8px;
+background:#0b3692;
 border:none;
 color:white;
-border-radius:20px;
+margin-bottom:15px;
 cursor:pointer;
 }
 
 /* INPUT */
 .input-area{
+position: sticky;
+bottom: 0;
+
 display:flex;
-align-items:flex-end;   /* 🔥 KEY FIX */
+align-items:flex-end;
 gap:10px;
-padding:15px;
-border-top:none;
+
+padding:12px;
+margin:8px auto;
+width: 95%;
+
+background: rgba(15,23,42,0.6);
+backdrop-filter: blur(12px);
+
+border:1px solid #1f2937;
+border-radius:16px;
+
+box-shadow: 0 5px 20px rgba(0,0,0,0.4);
 }
 
 #messageInput{
 flex:1;
-padding:14px;
-background: #2a2b2b;;
-border:none;
-border-radius:10px;
-color:white;
-font-size:16px;
 
-resize:none;
+padding:12px 14px;
+background: transparent;
+
+border:none;
 outline:none;
 
-white-space:pre-wrap;
-overflow-y:auto;     /* 🔥 ADD THIS */
-max-height:200px;    /* 🔥 LIMIT HEIGHT */
-}
-
-#sendBtn{
-width:45px;
-height:45px;
-border-radius:50%;
-background:#0b3692;
-border:none;
 color:white;
-}
+font-size:15px;
 
-.voice-btn, #sendBtn, .icon-btn{
-align-self: flex-end;   /* 🔥 THIS FIXES BUTTON POSITION */
+resize:none;
+max-height:150px;
+
+line-height:1.5;
 }
 
 .voice-btn{
-width:45px;
-height:45px;
+background: #565757;
 border-radius:50%;
-background:#565757;
 border:none;
 color:white;
 }
@@ -575,24 +665,6 @@ flex:1;
 white-space:nowrap;
 overflow:hidden;
 text-overflow:ellipsis;
-}
-
-/* MOBILE */
-@media(max-width:768px){
-.chat-layout{flex-direction:column;}
-.sidebar{
-position:fixed;
-left:-260px;
-top:0;
-height:100%;
-z-index:1000;
-}
-
-.sidebar.active{
-left:0;
-}
-
-.bubble{max-width:90%;}
 }
 
 .code-container{
