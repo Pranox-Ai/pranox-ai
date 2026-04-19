@@ -10,4 +10,4 @@ Features:
 - Clean UI
 - Secure OAuth
 
-Visit at : pranox-ai.onrender.com
+Visit at : https://pranox-ai.onrender.com/
