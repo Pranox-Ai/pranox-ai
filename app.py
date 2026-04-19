@@ -451,16 +451,7 @@ def upload():
                         extracted = page.extract_text()
                         if extracted:
                             text += extracted + "\n"
-                # If pdfplumber gets nothing, try OCR on PDF pages
-                if not text.strip():
-                    file.seek(0)
-                    try:
-                        from pdf2image import convert_from_bytes
-                        images = convert_from_bytes(file.read())
-                        for img in images:
-                            text += pytesseract.image_to_string(img) + "\n"
-                    except Exception:
-                        pass
+               
             except Exception as e:
                 print("PDF error:", e)
 
