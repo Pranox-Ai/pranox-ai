@@ -1,13 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory, Response, stream_with_context
 import os
 from dotenv import load_dotenv
 from auth import oauth, init_oauth
 from groq import Groq
 from io import BytesIO
 from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 import sqlite3
 import requests
 import re
+import json
+import time
 
 # FILE SUPPORT
 import pdfplumber
@@ -15,262 +20,146 @@ from PIL import Image
 import pytesseract
 
 load_dotenv()
-
+print("CLIENT ID:", os.getenv("GOOGLE_CLIENT_ID"))
+print("CLIENT SECRET:", os.getenv("GOOGLE_CLIENT_SECRET"))
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY","dev-secret-key")
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",   # or "None" if using HTTPS
+    SESSION_COOKIE_SECURE=False      # True only for HTTPS
+)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
 
 init_oauth(app)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+CLOUDFLARE_API_TOKEN  = os.getenv("CLOUDFLARE_API_TOKEN")
+CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
 
-# ================= DATABASE =================
+# ═══════════════════════════════════════════
+#  DATABASE
+# ═══════════════════════════════════════════
 def get_db():
-    conn = sqlite3.connect("pranox.db")
+    conn = sqlite3.connect("pranox.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     db = get_db()
-
     db.execute("""
-    CREATE TABLE IF NOT EXISTS chats(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_email TEXT,
-        role TEXT,
-        message TEXT
-    )
+        CREATE TABLE IF NOT EXISTS chats(
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email  TEXT,
+            role        TEXT,
+            message     TEXT,
+            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
     """)
-
     db.execute("""
-    CREATE TABLE IF NOT EXISTS user_memory(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_email TEXT,
-        key TEXT,
-        value TEXT
-    )
+        CREATE TABLE IF NOT EXISTS user_memory(
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email  TEXT,
+            key         TEXT,
+            value       TEXT
+        )
     """)
-
     db.commit()
+    db.close()
 
 init_db()
 
-# ================= MEMORY =================
+# ═══════════════════════════════════════════
+#  MEMORY
+# ═══════════════════════════════════════════
 def save_memory(user_email, key, value):
     db = get_db()
-    db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)",
-               (user_email, key, value))
+    db.execute("DELETE FROM user_memory WHERE user_email=? AND key=?", (user_email, key))
+    db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)", (user_email, key, value))
     db.commit()
+    db.close()
 
 def get_memory(user_email):
     db = get_db()
-    rows = db.execute("SELECT key,value FROM user_memory WHERE user_email=?",
-                      (user_email,)).fetchall()
+    rows = db.execute(
+        "SELECT key,value FROM user_memory WHERE user_email=?", (user_email,)
+    ).fetchall()
+    db.close()
     return "\n".join([f"{r['key']}: {r['value']}" for r in rows])
 
-# ================= SEARCH =================
+# ═══════════════════════════════════════════
+#  INTERNET SEARCH
+# ═══════════════════════════════════════════
 def search_internet(query):
     try:
         api_key = os.getenv("SERPER_API_KEY")
         if not api_key:
             return ""
-
         res = requests.post(
             "https://google.serper.dev/search",
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-            json={"q": query},
+            json={"q": query, "num": 5},
             timeout=5
         )
-
         data = res.json()
-
-        results=[]
+        results = []
         if "organic" in data:
             for r in data["organic"][:5]:
-                results.append(f"{r['title']}: {r['link']}")
-        return "\n".join(results)
-
-    except:
+                snippet = r.get("snippet", "")
+                results.append(f"{r['title']}: {r['link']}\n  {snippet}")
+        return "\n\n".join(results)
+    except Exception:
         return ""
-# ================= 🔥 LARGE INPUT FIX (ADD ONLY) =================
-def safe_trim(text, limit=4000):
-    if len(text) <= limit:
-        return text
-    return text[:limit]
 
-# ================= AI =================
-def run_ai(messages):
-    try:
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=900
-        )
-        return completion.choices[0].message.content.strip()
+# ═══════════════════════════════════════════
+#  UTILS
+# ═══════════════════════════════════════════
+def safe_trim(text, limit=6000):
+    return text[:limit] if len(text) > limit else text
 
-    except Exception as e:
-        print("AI ERROR:", e)
-        return None   # 🔥 IMPORTANT CHANGE (no error string)
-    
+def clean_text(text):
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
+
+# ═══════════════════════════════════════════
+#  AI RUNNER
+# ═══════════════════════════════════════════
+MODELS = [
+    "llama-3.3-70b-versatile",   # best quality, try first
+    "llama-3.1-8b-instant",       # fast fallback
+]
+
+def run_ai(messages, model_index=0, max_tokens=1200):
+    for i in range(model_index, len(MODELS)):
+        try:
+            completion = client.chat.completions.create(
+                model=MODELS[i],
+                messages=messages,
+                temperature=0.7,
+                max_tokens=max_tokens,
+            )
+            return completion.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"AI ERROR (model {MODELS[i]}):", e)
+            if i == len(MODELS) - 1:
+                return None
+    return None
+
 def is_bad_response(reply):
-        if not reply:
-             return True
+    if not reply:
+        return True
+    bad_patterns = [
+        "here's the corrected code",
+        "flask application",
+        "example of how you could",
+        "missing code",
+    ]
+    reply_lower = reply.lower()
+    return any(p in reply_lower for p in bad_patterns)
 
-        bad_patterns = [
-            "here's the corrected code",
-            "it seems like",
-            "flask application",
-            "example of how you could",
-            "missing code",
-        ]
-
-        reply_lower = reply.lower()
-
-        for pattern in bad_patterns:
-            if pattern in reply_lower:
-                return True
-
-        return False
-    
-# ================= ROUTES =================
-@app.route("/")
-def landing():
-    return render_template("landing.html")
-
-@app.route("/login")
-def login():
-    return oauth.google.authorize_redirect(url_for("authorize", _external=True))
-
-@app.route("/authorize")
-def authorize():
-    oauth.google.authorize_access_token()
-    user = oauth.google.get("https://openidconnect.googleapis.com/v1/userinfo").json()
-    session["user"] = user
-    return redirect("/dashboard")
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
-
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html", user=session.get("user"))
-
-@app.route("/chat")
-def chat():
-    return render_template("chat.html")
-
-# ================= EMAIL =================
-@app.route("/email", methods=["GET","POST"])
-def email():
-    if "user" not in session:
-        return render_template("login_required.html")
-
-    output=""
-    if request.method=="POST":
-        topic=request.form.get("topic")
-        tone=request.form.get("tone")
-
-        output = run_ai([
-            {"role":"system","content":"Write a professional email with clear paragraphs. No markdown."},
-            {"role":"user","content":f"{tone} email about {topic}"}
-        ])
-
-        # 🔥 ADD THIS
-        if not output:
-            output = "Couldn't generate email. Please try again."
-
-        output=re.sub(r"\n{3,}", "\n\n", output)
-        output=re.sub(r"[ \t]+", " ", output)
-        output=re.sub(r"[*#_`]", "", output)
-
-    return render_template("email.html", email=output)
-
-# ================= RESUME =================
-@app.route("/resume", methods=["GET","POST"])
-def resume():
-    if "user" not in session:
-        return render_template("login_required.html")
-
-    output = ""
-
-    if request.method == "POST":
-
-        name = request.form.get("name")
-        role = request.form.get("role")
-        skills = request.form.get("skills")
-        experience = request.form.get("experience")
-        education = request.form.get("education")
-
-        # ✅ VALIDATION (FIXED POSITION)
-        if not name or not role or not skills or not experience or not education:
-            return render_template("resume.html", resume="⚠️ Please fill all fields!")
-
-        prompt = f"""
-Create a professional resume.
-
-Name: {name}
-Role: {role}
-Skills: {skills}
-Experience: {experience}
-Education: {education}
-"""
-
-        output = run_ai([
-            {"role":"system","content":"Professional resume writer. Clean format."},
-            {"role":"user","content":prompt}
-        ])
-
-        if not output:
-            output = "Couldn't generate resume. Please try again."
-
-        output = re.sub(r"\n{3,}", "\n\n", output)
-        output = re.sub(r"[ \t]+", " ", output)
-        output = re.sub(r"[*#_`]", "", output)
-
-    return render_template("resume.html", resume=output)
-
-# ================= CHAT =================
-@app.route("/api/chat", methods=["POST"])
-def api_chat():
-
-    user_message = request.json.get("message","").strip()
-    user_message = safe_trim(user_message)   # 🔥 ADD THIS
-    user_email = session["user"]["email"] if "user" in session else "guest"
-
-    db = get_db()
-    db.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email,"user",user_message)
-        )
-
-
-    db.commit()
-
-    memory = get_memory(user_email)
-
-    if "my name is" in user_message.lower():
-        match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
-        if match:
-            name = match.group(1).strip().title()
-            save_memory(user_email, "name", name)
-
-    history = db.execute(
-        "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 15",
-        (user_email,)
-    ).fetchall()
-
-    # 🔥 REMOVE BAD RESPONSES FROM HISTORY
-    history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
-
-    search_results = search_internet(user_message)
-
-    # ✅ YOUR ORIGINAL RULES (UNCHANGED)
-    # ✅ YOUR ORIGINAL RULES (UNCHANGED - only small fix applied)
-    messages = [{
-        "role": "system",
-        "content": f"""
-You are Pranox AI — an advanced assistant similar to ChatGPT.
+# ═══════════════════════════════════════════
+#  SYSTEM PROMPT BUILDER
+# ═══════════════════════════════════════════
+def build_system_prompt(memory: str) -> str:
+    return f"""You are Pranox AI — a next-generation AI assistant, highly intelligent, friendly, and precise.
 
 ========================
 🔹 IDENTITY
@@ -482,122 +371,331 @@ Rules:
 ========================
 🔹 MEMORY
 ========================
-{memory}
+{memory if memory else "No memory stored yet."}
 """
-    }]
 
-    # ✅ CHAT HISTORY
-    for h in reversed(history):
-        messages.append({
-            "role": h["role"],
-            "content": h["message"]
-        })
+# ═══════════════════════════════════════════
+#  ROUTES
+# ═══════════════════════════════════════════
+@app.route("/")
+def landing():
+    return render_template("landing.html")
 
-    # ✅ CLEAN USER INPUT (FIXED)
-    messages.append({
-        "role": "user",
-        "content": user_message
-    })
+@app.route("/login")
+def login():
+    redirect_uri = "http://127.0.0.1:8000/authorize"
+    return oauth.google.authorize_redirect(redirect_uri)
 
-    # ✅ SEARCH RESULTS (FIXED — NO ERROR)
-    if search_results:
-        messages.append({
-            "role": "system",
-            "content": f"Useful information:\n{search_results}"
-        })
+@app.route("/authorize")
+def authorize():
+    try:
+        token = oauth.google.authorize_access_token()
 
-    # ✅ RUN AI
-    reply = run_ai(messages)
+        user = oauth.google.get(
+            "https://openidconnect.googleapis.com/v1/userinfo"
+        ).json()
 
+        session["user"] = user
+
+        return redirect("/dashboard")
+
+    except Exception as e:
+        print("GOOGLE LOGIN ERROR:", e)
+        return "Login failed. Check console.", 500
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html", user=session.get("user"))
+
+@app.route("/chat")
+def chat():
+    return render_template("chat.html")
+
+# ═══════════════════════════════════════════
+#  EMAIL
+# ═══════════════════════════════════════════
+@app.route("/email", methods=["GET", "POST"])
+def email():
     if "user" not in session:
-        reply += "\n\n👉 Login to save your chats."
+        return render_template("login_required.html")
+    output = ""
+    if request.method == "POST":
+        topic = request.form.get("topic", "")
+        tone  = request.form.get("tone", "professional")
+        output = run_ai([
+            {"role": "system", "content": "Write a professional email with clear paragraphs. No markdown."},
+            {"role": "user",   "content": f"Write a {tone} email about: {topic}"}
+        ]) or "Couldn't generate email. Please try again."
+        output = clean_text(re.sub(r"[*#_`]", "", output))
+    return render_template("email.html", email=output)
 
-    if is_bad_response(reply):
-        links = search_internet(user_message)
+# ═══════════════════════════════════════════
+#  RESUME
+# ═══════════════════════════════════════════
+@app.route("/resume", methods=["GET", "POST"])
+def resume():
+    if "user" not in session:
+        return render_template("login_required.html")
+    output = ""
+    if request.method == "POST":
+        name       = request.form.get("name", "").strip()
+        role       = request.form.get("role", "").strip()
+        skills     = request.form.get("skills", "").strip()
+        experience = request.form.get("experience", "").strip()
+        education  = request.form.get("education", "").strip()
 
-        if links:
-            reply = f"""I couldn't fully process that request, but here are some useful resources:
+        if not all([name, role, skills, experience, education]):
+            return render_template("resume.html", resume="⚠️ Please fill all fields!")
 
-    🔗 Helpful Links:
-    {links}
-    """
-        else:
-            reply = "I couldn't process that request properly. Try simplifying your question."
-            
-    # ✅ CLEAN OUTPUT (FIXED — DO NOT BREAK FORMATTING)
-    reply = re.sub(r"\n{3,}", "\n\n", reply)
+        prompt = f"""Create a professional resume for:
+Name: {name}
+Target Role: {role}
+Skills: {skills}
+Work Experience: {experience}
+Education: {education}
 
-    if "couldn't fully process" not in reply.lower():
+Format it cleanly with sections: Summary, Skills, Experience, Education."""
+
+        output = run_ai([
+            {"role": "system", "content": "You are an expert resume writer. Format cleanly. No markdown symbols."},
+            {"role": "user",   "content": prompt}
+        ]) or "Couldn't generate resume. Please try again."
+        output = clean_text(re.sub(r"[*#_`]", "", output))
+    return render_template("resume.html", resume=output)
+
+# ═══════════════════════════════════════════
+#  MAIN CHAT API
+# ═══════════════════════════════════════════
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data         = request.get_json(force=True)
+    user_message = safe_trim(data.get("message", "").strip())
+
+    if not user_message:
+        return jsonify({"reply": "Please send a message."}), 400
+
+    user_email = session["user"]["email"] if "user" in session else "guest"
+    db = get_db()
+
+    try:
+        # Store user message
         db.execute(
             "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email,"assistant",reply)
+            (user_email, "user", user_message)
         )
         db.commit()
 
-    return jsonify({"reply":reply})
+        # Memory ops
+        memory = get_memory(user_email)
+        name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
+        if name_match:
+            save_memory(user_email, "name", name_match.group(1).strip().title())
+            memory = get_memory(user_email)
 
-# ================= FILE =================
+        # Extract other quick facts
+        age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
+        if age_match:
+            save_memory(user_email, "age", age_match.group(1))
+            memory = get_memory(user_email)
+
+        # History (last 20 turns)
+        history = db.execute(
+            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+            (user_email,)
+        ).fetchall()
+        history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
+
+        # Internet search
+        needs_search = any(kw in user_message.lower() for kw in [
+            "latest", "news", "today", "current", "2024", "2025", "2026",
+            "price", "weather", "stock", "who won", "what happened"
+        ])
+        search_results = search_internet(user_message) if needs_search else ""
+
+        # Build message list
+        msgs = [{"role": "system", "content": build_system_prompt(memory)}]
+
+        for h in reversed(history):
+            role = h["role"] if h["role"] in ("user", "assistant") else "user"
+            msgs.append({"role": role, "content": h["message"]})
+
+        msgs.append({"role": "user", "content": user_message})
+
+        if search_results:
+            msgs.append({
+                "role": "system",
+                "content": f"[Live web search results for context — use if relevant]\n{search_results}"
+            })
+
+        # Generate reply
+        reply = run_ai(msgs)
+
+        if not reply:
+            reply = "I ran into an issue generating a response. Please try again."
+
+        if is_bad_response(reply):
+            links = search_internet(user_message)
+            reply = (
+                f"Here are some helpful resources on that:\n\n🔗 {links}"
+                if links else
+                "I couldn't process that fully. Could you rephrase your question?"
+            )
+
+        reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
+
+        # Add guest nudge once per session
+        if "user" not in session and "login_nudge" not in session:
+            reply += "\n\n💡 *[Login to save your chat history and get personalized responses]*"
+            session["login_nudge"] = True
+
+        # Store AI reply
+        if "couldn't fully process" not in reply.lower():
+            db.execute(
+                "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+                (user_email, "assistant", reply)
+            )
+            db.commit()
+
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        print("CHAT ERROR:", e)
+        return jsonify({"reply": "An unexpected error occurred. Please try again."}), 500
+
+    finally:
+        db.close()
+
+# ═══════════════════════════════════════════
+#  FILE UPLOAD
+# ═══════════════════════════════════════════
 @app.route("/api/upload", methods=["POST"])
 def upload():
-
     if "file" not in request.files:
-        return jsonify({"reply":"No file uploaded"})
+        return jsonify({"reply": "No file received. Please try again."})
 
-    file = request.files["file"]
+    file     = request.files["file"]
     filename = file.filename.lower()
-
-    text=""
+    text     = ""
 
     try:
         if filename.endswith(".pdf"):
             with pdfplumber.open(file) as pdf:
                 for page in pdf.pages:
-                    text += page.extract_text() or ""
-
-        elif filename.endswith((".png",".jpg",".jpeg")):
-            img = Image.open(file)
+                    text += (page.extract_text() or "") + "\n"
+        elif filename.endswith((".png", ".jpg", ".jpeg", ".webp")):
+            img  = Image.open(file)
             text = pytesseract.image_to_string(img)
-
         elif filename.endswith(".txt"):
-            text = file.read().decode("utf-8",errors="ignore")
-
+            text = file.read().decode("utf-8", errors="ignore")
         else:
-            return jsonify({"reply":"Unsupported file"})
+            return jsonify({"reply": "Unsupported file type. Please upload PDF, image (PNG/JPG), or TXT."})
 
         if not text.strip():
-            return jsonify({"reply":"Could not read file"})
-        text = safe_trim(text)
+            return jsonify({"reply": "Could not extract text from this file. Please try a different file."})
 
+        text  = safe_trim(text, limit=5000)
         reply = run_ai([
-            {"role":"system","content":"Explain clearly with summary and bullet points."},
-            {"role":"user","content":text}
-        ])
+            {
+                "role": "system",
+                "content": "Analyze the provided document. Give a clear summary, key points as bullet list, and any important details. Be thorough but concise."
+            },
+            {"role": "user", "content": f"Please analyze this document:\n\n{text}"}
+        ], max_tokens=1500) or "Couldn't analyze the file. Please try again."
 
-        if not reply:
-            reply = "Couldn't process file properly. Try smaller file or clearer content."
-
-        return jsonify({"reply":reply})
+        return jsonify({"reply": reply})
 
     except Exception as e:
         print("FILE ERROR:", e)
-        return jsonify({"reply":"File processing error"})
+        return jsonify({"reply": "File processing failed. Please try a different file."})
 
-# ================= PDF =================
-@app.route("/download_resume",methods=["POST"])
+# ═══════════════════════════════════════════
+#  PDF DOWNLOAD (Resume)
+# ═══════════════════════════════════════════
+@app.route("/download_resume", methods=["POST"])
 def download_resume():
-    buffer=BytesIO()
-    p=canvas.Canvas(buffer)
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 50
 
-    y=800
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(50, y, "Resume")
+    y -= 30
+    p.setFont("Helvetica", 11)
+
     for line in request.form["resume"].split("\n"):
-        p.drawString(40,y,line)
-        y-=20
+        if y < 60:
+            p.showPage()
+            y = height - 50
+            p.setFont("Helvetica", 11)
+        line = line.strip()
+        if line:
+            p.drawString(50, y, line[:100])  # prevent overflow
+            y -= 18
+        else:
+            y -= 8
 
     p.save()
     buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="pranox_resume.pdf", mimetype="application/pdf")
 
-    return send_file(buffer,as_attachment=True,download_name="resume.pdf")
+# ═══════════════════════════════════════════
+#  IMAGE GENERATION
+# ═══════════════════════════════════════════
+@app.route("/api/image", methods=["POST"])
+def generate_image():
+    data   = request.get_json(force=True)
+    prompt = data.get("prompt", "").strip()
 
+    if not prompt:
+        return jsonify({"reply": "⚠️ Please provide an image description."}), 400
+
+    if not CLOUDFLARE_API_TOKEN or not CLOUDFLARE_ACCOUNT_ID:
+        return jsonify({"reply": "⚠️ Image generation is not configured on this server."}), 500
+
+    # Enhance the prompt for better quality
+    enhanced = f"ultra realistic, 4k, highly detailed, sharp focus, professional photography, {prompt}"
+
+    url = (
+        f"https://api.cloudflare.com/client/v4/accounts/"
+        f"{CLOUDFLARE_ACCOUNT_ID}/ai/run/"
+        f"@cf/stabilityai/stable-diffusion-xl-base-1.0"
+    )
+
+    try:
+        response = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
+                "Content-Type":  "application/json"
+            },
+            json={"prompt": enhanced, "num_steps": 20},
+            timeout=45
+        )
+
+        if response.status_code == 200:
+            return response.content, 200, {
+                "Content-Type": "image/png",
+                "Cache-Control": "no-cache"
+            }
+        else:
+            print("CF ERROR:", response.status_code, response.text[:200])
+            return jsonify({"reply": "Image generation failed. Please try a different description."}), 500
+
+    except requests.Timeout:
+        return jsonify({"reply": "Image generation timed out. Please try again."}), 504
+    except Exception as e:
+        print("IMAGE ERROR:", e)
+        return jsonify({"reply": "Server error during image generation."}), 500
+
+# ═══════════════════════════════════════════
+#  STATIC PAGES
+# ═══════════════════════════════════════════
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html")
@@ -606,15 +704,16 @@ def privacy():
 def terms():
     return render_template("terms.html")
 
-from flask import send_from_directory
-
-@app.route('/sitemap.xml')
+@app.route("/sitemap.xml")
 def sitemap():
-    return send_from_directory('static', 'sitemap.xml')
+    return send_from_directory("static", "sitemap.xml")
 
-@app.route('/robots.txt')
+@app.route("/robots.txt")
 def robots():
-    return send_from_directory('static', 'robots.txt')
+    return send_from_directory("static", "robots.txt")
 
-if __name__=="__main__":
-    app.run(debug=True)
+# ═══════════════════════════════════════════
+#  RUN
+# ═══════════════════════════════════════════
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=8000)

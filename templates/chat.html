@@ -1,780 +1,943 @@
 {% extends "base.html" %}
-{% block title %}Pranox AI Chat{% endblock %}
+{% block title %}Pranox AI — Chat{% endblock %}
 {% block content %}
 
 <div class="chat-layout">
-    <div class="overlay" onclick="toggleSidebar()"></div>
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
-<div class="sidebar">
-<h2>Pranox</h2>
-<button onclick="newChat()" class="newchat">+ New Chat</button>
-<div id="history"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <div class="brand-icon">P</div>
+        <span class="brand-name">Pranox</span>
+      </div>
+      <button class="new-chat-btn" onclick="newChat()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+    </div>
+
+    <div class="incognito-row">
+      <label class="toggle-label" for="incognitoToggle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Incognito
+      </label>
+      <div class="toggle-wrap">
+        <input type="checkbox" id="incognitoToggle" onchange="toggleIncognito(this)">
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+
+    <div class="history-label">Recent</div>
+    <div id="historyList" class="history-list"></div>
+
+    <div class="sidebar-footer">
+      <span class="footer-info">Pranox AI · v3.1</span>
+      {% if user %}
+      <a href="/logout" class="footer-logout">Sign out</a>
+      {% else %}
+      <a href="/login" class="footer-logout">Sign in</a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <main class="chat-main">
+    <header class="chat-header">
+      <button class="menu-btn" onclick="toggleSidebar()" aria-label="Open sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="header-center">
+        <span class="header-title">Pranox AI</span>
+        <span class="header-status" id="statusBadge">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Online</span>
+        </span>
+      </div>
+      <div class="header-right">
+        <span id="incogBadge" class="incog-badge" style="display:none">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Incognito
+        </span>
+      </div>
+    </header>
+
+    <div id="messages" role="log" aria-live="polite"></div>
+
+    <div id="welcomeScreen" class="welcome-screen">
+      <div class="welcome-glow"></div>
+      <div class="welcome-logo">P</div>
+      <h1 class="welcome-title">Pranox AI</h1>
+      <p class="welcome-sub">Your intelligent assistant. Ask me anything.</p>
+      <div class="suggestion-chips">
+        <button class="chip" onclick="useChip(this)">✨ What can you do?</button>
+        <button class="chip" onclick="useChip(this)">💡 Explain quantum computing</button>
+        <button class="chip" onclick="useChip(this)">🖼️ Generate an image of a sunset</button>
+        <button class="chip" onclick="useChip(this)">📝 Write a Python web scraper</button>
+        <button class="chip" onclick="useChip(this)">📰 Latest tech news today</button>
+        <button class="chip" onclick="useChip(this)">🔢 Solve a math problem</button>
+      </div>
+    </div>
+
+    <!-- Image fullscreen modal -->
+    <div id="imageModal" class="img-modal" onclick="if(event.target===this)closeModal()">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <img id="modalImg" alt="Generated image">
+    </div>
+
+    <div class="input-wrapper">
+      <div class="input-area" id="inputArea">
+        <div id="filePreview" class="file-preview" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="fileName"></span>
+          <button onclick="clearFile()">✕</button>
+        </div>
+        <div class="input-row">
+          <label for="fileUpload" class="tool-btn" title="Attach file">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </label>
+          <input type="file" id="fileUpload" style="display:none" accept=".pdf,.txt,.png,.jpg,.jpeg,.webp">
+          <textarea id="messageInput" placeholder="Message Pranox AI…" rows="1" autocomplete="off" spellcheck="true"></textarea>
+          <button onclick="startVoice()" class="tool-btn voice-btn" id="voiceBtn" title="Voice input">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button id="sendBtn" onclick="sendMessage()" title="Send">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="disclaimer">Pranox AI can make mistakes. Verify important information.</p>
+    </div>
+  </main>
 </div>
 
-<div class="chat-main">
-
-<div class="chat-header">
-    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-    <span class="chat-title">Pranox AI</span>
-</div>
-
-<div id="welcomeScreen" class="welcome">
-    <h1>Pranox AI</h1>
-    <h3>How can I help you today?</h3>
-</div>
-
-<div id="messages"></div>
-<div class="input-area">
-
-<label for="fileUpload" class="icon-btn">+</label>
-<input type="file" id="fileUpload" style="display:none">
-
-<textarea id="messageInput" placeholder="Message Pranox..." rows="2"></textarea>
-
-<button onclick="startVoice()" class="voice-btn">🎤</button>
-
-<button id="sendBtn">➤</button>
-
-</div>
-
-</div>
-
-</div>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 
 <script>
-
-// 🔥 MARKDOWN FIX (IMPORTANT)
+/* ══════════════════════════════════════════
+   MARKED CONFIG
+══════════════════════════════════════════ */
 marked.setOptions({
-  breaks: true,
-  gfm: true
-})
+  breaks: true, gfm: true,
+  highlight: (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, {language: lang}).value;
+    return hljs.highlightAuto(code).value;
+  }
+});
 
-// 🔥 FINAL FORMATTER (LIKE CHATGPT)
-function formatText(text){
+/* ══════════════════════════════════════════
+   FORMAT TEXT — markdown → HTML
+══════════════════════════════════════════ */
+function formatText(text) {
+  let html = DOMPurify.sanitize(marked.parse(text));
+  html = html.replace(/(<br\s*\/?>\s*){3,}/gi, "<br><br>");
 
-    let html = marked.parse(text)
+  html = html.replace(/<pre><code class="language-([^"]*)">/g, (_, lang) =>
+    `<div class="code-block"><div class="code-header"><span class="code-lang">${lang||'code'}</span>` +
+    `<button class="copy-btn" onclick="copyCodeBlock(this)">` +
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div><pre><code class="language-${lang}">`
+  );
+  html = html.replace(/<pre><code>/g,
+    `<div class="code-block"><div class="code-header"><span class="code-lang">code</span>` +
+    `<button class="copy-btn" onclick="copyCodeBlock(this)">` +
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button></div><pre><code>`
+  );
+  html = html.replace(/<\/code><\/pre>/g, `</code></pre></div>`);
+  return html;
+}
 
-    // REMOVE PARAGRAPH TAG GAPS
-    html = html.replace(/<p>/g,"")
-    html = html.replace(/<\/p>/g,"<br>")
+/* ══════════════════════════════════════════
+   COPY CODE BLOCK  ← FIX: use execCommand fallback
+══════════════════════════════════════════ */
+function copyCodeBlock(btn) {
+  const code = btn.closest(".code-block").querySelector("code").innerText;
+  copyToClipboard(code, btn);
+}
 
-    // REMOVE EXTRA BREAKS
-    html = html.replace(/(<br>\s*){3,}/g,"<br><br>")
+/* ══════════════════════════════════════════
+   UNIVERSAL CLIPBOARD HELPER
+   Works on HTTP (localhost) and HTTPS
+══════════════════════════════════════════ */
+function copyToClipboard(text, btn) {
+  const COPY_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const originalHTML = btn ? btn.innerHTML : null;
 
-    // 🔥 ADD COPY BUTTON TO CODE BLOCKS
-    html = html.replace(/<pre><code>/g, `
-        <div class="code-container">
-            <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
-            <pre><code>
-    `)
+  function onSuccess() {
+    if (!btn) return;
+    btn.innerHTML = CHECK_SVG + " Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.innerHTML = originalHTML; btn.classList.remove("copied"); }, 2000);
+  }
 
-    html = html.replace(/<\/code><\/pre>/g, `
-            </code></pre>
+  // Try modern API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => fallback(text, onSuccess));
+  } else {
+    fallback(text, onSuccess);
+  }
+
+  function fallback(t, cb) {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); cb(); } catch(e) { showToast("Copy failed — please copy manually"); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+const messagesEl = document.getElementById("messages");
+const inputEl    = document.getElementById("messageInput");
+const sendBtn    = document.getElementById("sendBtn");
+const fileUpload = document.getElementById("fileUpload");
+
+let attachedFile    = null;
+let lastUserMessage = "";
+let isGenerating    = false;
+let incognito       = false;        // ← single source of truth
+let thinkingCounter = 0;
+let chats           = [];
+let currentChat     = [];
+let currentChatIdx  = -1;
+
+// Load chats safely
+try { chats = JSON.parse(localStorage.getItem("pranoxChats") || "[]"); } catch(e) { chats = []; }
+
+/* ══════════════════════════════════════════
+   NETWORK STATUS
+══════════════════════════════════════════ */
+function updateStatus() {
+  const dot   = document.getElementById("statusDot");
+  const text  = document.getElementById("statusText");
+  const badge = document.getElementById("statusBadge");
+  if (navigator.onLine) {
+    dot.className   = "status-dot online";
+    text.textContent = "Online";
+    badge.className  = "header-status online";
+  } else {
+    dot.className   = "status-dot offline";
+    text.textContent = "Offline";
+    badge.className  = "header-status offline";
+  }
+}
+window.addEventListener("online",  updateStatus);
+window.addEventListener("offline", updateStatus);
+updateStatus();
+
+/* ══════════════════════════════════════════
+   INCOGNITO  ← FIX: proper toggle logic
+══════════════════════════════════════════ */
+function toggleIncognito(cb) {
+  incognito = cb.checked;                                    // update global
+  const badge = document.getElementById("incogBadge");
+  badge.style.display = incognito ? "flex" : "none";
+  document.body.classList.toggle("incognito-mode", incognito);
+  if (incognito) showToast("Incognito on — this conversation won't be saved");
+  else           showToast("Incognito off — conversations will be saved");
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function showToast(msg, duration=2800) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), duration);
+}
+
+/* ══════════════════════════════════════════
+   CHIP
+══════════════════════════════════════════ */
+function useChip(btn) {
+  // Strip leading emoji + space (first 1-3 chars)
+  inputEl.value = btn.textContent.replace(/^\S+\s*/, "").trim();
+  inputEl.dispatchEvent(new Event("input"));
+  sendMessage();
+}
+
+/* ══════════════════════════════════════════
+   HISTORY
+══════════════════════════════════════════ */
+function saveChats() {
+  try { localStorage.setItem("pranoxChats", JSON.stringify(chats)); } catch(e) {}
+}
+
+function renderHistory() {
+  const el = document.getElementById("historyList");
+  el.innerHTML = "";
+  if (!chats.length) { el.innerHTML = `<p class="no-history">No chats yet</p>`; return; }
+  [...chats].reverse().forEach((chat, ri) => {
+    const index   = chats.length - 1 - ri;
+    const first   = chat.find(m => m.type === "user");
+    const preview = (first?.text || "Chat").replace(/<[^>]+>/g,"").slice(0, 32);
+    const div     = document.createElement("div");
+    div.className = "history-item" + (index === currentChatIdx ? " active" : "");
+    div.innerHTML = `
+      <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span class="hist-text">${preview}…</span>
+      <button class="hist-del" onclick="deleteChat(${index},event)" title="Delete">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>`;
+    div.onclick = e => { if (!e.target.closest(".hist-del")) loadChat(index); };
+    el.appendChild(div);
+  });
+}
+
+function deleteChat(index, e) {
+  e.stopPropagation();
+  chats.splice(index, 1);
+  if (currentChatIdx === index) { currentChat=[]; currentChatIdx=-1; messagesEl.innerHTML=""; showWelcome(); }
+  else if (currentChatIdx > index) currentChatIdx--;
+  saveChats(); renderHistory();
+}
+
+function loadChat(index) {
+  messagesEl.innerHTML = "";
+  currentChat = chats[index]; currentChatIdx = index;
+  hideWelcome();
+  currentChat.forEach(m => addMessage(m.text, m.type, false));
+  closeSidebar(); renderHistory();
+}
+
+function newChat() {
+  if (currentChat.length && currentChatIdx === -1) {
+    chats.push([...currentChat]); currentChatIdx = chats.length-1; saveChats();
+  }
+  messagesEl.innerHTML = ""; currentChat=[]; currentChatIdx=-1;
+  showWelcome(); closeSidebar(); renderHistory();
+}
+
+/* ══════════════════════════════════════════
+   WELCOME
+══════════════════════════════════════════ */
+function showWelcome() { document.getElementById("welcomeScreen").style.display="flex"; }
+function hideWelcome() { document.getElementById("welcomeScreen").style.display="none"; }
+
+/* ══════════════════════════════════════════
+   ADD MESSAGE  ← copy button uses copyToClipboard
+══════════════════════════════════════════ */
+function addMessage(text, type, save=true) {
+  hideWelcome();
+  const isImage = text.trim().startsWith("<img");
+  const content = isImage ? DOMPurify.sanitize(text) : formatText(text);
+  const time    = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+
+  const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  const RETRY_ICON= `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`;
+
+  const actions = type === "ai"
+    ? `<div class="msg-actions">
+         <button class="action-copy" title="Copy">${COPY_ICON} Copy</button>
+         <button class="action-retry" title="Retry">${RETRY_ICON} Retry</button>
+       </div>`
+    : `<div class="msg-actions">
+         <button class="action-copy" title="Copy">${COPY_ICON} Copy</button>
+       </div>`;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `msg-row ${type}`;
+  wrapper.innerHTML = `
+    <div class="avatar ${type}-avatar">${type==="ai"?"P":"U"}</div>
+    <div class="msg-col">
+      <div class="bubble ${type}-bubble"><div class="msg-text">${content}</div></div>
+      <div class="msg-meta"><span class="msg-time">${time}</span>${actions}</div>
+    </div>`;
+
+  messagesEl.appendChild(wrapper);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  wrapper.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
+
+  // Attach copy/retry listeners after DOM insert
+  wrapper.querySelector(".action-copy")?.addEventListener("click", function() {
+    const msgText = wrapper.querySelector(".msg-text");
+    copyToClipboard(msgText ? msgText.innerText : "", this);
+  });
+  wrapper.querySelector(".action-retry")?.addEventListener("click", regenerate);
+
+  if (save) currentChat.push({text, type});
+}
+
+/* ══════════════════════════════════════════
+   TYPEWRITER
+══════════════════════════════════════════ */
+function typeWriter(text, element, onDone) {
+  let i = 0;
+  const speed = text.length > 400 ? 4 : 10;
+  function tick() {
+    if (i < text.length) {
+      element.innerHTML = formatText(text.substring(0, i+1));
+      i++;
+      element.querySelectorAll("pre code:not(.hljs)").forEach(b => hljs.highlightElement(b));
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      setTimeout(tick, speed);
+    } else {
+      element.innerHTML = formatText(text);
+      element.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (onDone) onDone();
+    }
+  }
+  tick();
+}
+
+/* ══════════════════════════════════════════
+   IMAGE DETECTION
+══════════════════════════════════════════ */
+const IMAGE_TRIGGERS = [
+  /^image:/i, /generate (an? )?image/i, /create (an? )?image/i,
+  /give me (an? )?image/i, /make (an? )?image/i, /draw (an? )?/i,
+  /image of /i, /picture of /i, /photo of /i, /show me (an? )?image/i,
+  /illustrate /i, /paint (an? )?/i,
+];
+function isImageRequest(t) { return IMAGE_TRIGGERS.some(r => r.test(t)); }
+function extractImagePrompt(t) {
+  return t
+    .replace(/^image:\s*/i,"")
+    .replace(/generate (me )?(an? )?image (of )?/gi,"")
+    .replace(/create (an? )?image (of )?/gi,"")
+    .replace(/give me (an? )?image (of )?/gi,"")
+    .replace(/make (an? )?image (of )?/gi,"")
+    .replace(/show me (an? )?image (of )?/gi,"")
+    .replace(/\b(draw|paint|illustrate)\b/gi,"")
+    .replace(/picture of|photo of/gi,"")
+    .trim();
+}
+
+/* ══════════════════════════════════════════
+   SEND MESSAGE
+══════════════════════════════════════════ */
+inputEl.addEventListener("keydown", e => {
+  if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+inputEl.addEventListener("input", () => {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + "px";
+});
+
+async function sendMessage() {
+  if (isGenerating) return;
+  const text = inputEl.value.trim();
+  if (!text && !attachedFile) return;
+
+  lastUserMessage = text;
+  addMessage(text, "user");
+  inputEl.value = "";
+  inputEl.style.height = "auto";
+  setGenerating(true);
+
+  if (!attachedFile && isImageRequest(text.toLowerCase())) {
+    await generateImage(extractImagePrompt(text));
+    setGenerating(false);
+    return;
+  }
+
+  const thinkId = addThinking();
+  let reply = "";
+  try {
+    if (attachedFile) {
+      const form = new FormData();
+      form.append("file", attachedFile);
+      form.append("message", text);
+      const res  = await fetch("/api/upload", {method:"POST", body:form});
+      const data = await res.json();
+      reply = data.reply || "Could not process file.";
+      clearFile();
+    } else {
+      const res = await fetch("/api/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message:text, incognito})   // ← always reads current incognito value
+      });
+      const data = await res.json();
+      reply = data.reply || "No response received.";
+    }
+  } catch {
+    reply = "⚠️ Network error. Please check your connection and try again.";
+  }
+  removeThinking(thinkId);
+  appendAIMessage(reply);
+}
+
+/* ══════════════════════════════════════════
+   THINKING BUBBLE
+══════════════════════════════════════════ */
+function addThinking(label="") {
+  const id = ++thinkingCounter;
+  const div = document.createElement("div");
+  div.className="msg-row ai";
+  div.id=`thinking-${id}`;
+  // FIX: image thinking uses a static div — NOT typewriter
+  div.innerHTML = `
+    <div class="avatar ai-avatar">P</div>
+    <div class="msg-col">
+      <div class="bubble ai-bubble thinking-bubble">
+        ${label
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+             <span class="thinking-label">${label}</span>`
+          : `<span class="dot-1"></span><span class="dot-2"></span><span class="dot-3"></span>`
+        }
+      </div>
+    </div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return id;
+}
+function removeThinking(id) { document.getElementById(`thinking-${id}`)?.remove(); }
+
+/* ══════════════════════════════════════════
+   APPEND AI MESSAGE (with typewriter)
+══════════════════════════════════════════ */
+function appendAIMessage(reply) {
+  const time = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  const COPY_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  const RETRY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg-row ai";
+  wrapper.innerHTML = `
+    <div class="avatar ai-avatar">P</div>
+    <div class="msg-col">
+      <div class="bubble ai-bubble"><div class="msg-text"></div></div>
+      <div class="msg-meta">
+        <span class="msg-time">${time}</span>
+        <div class="msg-actions">
+          <button class="action-copy" title="Copy">${COPY_ICON} Copy</button>
+          <button class="action-retry" title="Retry">${RETRY_ICON} Retry</button>
         </div>
-    `)
+      </div>
+    </div>`;
+  messagesEl.appendChild(wrapper);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    return html
+  // Attach listeners
+  wrapper.querySelector(".action-copy").addEventListener("click", function() {
+    const msgText = wrapper.querySelector(".msg-text");
+    copyToClipboard(msgText ? msgText.innerText : "", this);
+  });
+  wrapper.querySelector(".action-retry").addEventListener("click", regenerate);
+
+  const textEl = wrapper.querySelector(".msg-text");
+  typeWriter(reply, textEl, () => {
+    if (!incognito) { currentChat.push({text:reply, type:"ai"}); saveChats(); renderHistory(); }
+    setGenerating(false);
+  });
 }
 
-function copyCode(btn){
-    let code = btn.parentElement.querySelector("code").innerText
-    navigator.clipboard.writeText(code)
-
-    btn.innerText = "Copied"
-    setTimeout(()=>{btn.innerText="Copy"},1500)
+function setGenerating(state) {
+  isGenerating = state;
+  sendBtn.disabled = state;
+  sendBtn.style.opacity = state ? "0.5" : "1";
 }
 
-const messages=document.getElementById("messages")
-const input=document.getElementById("messageInput")
-const sendBtn=document.getElementById("sendBtn")
-const historyDiv=document.getElementById("history")
-const fileUpload=document.getElementById("fileUpload")
+/* ══════════════════════════════════════════
+   IMAGE GENERATION  ← FIX: static thinking, no typewriter on label
+══════════════════════════════════════════ */
+async function generateImage(prompt) {
+  // addThinking("Generating image…") shows spinner+text as static HTML — no typewriter
+  const thinkId = addThinking("Generating image…");
+  let res;
+  try {
+    res = await fetch("/api/image", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({prompt})
+    });
+  } catch {
+    removeThinking(thinkId);
+    addMessage("⚠️ Network error while generating image. Please try again.", "ai");
+    setGenerating(false);
+    return;
+  }
+  removeThinking(thinkId);
 
-let attachedFile=null
-let lastUserMessage=""
+  if (res.ok) {
+    const blob   = await res.blob();
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const b64  = reader.result;
+      const time = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+      const wrapper = document.createElement("div");
+      wrapper.className = "msg-row ai";
+      wrapper.innerHTML = `
+        <div class="avatar ai-avatar">P</div>
+        <div class="msg-col">
+          <div class="bubble ai-bubble img-bubble">
+            <div class="gen-img-wrapper">
+              <img src="${b64}" class="gen-img" alt="Generated: ${prompt.replace(/"/g,"'")}">
+              <div class="img-overlay">
+                <button class="overlay-fullscreen" title="Fullscreen">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3"/><path d="M21 8V5a2 2 0 00-2-2h-3"/><path d="M3 16v3a2 2 0 002 2h3"/><path d="M16 21h3a2 2 0 002-2v-3"/></svg>
+                </button>
+                <button class="overlay-download" title="Download">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="img-caption">✨ "${prompt}"</p>
+          </div>
+          <div class="msg-meta"><span class="msg-time">${time}</span></div>
+        </div>`;
+      messagesEl.appendChild(wrapper);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
 
-let chats=JSON.parse(localStorage.getItem("pranoxChats")||"[]")
-let currentChat=[]
+      // Attach image button listeners
+      wrapper.querySelector(".gen-img").addEventListener("click", () => openModal(b64));
+      wrapper.querySelector(".overlay-fullscreen").addEventListener("click", () => openModal(b64));
+      wrapper.querySelector(".overlay-download").addEventListener("click", () => downloadImage(b64));
 
-function saveChats(){
-localStorage.setItem("pranoxChats",JSON.stringify(chats))
-}
-
-function renderHistory(){
-    historyDiv.innerHTML=""
-
-    chats.forEach((chat,index)=>{
-
-        let preview = chat[0]?.text.slice(0,25) || "Chat"
-
-        let div=document.createElement("div")
-        div.className="history-item"
-
-        div.innerHTML = `
-            <span>${preview}...</span>
-            <button onclick="deleteChat(${index}, event)">🗑️</button>
-        `
-
-       div.onclick=(e)=>{
-           if(!e.target.closest("button")){
-               loadChat(index)
+      if (!incognito) {
+        currentChat.push({text:`<img src="${b64}" style="max-width:100%;border-radius:12px;cursor:pointer;">`, type:"ai"});
+        saveChats(); renderHistory();
+      }
+      setGenerating(false);
+    };
+    reader.readAsDataURL(blob);
+  } else {
+    try {
+      const data = await res.json();
+      addMessage(data.reply || "⚠️ Image generation failed.", "ai");
+    } catch {
+      addMessage("⚠️ Image generation failed.", "ai");
     }
+    setGenerating(false);
+  }
 }
 
-        historyDiv.appendChild(div)
-    })
+/* ══════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════ */
+function openModal(src)  { document.getElementById("modalImg").src=src; document.getElementById("imageModal").style.display="flex"; }
+function closeModal()    { document.getElementById("imageModal").style.display="none"; }
+function downloadImage(b64) { const a=document.createElement("a"); a.href=b64; a.download=`pranox-${Date.now()}.png`; a.click(); }
+
+/* ══════════════════════════════════════════
+   REGENERATE
+══════════════════════════════════════════ */
+function regenerate() {
+  if (!lastUserMessage) return;
+  inputEl.value = lastUserMessage;
+  inputEl.dispatchEvent(new Event("input"));
+  sendMessage();
 }
 
-function deleteChat(index, event){
-    event.stopPropagation() // 🔥 IMPORTANT (prevents opening chat)
-
-    chats.splice(index,1)
-    saveChats()
-    renderHistory()
+/* ══════════════════════════════════════════
+   VOICE
+══════════════════════════════════════════ */
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast("Voice requires Chrome with microphone permission"); return; }
+  const rec = new SR();
+  rec.lang = "en-IN";
+  const btn = document.getElementById("voiceBtn");
+  rec.onstart  = () => { btn.classList.add("voice-active"); btn.title="Listening…"; };
+  rec.onend    = () => { btn.classList.remove("voice-active"); btn.title="Voice input"; };
+  rec.onresult = e => { inputEl.value=e.results[0][0].transcript; inputEl.dispatchEvent(new Event("input")); };
+  rec.onerror  = () => btn.classList.remove("voice-active");
+  rec.start();
 }
 
-function loadChat(index){
-messages.innerHTML=""
-currentChat=chats[index]
-
-// 🔥 ADD THIS
-document.getElementById("welcomeScreen").style.display = "none";
-
-currentChat.forEach(msg=>{
-addMessage(msg.text,msg.type,false)
-})
-
-// AUTO CLOSE SIDEBAR
-document.querySelector(".sidebar").classList.remove("active")
-document.querySelector(".overlay").classList.remove("active")
-}
-
-function newChat(){
-    if(currentChat.length){
-        chats.push(currentChat)
-        saveChats()
-    }
-    messages.innerHTML=""
-    currentChat=[]
-    renderHistory()
-
-    document.querySelector(".sidebar").classList.remove("active")
-    document.querySelector(".overlay").classList.remove("active")
-
-    document.getElementById("welcomeScreen").style.display = "block";
-}
-
-// 🔥 MESSAGE ADD FIXED
-function addMessage(text,type,save=true){
-
-let buttons=""
-
-if(type==="ai"){
-buttons=`
-<div class="msg-actions">
-<button class="icon-btn" onclick="copyText(this)">📋</button>
-<button class="icon-btn" onclick="regenerate()">🔁</button>
-</div>`
-}
-
-const html = `
-<div class="message ${type}">
-<div class="bubble">
-<div class="msg-text">${formatText(text)}</div>
-${buttons}
-</div>
-</div>`
-
-messages.insertAdjacentHTML("beforeend", html)
-messages.scrollTop=messages.scrollHeight
-
-if(save){
-currentChat.push({text,type})
-}
-}
-
-// 🔥 TYPEWRITER FIXED
-function typeWriter(text,element){
-let i=0
-
-function typing(){
-if(i<text.length){
-element.innerHTML = formatText(text.substring(0,i+1))
-i++
-setTimeout(typing,5)
-}
-}
-typing()
-}
-
-sendBtn.onclick=sendMessage
-
-input.addEventListener("keydown", e => {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
-
-input.addEventListener("input", () => {
-    input.style.height = "auto";
-    input.style.height = input.scrollHeight + "px";
-});
-
-async function sendMessage(){
-document.getElementById("welcomeScreen").style.display = "none";
-
-let text=input.value.trim()
-if(!text && !attachedFile) return
-
-lastUserMessage=text
-addMessage(text,"user")
-input.value=""
-input.style.height = "auto"   // 🔥 RESET HEIGHT
-
-// THINKING UI
-let typing=document.createElement("div")
-typing.className="message ai"
-typing.innerHTML=`<div class="bubble"><div class="msg-text typing">⚡ Thinking...</div></div>`
-
-messages.appendChild(typing)
-messages.scrollTop=messages.scrollHeight
-
-let reply=""
-
-try{
-
-if(attachedFile){
-let form=new FormData()
-form.append("file",attachedFile)
-form.append("message",text)
-
-let res=await fetch("/api/upload",{method:"POST",body:form})
-let data=await res.json()
-reply=data.reply
-attachedFile=null
-}else{
-
-let res=await fetch("/api/chat",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({message:text})
-})
-
-let data=await res.json()
-reply=data.reply
-}
-
-}catch{
-reply="⚠️ Error generating response"
-}
-
-typing.remove()
-
-messages.insertAdjacentHTML("beforeend",`
-<div class="message ai">
-<div class="bubble">
-<div class="msg-text"></div>
-<div class="msg-actions">
-<button class="icon-btn" onclick="copyText(this)">📋</button>
-<button class="icon-btn" onclick="regenerate()">🔁</button>
-</div>
-</div>
-</div>`)
-
-let aiContainer = messages.lastElementChild
-let aiText = aiContainer.querySelector(".msg-text")
-
-typeWriter(reply,aiText)
-
-currentChat.push({text:reply,type:"ai"})
-saveChats()
-renderHistory()
-}
-
-// COPY
-function copyText(btn){
-let text=btn.closest(".bubble").querySelector(".msg-text").innerText
-navigator.clipboard.writeText(text)
-btn.innerText="✔"
-setTimeout(()=>{btn.innerText="📋"},1500)
-}
-
-// REGENERATE
-function regenerate(){
-input.value=lastUserMessage
-sendMessage()
-}
-
-// VOICE
-function startVoice(){
-let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-if(!SpeechRecognition){
-alert("Use Chrome + allow mic permission");
-return;
-}
-
-const recognition = new SpeechRecognition();
-recognition.lang="en-IN";
-
-const btn = document.querySelector(".voice-btn");
-
-recognition.onstart = ()=>{
-btn.innerText="🎙️"
-btn.style.background="#ef4444"
-}
-
-recognition.onend = ()=>{
-btn.innerText="🎤"
-btn.style.background="#10b981"
-}
-
-recognition.onresult = (event)=>{
-input.value = event.results[0][0].transcript;
+/* ══════════════════════════════════════════
+   FILE UPLOAD
+══════════════════════════════════════════ */
+fileUpload.onchange = function() {
+  attachedFile = fileUpload.files[0];
+  if (!attachedFile) return;
+  if (attachedFile.size > 16*1024*1024) { showToast("File too large. Max 16MB."); clearFile(); return; }
+  document.getElementById("filePreview").style.display = "flex";
+  document.getElementById("fileName").textContent = attachedFile.name;
 };
-
-recognition.start();
+function clearFile() {
+  attachedFile=null; fileUpload.value="";
+  document.getElementById("filePreview").style.display="none";
 }
 
-fileUpload.onchange=function(){
-attachedFile=fileUpload.files[0]
-addMessage("📎 "+attachedFile.name+" attached","user")
+/* ══════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("overlay").classList.toggle("active");
+  document.body.classList.toggle("no-scroll");
+}
+function closeSidebar() {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("overlay").classList.remove("active");
+  document.body.classList.remove("no-scroll");
 }
 
-renderHistory()
+/* ══════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+══════════════════════════════════════════ */
+document.addEventListener("keydown", e => {
+  if (e.key==="Escape") closeModal();
+  if ((e.ctrlKey||e.metaKey) && e.key==="k") { e.preventDefault(); newChat(); }
+});
 
-if(chats.length > 0){
-    currentChat = chats[chats.length - 1]
-    currentChat.forEach(msg=>{
-        addMessage(msg.text, msg.type, false)
-    })
-    document.getElementById("welcomeScreen").style.display = "none";
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+renderHistory();
+if (chats.length > 0) {
+  currentChatIdx = chats.length-1;
+  currentChat    = chats[currentChatIdx];
+  hideWelcome();
+  currentChat.forEach(m => addMessage(m.text, m.type, false));
+} else {
+  showWelcome();
 }
-
-function toggleSidebar(){
-    document.querySelector(".sidebar").classList.toggle("active")
-    document.querySelector(".overlay").classList.toggle("active")
-    document.body.classList.toggle("no-scroll")
-}
-
 </script>
 
 <style>
-
-.overlay{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.6);
-opacity:0;
-pointer-events:none;
-transition:0.3s;
-z-index:900;
-backdrop-filter: blur(3px); /* 🔥 premium blur */
+:root {
+  --bg:        #09090b;
+  --bg2:       #0f0f12;
+  --bg3:       #18181b;
+  --bg4:       #27272a;
+  --border:    rgba(255,255,255,0.07);
+  --text:      #e4e4e7;
+  --text2:     #a1a1aa;
+  --text3:     #71717a;
+  --blue:      #2563eb;
+  --blue-h:    #1d4ed8;
+  --green:     #4ade80;
+  --red:       #f87171;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+  --font:      -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono:      'JetBrains Mono','Fira Code',Consolas,monospace;
+  --sidebar-w: 262px;
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+body.no-scroll{overflow:hidden}
+body.incognito-mode .chat-header{border-bottom-color:rgba(139,92,246,.3)}
+body.incognito-mode .input-area{border-color:rgba(139,92,246,.25)}
 
-.chat-header{
-display:flex;
-align-items:center;
-gap:12px;
-padding:12px 16px;
-background:#020617;
-border-bottom:1px solid #1f2937;
-position:sticky;
-top:0;
-z-index:500;
+.chat-layout{display:flex;height:100dvh;overflow:hidden}
 
-backdrop-filter: blur(10px);
-background: rgba(2,6,23,0.8);
-}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:800}
+.overlay.active{display:block}
 
-.chat-title{
-font-size:18px;
-font-weight:600;
-color:white;
-}
-
-.overlay.active{
-opacity:1;
-pointer-events:auto;
-}
-/* LAYOUT */
-.chat-layout{
-display:flex;
-height:100vh;
-background: #000000;;
-}
-
-/* DESKTOP SIDEBAR */
-.sidebar{
-    width:260px;
-    background:#020617;
-    padding:20px;
-    border-right:1px solid #1f2937;
-    overflow-y:auto;
-}
-
-/* MOBILE SIDEBAR */
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .28s cubic-bezier(.4,0,.2,1)}
 @media(max-width:768px){
-.sidebar{
-    position:fixed;
-    top:0;
-    left:0;
-    height:100%;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index:1000;
+  .sidebar{position:fixed;top:0;left:0;height:100%;z-index:900;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
 }
+.sidebar-top{padding:18px 14px 12px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.brand-icon{width:32px;height:32px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff}
+.brand-name{font-size:15px;font-weight:600}
+.new-chat-btn{width:100%;display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s}
+.new-chat-btn:hover{background:var(--blue-h)}
+.incognito-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text2)}
+.toggle-label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.toggle-wrap{position:relative}
+.toggle-wrap input{position:absolute;opacity:0;width:0;height:0}
+.toggle-slider{display:block;width:36px;height:20px;background:var(--bg4);border-radius:10px;cursor:pointer;transition:background .25s;position:relative}
+.toggle-slider::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .25s}
+.toggle-wrap input:checked+.toggle-slider{background:#7c3aed}
+.toggle-wrap input:checked+.toggle-slider::after{transform:translateX(16px)}
+.history-label{padding:12px 14px 6px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+.history-list{flex:1;overflow-y:auto;padding:4px 8px}
+.history-list::-webkit-scrollbar{width:3px}
+.history-list::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+.no-history{font-size:12px;color:var(--text3);text-align:center;padding:20px 0}
+.history-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px;color:var(--text2);transition:background .15s;margin-bottom:2px}
+.history-item:hover,.history-item.active{background:var(--bg3);color:var(--text)}
+.hist-icon{flex-shrink:0;color:var(--text3)}
+.hist-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-del{background:none;border:none;color:var(--text3);cursor:pointer;opacity:0;padding:3px;border-radius:4px;display:flex;align-items:center;transition:opacity .15s,color .15s}
+.history-item:hover .hist-del{opacity:1}
+.hist-del:hover{color:var(--red)}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.footer-info{font-size:11px;color:var(--text3)}
+.footer-logout{font-size:11.5px;color:var(--text3);text-decoration:none;padding:4px 8px;border-radius:6px;transition:background .15s,color .15s}
+.footer-logout:hover{background:var(--bg3);color:var(--text)}
 
-.sidebar.active{
-    transform: translateX(0);
+/* ── MAIN ── */
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:56px;background:rgba(9,9,11,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:400;flex-shrink:0}
+.menu-btn{width:36px;height:36px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.menu-btn:hover{background:var(--bg4)}
+@media(min-width:769px){.menu-btn{display:none}}
+.header-center{display:flex;flex-direction:column;align-items:center;gap:2px}
+.header-title{font-size:14.5px;font-weight:600}
+.header-status{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500}
+.header-status.online{color:var(--green)}
+.header-status.offline{color:var(--red)}
+.status-dot{width:7px;height:7px;border-radius:50%}
+.status-dot.online{background:var(--green);animation:pulse-dot 2.2s infinite}
+.status-dot.offline{background:var(--red)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
+.header-right{min-width:80px;display:flex;justify-content:flex-end}
+.incog-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:#a78bfa;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.25);padding:3px 8px;border-radius:100px}
+
+#messages{flex:1;overflow-y:auto;padding:24px 16px 16px;scroll-behavior:smooth}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+
+/* ── WELCOME ── */
+.welcome-screen{position:absolute;inset:56px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px 130px;z-index:2;pointer-events:none}
+.welcome-glow{position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(37,99,235,.1) 0%,transparent 70%);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-60%)}
+.welcome-logo{width:64px;height:64px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;margin-bottom:20px;box-shadow:0 0 48px rgba(37,99,235,.3)}
+.welcome-title{font-size:30px;font-weight:700;letter-spacing:-.025em;margin-bottom:8px}
+.welcome-sub{font-size:14.5px;color:var(--text3);margin-bottom:32px}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;pointer-events:all;max-width:560px}
+.chip{padding:8px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:100px;color:var(--text2);font-size:13px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.chip:hover{background:var(--bg4);border-color:rgba(37,99,235,.4);color:var(--text);transform:translateY(-1px)}
+
+/* ── MESSAGES ── */
+.msg-row{display:flex;gap:11px;margin-bottom:22px;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-row.user{flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px}
+.ai-avatar{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}
+.user-avatar{background:var(--bg4);color:var(--text2)}
+.msg-col{display:flex;flex-direction:column;max-width:min(74%,700px);gap:5px}
+.msg-row.user .msg-col{align-items:flex-end}
+.msg-row.ai   .msg-col{align-items:flex-start}
+.bubble{padding:11px 15px;border-radius:var(--radius-lg);line-height:1.65;word-wrap:break-word;overflow-wrap:break-word}
+.user-bubble{background:var(--blue);color:#fff;border-radius:var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);font-size:14px}
+.ai-bubble{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;font-size:14px}
+
+/* Thinking */
+.thinking-bubble{display:flex;align-items:center;gap:6px;padding:14px 18px;min-width:65px}
+.thinking-bubble span{display:inline-block;width:7px;height:7px;background:var(--text3);border-radius:50%}
+/* ← FIX: thinking-label is plain text in a span, not animated letter-by-letter */
+.thinking-label{font-size:13.5px;color:var(--text3);margin-left:2px}
+.dot-1{animation:bounce 1.3s infinite 0s}
+.dot-2{animation:bounce 1.3s infinite .2s}
+.dot-3{animation:bounce 1.3s infinite .4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+.spin-icon{animation:spin 1.2s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── MSG TEXT ── */
+.msg-text{font-size:14px;line-height:1.72}
+.msg-text p{margin:0 0 9px}
+.msg-text p:last-child{margin-bottom:0}
+.msg-text ul,.msg-text ol{padding-left:20px;margin:7px 0}
+.msg-text li{margin-bottom:5px}
+.msg-text h1,.msg-text h2,.msg-text h3{font-size:15px;font-weight:600;margin:12px 0 7px}
+.msg-text a{color:#60a5fa;text-decoration:none}
+.msg-text a:hover{text-decoration:underline}
+.msg-text strong{font-weight:600;color:var(--text)}
+.msg-text em{font-style:italic}
+.msg-text code{background:rgba(255,255,255,.09);padding:2px 6px;border-radius:5px;font-family:var(--mono);font-size:13px;color:#38bdf8}
+.msg-text table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+.msg-text th{background:var(--bg4);padding:7px 12px;text-align:left;font-weight:600;border:1px solid var(--border)}
+.msg-text td{padding:6px 12px;border:1px solid var(--border)}
+.msg-text blockquote{border-left:3px solid var(--blue);padding-left:12px;color:var(--text2);margin:8px 0;font-style:italic}
+.msg-text hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+
+/* ── CODE BLOCKS ── */
+.code-block{margin:10px 0;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border)}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:#141417;border-bottom:1px solid var(--border)}
+.code-lang{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+.copy-btn{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:3px 7px;border-radius:5px;transition:color .2s,background .2s}
+.copy-btn:hover{color:var(--text);background:var(--bg4)}
+.copy-btn.copied{color:#4ade80}
+.code-block pre{margin:0;padding:14px;overflow-x:auto;background:#0c0c0e!important;font-size:13px}
+.code-block pre code{background:none!important;padding:0!important;color:inherit;font-size:13px;font-family:var(--mono)}
+
+/* ── META / ACTIONS ── */
+.msg-meta{display:flex;align-items:center;gap:10px;padding:0 2px}
+.msg-time{font-size:11px;color:var(--text3)}
+.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.msg-row:hover .msg-actions{opacity:1}
+.msg-actions button,.action-copy,.action-retry{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s,background .2s}
+.msg-actions button:hover,.action-copy:hover,.action-retry:hover{color:var(--text);background:var(--bg3)}
+.action-copy.copied{color:#4ade80}
+
+/* ── IMAGE ── */
+.img-bubble{padding:10px}
+.gen-img-wrapper{position:relative;border-radius:var(--radius-md);overflow:hidden;display:inline-block;max-width:100%}
+.gen-img{display:block;max-width:360px;width:100%;border-radius:var(--radius-md);cursor:zoom-in;transition:filter .2s}
+.gen-img-wrapper:hover .gen-img{filter:brightness(.82)}
+.img-overlay{position:absolute;bottom:8px;right:8px;display:flex;gap:6px;opacity:0;transition:opacity .2s}
+.gen-img-wrapper:hover .img-overlay{opacity:1}
+.img-overlay button{width:34px;height:34px;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);border:none;border-radius:8px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.img-overlay button:hover{background:rgba(0,0,0,.92)}
+.img-caption{font-size:12px;color:var(--text3);margin-top:8px;font-style:italic}
+
+/* ── INPUT ── */
+.input-wrapper{padding:8px 16px 14px;flex-shrink:0}
+.input-area{max-width:780px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:6px 8px;transition:border-color .2s,box-shadow .2s}
+.input-area:focus-within{border-color:rgba(37,99,235,.5);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.file-preview{display:flex;align-items:center;gap:8px;padding:5px 8px 0;font-size:12.5px;color:var(--text2)}
+.file-preview button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 3px}
+.file-preview button:hover{color:var(--red)}
+.input-row{display:flex;align-items:flex-end;gap:6px}
+#messageInput{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:14.5px;font-family:var(--font);padding:9px 6px;resize:none;max-height:150px;overflow-y:auto;line-height:1.55}
+#messageInput::placeholder{color:var(--text3)}
+.tool-btn{width:38px;height:38px;background:none;border:none;border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s;flex-shrink:0}
+.tool-btn:hover{background:var(--bg4);color:var(--text)}
+.voice-btn.voice-active{background:rgba(239,68,68,.15);color:#ef4444;animation:pulse-voice 1s infinite}
+@keyframes pulse-voice{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3)}50%{box-shadow:0 0 0 7px rgba(239,68,68,0)}}
+#sendBtn{width:38px;height:38px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .1s;flex-shrink:0}
+#sendBtn:hover:not(:disabled){background:var(--blue-h)}
+#sendBtn:active{transform:scale(.93)}
+#sendBtn:disabled{opacity:.5;cursor:not-allowed}
+.disclaimer{text-align:center;font-size:11px;color:var(--text3);margin-top:7px}
+
+/* ── MODAL ── */
+.img-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);z-index:2000;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.img-modal img{max-width:92vw;max-height:88vh;border-radius:var(--radius-md);box-shadow:0 30px 90px rgba(0,0,0,.8)}
+.modal-close{position:fixed;top:18px;right:20px;background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.modal-close:hover{background:rgba(255,255,255,.2)}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 18px;border-radius:100px;box-shadow:0 8px 32px rgba(0,0,0,.5);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:3000;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE ── */
+@media(min-width:769px) and (max-width:1024px){
+  :root{--sidebar-w:230px}
+  .msg-col{max-width:80%}
+  .gen-img{max-width:300px}
 }
-}
-
-.sidebar.active{
-transform: translateX(0);
-}
-
-.chat-main{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    position: relative;   /* 🔥 IMPORTANT */
-}
-
-.welcome{
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: #9ca3af;
-    width: 100%;          /* 🔥 FIX CENTER WIDTH */
-}
-
-.welcome h1{
-    font-size: 32px;
-    font-weight: 500;
-}
-
-#messages{
-flex:1;
-overflow-y:auto;
-padding:20px;
-scroll-behavior: smooth;
-}
-
-/* MESSAGE */
-.message{
-display:flex;
-margin-bottom:16px;
-}
-
-.user{justify-content:flex-end}
-.ai{justify-content:flex-start}
-
-/* 🔥 TEXT FIX (CRITICAL) */
-.msg-text{
-font-size:18px;
-line-height:1.6;
-white-space:pre-wrap;
-word-break: break-word;
-}
-
-.msg-text p{
-margin:0;
-}
-
-.msg-text ul{
-padding-left:20px;
-margin:8px 0;
-}
-
-.msg-text li{
-margin-bottom:6px;
-}
-
-/* CODE BLOCK */
-pre{
-background:#020617;
-padding:12px;
-border-radius:8px;
-overflow-x:auto;
-margin-top:10px;
-
-white-space: pre-wrap;
-
-word-wrap: break-word;
-}
-
-code{
-color:#38bdf8;
-font-family: 'Courier New', monospace;
-}
-
-/* BUBBLE */
-.bubble{
-max-width:75%;
-padding:14px 18px;
-border-radius:18px;
-line-height: 1.5;
-}
-
-.user .bubble{
-background:#0b3692;
-border-bottom-right-radius: 6px;
-border-top-right-radius: 18px;
-border-top-left-radius: 18px;
-border-bottom-left-radius: 18px;
-}
-
-.ai .bubble{
-background:#000000;
-border:none;
-border-bottom-left-radius:6px;
-border-top-left-radius:18px;
-border-top-right-radius:18px;
-border-bottom-right-radius:18px;
-}
-
-/* ACTIONS */
-.msg-actions{
-margin-top:6px;
-display:flex;
-gap:6px;
-opacity:0;
-}
-
-body.no-scroll{
-overflow:hidden;
-}
-
-.bubble:hover .msg-actions{
-opacity:1;
-}
-
-.icon-btn,
-.voice-btn,
-#sendBtn{
-width:38px;
-height:38px;
-
-border-radius:50%;
-border:none;
-
-display:flex;
-align-items:center;
-justify-content:center;
-
-cursor:pointer;
-transition:0.2s;
-}
-
-.icon-btn:hover,
-.voice-btn:hover{
-background:#1f2937;
-}
-
-#sendBtn{
-background:#2563eb;
-}
-
-#sendBtn:hover{
-background:#1d4ed8;
-}
-
-@media(min-width:768px){
-.input-area{
-max-width:800px;
-margin:10px auto;
-}
-}
-
-.newchat:active{
-transform: scale(0.95);
-}
-
-.sidebar h2{
-font-size:20px;
-margin-bottom:15px;
-}
-
-.newchat{
-width:100%;
-padding:10px;
-border-radius:8px;
-background:#0b3692;
-border:none;
-color:white;
-margin-bottom:15px;
-cursor:pointer;
-}
-
-/* INPUT */
-.input-area{
-position: sticky;
-bottom: 0;
-
-display:flex;
-align-items:flex-end;
-gap:10px;
-
-padding:12px;
-margin:8px auto;
-width: 95%;
-
-background: rgba(15,23,42,0.6);
-backdrop-filter: blur(12px);
-
-border:1px solid #1f2937;
-border-radius:16px;
-
-box-shadow: 0 5px 20px rgba(0,0,0,0.4);
-}
-
-#messageInput{
-flex:1;
-
-padding:12px 14px;
-background: transparent;
-
-border:none;
-outline:none;
-
-color:white;
-font-size:15px;
-
-resize:none;
-max-height:150px;
-
-line-height:1.5;
-}
-
-.voice-btn{
-background: #565757;
-border-radius:50%;
-border:none;
-color:white;
-}
-
-.history-item span{
-flex:1;
-white-space:nowrap;
-overflow:hidden;
-text-overflow:ellipsis;
-}
-
-.code-container{
-    position: relative;
-}
-
-.copy-code-btn{
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: #1f2937;
-    border: none;
-    color: white;
-    padding: 4px 8px;
-    font-size: 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    opacity: 0;
-    transition: 0.2s;
-}
-
-.code-container:hover .copy-code-btn{
-    opacity: 1;
-}
-
-.copy-code-btn:hover{
-    opacity: 1;
-    background: #000000;
-}
-
-.msg-text a{
-    color: #3b82f6; /* ChatGPT blue */
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.msg-text a:hover{
-    text-decoration: underline;
-}
-
-.message.user .bubble::after{
-content:"";
-position:absolute;
-right:-6px;
-bottom:10px;
-width:12px;
-height:12px;
-background:#bbbbbc;
-border-radius:2px;
-transform:rotate(45deg);
-}
-
-.message.ai .bubble::after{
-content:"";
-position:absolute;
-left:-6px;
-bottom:10px;
-width:12px;
-height:12px;
-background:#bbbbbc;
-border-radius:2px;
-transform:rotate(45deg);
-}
-
-.bubble{
-position:relative;
-}
-
-.history-item{
-display:flex;
-justify-content:space-between;
-align-items:center;
-padding:10px;
-margin-bottom:8px;
-background:#0a0a0a;
-border-radius:8px;
-font-size:14px;
-cursor:pointer;
-transition:0.2s;
-}
-
-.history-item:hover{
-background:#111;
-}
-
-.history-item button{
-background:none;
-border:none;
-color:#f87171;
-cursor:pointer;
-}
-
-.menu-btn{
-display:none;
-margin:10px;
-padding:8px 12px;
-background:#111827;
-color:white;
-border:none;
-border-radius:6px;
-}
-
 @media(max-width:768px){
-.menu-btn{
-display:block;
+  html{font-size:14px}
+  #messages{padding:16px 12px 12px}
+  .msg-col{max-width:88%}
+  .bubble{padding:10px 13px}
+  .user-bubble,.ai-bubble{font-size:13.5px}
+  .msg-text{font-size:13.5px}
+  .welcome-screen{padding:30px 16px 110px}
+  .welcome-logo{width:54px;height:54px;font-size:23px}
+  .welcome-title{font-size:24px}
+  .welcome-sub{font-size:13.5px}
+  .chip{font-size:12.5px;padding:7px 13px}
+  .input-wrapper{padding:6px 10px 12px}
+  #messageInput{font-size:14px}
+  .gen-img{max-width:100%}
+  .msg-actions{opacity:1}
+  .hist-del{opacity:1}
 }
+@media(max-width:390px){
+  .welcome-title{font-size:21px}
+  .chip{font-size:12px;padding:6px 11px}
+  .tool-btn,#sendBtn{width:34px;height:34px}
 }
-
+@media(min-width:1280px){
+  :root{--sidebar-w:280px}
+  #messages{padding:28px 24px 20px}
+  .input-wrapper{padding:10px 24px 16px}
+}
 </style>
 
 {% endblock %}
