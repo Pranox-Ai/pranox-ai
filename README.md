@@ -1,5 +1,5 @@
 ## Hi there 👋
-# PRANOX AI
+# PRANOX AI 
 
 General AI, AI Email Writer & Resume Builder powered by AI.
 
@@ -11,3 +11,5 @@ Features:
 - Secure OAuth
 
 Visit at : https://pranox-ai.onrender.com/
+
+Founder : Chetansaipranav R 
