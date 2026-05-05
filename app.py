@@ -298,6 +298,7 @@ RESPONSE FORMAT
 3. Clean spacing
 4. Code in proper code blocks
 5. Always ask follow-up questions 
+6. When users ask about latest news or anything about recent happened browse and give the answer.
 
 ========================
 INTERNET USAGE
