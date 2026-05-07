@@ -11,15 +11,26 @@ import requests
 import re
 import json
 import time
+import tempfile
 
 # FILE SUPPORT
 import pdfplumber
 from PIL import Image
-import pytesseract
-if os.getenv("RENDER"):
-    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
-else:
-    pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+
+# Tesseract / pytesseract — graceful fallback if not installed
+try:
+    import pytesseract
+    # Render (Linux) path; local Mac path as fallback
+    if os.getenv("RENDER"):
+        pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+    else:
+        for _candidate in ["/opt/homebrew/bin/tesseract", "/usr/local/bin/tesseract", "/usr/bin/tesseract"]:
+            if os.path.isfile(_candidate):
+                pytesseract.pytesseract.tesseract_cmd = _candidate
+                break
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    TESSERACT_AVAILABLE = False
 
 load_dotenv()
 
@@ -329,9 +340,7 @@ def get_redirect_uri():
     """
     render_url = os.getenv("RENDER_EXTERNAL_URL")
     if render_url:
-        # Render provides the full URL like https://myapp.onrender.com
         return f"{render_url.rstrip('/')}/authorize"
-    # Local dev
     return "http://127.0.0.1:8000/authorize"
 
 # ═══════════════════════════════════════════
@@ -524,21 +533,30 @@ def api_chat():
 
 # ═══════════════════════════════════════════
 #  FILE UPLOAD — full multi-format support
+#  FIX: read file into bytes FIRST so the
+#       stream can be reused across formats
 # ═══════════════════════════════════════════
 @app.route("/api/upload", methods=["POST"])
 def upload():
     if "file" not in request.files:
         return jsonify({"reply": "No file received. Please try again."})
 
-    file     = request.files["file"]
-    filename = file.filename.lower()
-    text     = ""
+    file      = request.files["file"]
+    filename  = file.filename.lower()
+    text      = ""
+
+    # ── Read ALL bytes upfront so we never run into "stream already consumed" issues
+    try:
+        file_bytes = file.read()
+    except Exception as e:
+        print("FILE READ ERROR:", e)
+        return jsonify({"reply": "Could not read the uploaded file. Please try again."})
 
     try:
         # ── PDF ──────────────────────────────────────────
         if filename.endswith(".pdf"):
             try:
-                with pdfplumber.open(file) as pdf:
+                with pdfplumber.open(BytesIO(file_bytes)) as pdf:
                     for page in pdf.pages:
                         extracted = page.extract_text()
                         if extracted:
@@ -548,48 +566,57 @@ def upload():
 
         # ── Word Documents (.docx / .doc) ─────────────────
         elif filename.endswith((".docx", ".doc")):
+            # Try python-docx first (pure Python, works on Render without extras)
             try:
-                import docx2txt
-                file_bytes = file.read()
-                import tempfile, os as _os
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                text = docx2txt.process(tmp_path)
-                _os.unlink(tmp_path)
-            except Exception as e:
-                print("DOCX error:", e)
-                # fallback: try python-docx
-                try:
-                    from docx import Document
-                    from io import BytesIO as _BIO
-                    doc = Document(_BIO(file_bytes))
-                    text = "\n".join([para.text for para in doc.paragraphs])
-                except Exception as e2:
-                    print("python-docx fallback error:", e2)
-
-        # ── Excel (.xlsx / .xls / .xlsm) ─────────────────
-        elif filename.endswith((".xlsx", ".xls", ".xlsm")):
-            try:
-                import openpyxl
-                from io import BytesIO as _BIO
-                file_bytes = file.read()
-                wb = openpyxl.load_workbook(_BIO(file_bytes), read_only=True, data_only=True)
+                from docx import Document
+                doc = Document(BytesIO(file_bytes))
                 parts = []
-                for sheet_name in wb.sheetnames:
-                    ws = wb[sheet_name]
-                    parts.append(f"[Sheet: {sheet_name}]")
-                    for row in ws.iter_rows(values_only=True):
-                        row_text = "\t".join([str(c) if c is not None else "" for c in row])
+                for para in doc.paragraphs:
+                    if para.text.strip():
+                        parts.append(para.text)
+                # Also grab text from tables
+                for table in doc.tables:
+                    for row in table.rows:
+                        row_text = "\t".join(cell.text for cell in row.cells if cell.text.strip())
                         if row_text.strip():
                             parts.append(row_text)
                 text = "\n".join(parts)
             except Exception as e:
-                print("Excel (openpyxl) error:", e)
-                # fallback: xlrd for older .xls
+                print("python-docx error:", e)
+                # Fallback: docx2txt
+                try:
+                    import docx2txt
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                        tmp.write(file_bytes)
+                        tmp_path = tmp.name
+                    text = docx2txt.process(tmp_path)
+                    os.unlink(tmp_path)
+                except Exception as e2:
+                    print("docx2txt fallback error:", e2)
+
+        # ── Excel (.xlsx / .xls / .xlsm) ─────────────────
+        elif filename.endswith((".xlsx", ".xls", ".xlsm")):
+            # openpyxl for .xlsx/.xlsm
+            if filename.endswith((".xlsx", ".xlsm")):
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
+                    parts = []
+                    for sheet_name in wb.sheetnames:
+                        ws = wb[sheet_name]
+                        parts.append(f"[Sheet: {sheet_name}]")
+                        for row in ws.iter_rows(values_only=True):
+                            row_text = "\t".join([str(c) if c is not None else "" for c in row])
+                            if row_text.strip():
+                                parts.append(row_text)
+                    text = "\n".join(parts)
+                    wb.close()
+                except Exception as e:
+                    print("openpyxl error:", e)
+            # xlrd for old .xls only
+            elif filename.endswith(".xls"):
                 try:
                     import xlrd
-                    from io import BytesIO as _BIO
                     wb = xlrd.open_workbook(file_contents=file_bytes)
                     parts = []
                     for sheet in wb.sheets():
@@ -599,16 +626,14 @@ def upload():
                             if row_text.strip():
                                 parts.append(row_text)
                     text = "\n".join(parts)
-                except Exception as e2:
-                    print("xlrd fallback error:", e2)
+                except Exception as e:
+                    print("xlrd error:", e)
 
         # ── PowerPoint (.pptx / .ppt) ─────────────────────
         elif filename.endswith((".pptx", ".ppt")):
             try:
                 from pptx import Presentation
-                from io import BytesIO as _BIO
-                file_bytes = file.read()
-                prs = Presentation(_BIO(file_bytes))
+                prs = Presentation(BytesIO(file_bytes))
                 parts = []
                 for slide_num, slide in enumerate(prs.slides, start=1):
                     parts.append(f"[Slide {slide_num}]")
@@ -621,26 +646,32 @@ def upload():
 
         # ── Images — OCR ──────────────────────────────────
         elif filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".gif")):
-            try:
-                img = Image.open(file)
-                if img.mode not in ("RGB", "L"):
-                    img = img.convert("RGB")
-                text = pytesseract.image_to_string(img)
-            except Exception as e:
-                print("Image OCR error:", e)
+            if TESSERACT_AVAILABLE:
+                try:
+                    img = Image.open(BytesIO(file_bytes))
+                    if img.mode not in ("RGB", "L"):
+                        img = img.convert("RGB")
+                    text = pytesseract.image_to_string(img)
+                    if not text.strip():
+                        text = "[Image uploaded but no text was detected by OCR.]"
+                except Exception as e:
+                    print("Image OCR error:", e)
+                    text = "[Could not perform OCR on this image.]"
+            else:
+                # Tesseract not available — describe the image via AI vision if possible
+                text = "[Image file received. OCR (Tesseract) is not available on this server. Please describe the image content in your message instead.]"
 
         # ── Plain text ────────────────────────────────────
         elif filename.endswith(".txt"):
-            text = file.read().decode("utf-8", errors="ignore")
+            text = file_bytes.decode("utf-8", errors="ignore")
 
         # ── CSV ───────────────────────────────────────────
         elif filename.endswith(".csv"):
-            text = file.read().decode("utf-8", errors="ignore")
-            text = "CSV Data:\n" + text
+            text = "CSV Data:\n" + file_bytes.decode("utf-8", errors="ignore")
 
         # ── JSON ──────────────────────────────────────────
         elif filename.endswith(".json"):
-            raw = file.read().decode("utf-8", errors="ignore")
+            raw = file_bytes.decode("utf-8", errors="ignore")
             try:
                 parsed = json.loads(raw)
                 text = "JSON Data:\n" + json.dumps(parsed, indent=2)
@@ -649,27 +680,24 @@ def upload():
 
         # ── XML ───────────────────────────────────────────
         elif filename.endswith(".xml"):
-            text = file.read().decode("utf-8", errors="ignore")
-            text = "XML Data:\n" + text
+            text = "XML Data:\n" + file_bytes.decode("utf-8", errors="ignore")
 
         # ── RTF ───────────────────────────────────────────
         elif filename.endswith(".rtf"):
             try:
                 from striprtf.striprtf import rtf_to_text
-                raw = file.read().decode("utf-8", errors="ignore")
+                raw = file_bytes.decode("utf-8", errors="ignore")
                 text = rtf_to_text(raw)
             except Exception as e:
                 print("RTF error:", e)
-                text = file.read().decode("utf-8", errors="ignore")
+                text = file_bytes.decode("utf-8", errors="ignore")
 
         # ── ODT (OpenDocument Text) ───────────────────────
         elif filename.endswith(".odt"):
             try:
                 from odf.opendocument import load as odf_load
                 from odf.text import P
-                from io import BytesIO as _BIO
-                file_bytes = file.read()
-                doc = odf_load(_BIO(file_bytes))
+                doc = odf_load(BytesIO(file_bytes))
                 paragraphs = doc.getElementsByType(P)
                 text = "\n".join([
                     "".join([str(n) for n in p.childNodes if hasattr(n, "data")])
@@ -679,35 +707,54 @@ def upload():
                 print("ODT error:", e)
 
         # ── ODS (OpenDocument Spreadsheet) ────────────────
+        # ezodf is unreliable on Render; use odfpy as primary
         elif filename.endswith(".ods"):
             try:
-                import ezodf
-                from io import BytesIO as _BIO
-                file_bytes = file.read()
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".ods") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                import os as _os
-                doc = ezodf.opendoc(tmp_path)
+                from odf.opendocument import load as odf_load
+                from odf.table import Table, TableRow, TableCell
+                from odf.text import P
+                doc = odf_load(BytesIO(file_bytes))
                 parts = []
-                for sheet in doc.sheets:
-                    parts.append(f"[Sheet: {sheet.name}]")
-                    for row in range(sheet.nrows()):
-                        row_data = []
-                        for col in range(sheet.ncols()):
-                            val = sheet[row, col].value
-                            row_data.append(str(val) if val is not None else "")
-                        row_text = "\t".join(row_data)
+                for sheet in doc.spreadsheet.getElementsByType(Table):
+                    parts.append(f"[Sheet: {sheet.getAttribute('name')}]")
+                    for row in sheet.getElementsByType(TableRow):
+                        cells = []
+                        for cell in row.getElementsByType(TableCell):
+                            cell_text = ""
+                            for p in cell.getElementsByType(P):
+                                for node in p.childNodes:
+                                    if hasattr(node, "data"):
+                                        cell_text += node.data
+                            cells.append(cell_text)
+                        row_text = "\t".join(cells)
                         if row_text.strip():
                             parts.append(row_text)
                 text = "\n".join(parts)
-                _os.unlink(tmp_path)
             except Exception as e:
-                print("ODS error:", e)
+                print("ODS (odfpy) error:", e)
+                # Final fallback: ezodf
+                try:
+                    import ezodf
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".ods") as tmp:
+                        tmp.write(file_bytes)
+                        tmp_path = tmp.name
+                    doc = ezodf.opendoc(tmp_path)
+                    parts = []
+                    for sheet in doc.sheets:
+                        parts.append(f"[Sheet: {sheet.name}]")
+                        for row in range(sheet.nrows()):
+                            row_data = [str(sheet[row, col].value) if sheet[row, col].value is not None else "" for col in range(sheet.ncols())]
+                            row_text = "\t".join(row_data)
+                            if row_text.strip():
+                                parts.append(row_text)
+                    text = "\n".join(parts)
+                    os.unlink(tmp_path)
+                except Exception as e2:
+                    print("ezodf fallback error:", e2)
 
         # ── Markdown ──────────────────────────────────────
         elif filename.endswith(".md"):
-            text = file.read().decode("utf-8", errors="ignore")
+            text = file_bytes.decode("utf-8", errors="ignore")
 
         # ── Code / config files ───────────────────────────
         elif filename.endswith((
@@ -718,16 +765,14 @@ def upload():
             ".yaml", ".yml", ".toml", ".ini", ".env",
             ".sh", ".bat", ".ps1", ".r", ".sql"
         )):
-            text = file.read().decode("utf-8", errors="ignore")
+            text = file_bytes.decode("utf-8", errors="ignore")
 
         # ── ZIP archive — extract and read text files ─────
         elif filename.endswith(".zip"):
             try:
                 import zipfile
-                from io import BytesIO as _BIO
-                file_bytes = file.read()
                 parts = []
-                with zipfile.ZipFile(_BIO(file_bytes)) as zf:
+                with zipfile.ZipFile(BytesIO(file_bytes)) as zf:
                     for name in zf.namelist():
                         if name.endswith((
                             ".txt", ".md", ".csv", ".json", ".xml",
@@ -858,14 +903,12 @@ def generate_image():
 
         if response.status_code == 200:
             content_type = response.headers.get("Content-Type", "")
-            # Cloudflare returns raw image bytes
             if "image" in content_type or len(response.content) > 1000:
                 return response.content, 200, {
                     "Content-Type": "image/png",
                     "Cache-Control": "no-cache",
                 }
             else:
-                # Might be a JSON error response
                 print("CF unexpected content:", response.text[:300])
                 return jsonify({"reply": "Image generation returned unexpected data. Please try again."}), 500
 

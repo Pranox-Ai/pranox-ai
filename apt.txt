@@ -1,4 +1,0 @@
-tesseract-ocr
-libtesseract-dev
-poppler-utils
-antiword
