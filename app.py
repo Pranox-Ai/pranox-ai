@@ -16,11 +16,15 @@ import time
 import pdfplumber
 from PIL import Image
 import pytesseract
-pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+if os.getenv("RENDER"):
+    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+else:
+    pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
 
 load_dotenv()
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.getenv("FLASK_ENV") == "production",
