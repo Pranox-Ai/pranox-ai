@@ -126,3 +126,5 @@ Pranox AI is continuously evolving.
 More powerful features and improvements are coming soon.
 
 Stay tuned 🚀
+
+All Rights Reserved 
