@@ -16,6 +16,7 @@ import time
 import pdfplumber
 from PIL import Image
 import pytesseract
+pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
 
 load_dotenv()
 
@@ -518,7 +519,7 @@ def api_chat():
         db.close()
 
 # ═══════════════════════════════════════════
-#  FILE UPLOAD — enhanced file support
+#  FILE UPLOAD — full multi-format support
 # ═══════════════════════════════════════════
 @app.route("/api/upload", methods=["POST"])
 def upload():
@@ -530,7 +531,7 @@ def upload():
     text     = ""
 
     try:
-        # PDF
+        # ── PDF ──────────────────────────────────────────
         if filename.endswith(".pdf"):
             try:
                 with pdfplumber.open(file) as pdf:
@@ -538,31 +539,102 @@ def upload():
                         extracted = page.extract_text()
                         if extracted:
                             text += extracted + "\n"
-               
             except Exception as e:
                 print("PDF error:", e)
 
-        # Images — OCR
-        elif filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".gif")):
+        # ── Word Documents (.docx / .doc) ─────────────────
+        elif filename.endswith((".docx", ".doc")):
+            try:
+                import docx2txt
+                file_bytes = file.read()
+                import tempfile, os as _os
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                text = docx2txt.process(tmp_path)
+                _os.unlink(tmp_path)
+            except Exception as e:
+                print("DOCX error:", e)
+                # fallback: try python-docx
+                try:
+                    from docx import Document
+                    from io import BytesIO as _BIO
+                    doc = Document(_BIO(file_bytes))
+                    text = "\n".join([para.text for para in doc.paragraphs])
+                except Exception as e2:
+                    print("python-docx fallback error:", e2)
+
+        # ── Excel (.xlsx / .xls / .xlsm) ─────────────────
+        elif filename.endswith((".xlsx", ".xls", ".xlsm")):
+            try:
+                import openpyxl
+                from io import BytesIO as _BIO
+                file_bytes = file.read()
+                wb = openpyxl.load_workbook(_BIO(file_bytes), read_only=True, data_only=True)
+                parts = []
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    parts.append(f"[Sheet: {sheet_name}]")
+                    for row in ws.iter_rows(values_only=True):
+                        row_text = "\t".join([str(c) if c is not None else "" for c in row])
+                        if row_text.strip():
+                            parts.append(row_text)
+                text = "\n".join(parts)
+            except Exception as e:
+                print("Excel (openpyxl) error:", e)
+                # fallback: xlrd for older .xls
+                try:
+                    import xlrd
+                    from io import BytesIO as _BIO
+                    wb = xlrd.open_workbook(file_contents=file_bytes)
+                    parts = []
+                    for sheet in wb.sheets():
+                        parts.append(f"[Sheet: {sheet.name}]")
+                        for row_idx in range(sheet.nrows):
+                            row_text = "\t".join([str(sheet.cell_value(row_idx, col)) for col in range(sheet.ncols)])
+                            if row_text.strip():
+                                parts.append(row_text)
+                    text = "\n".join(parts)
+                except Exception as e2:
+                    print("xlrd fallback error:", e2)
+
+        # ── PowerPoint (.pptx / .ppt) ─────────────────────
+        elif filename.endswith((".pptx", ".ppt")):
+            try:
+                from pptx import Presentation
+                from io import BytesIO as _BIO
+                file_bytes = file.read()
+                prs = Presentation(_BIO(file_bytes))
+                parts = []
+                for slide_num, slide in enumerate(prs.slides, start=1):
+                    parts.append(f"[Slide {slide_num}]")
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text.strip():
+                            parts.append(shape.text.strip())
+                text = "\n".join(parts)
+            except Exception as e:
+                print("PPTX error:", e)
+
+        # ── Images — OCR ──────────────────────────────────
+        elif filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".gif")):
             try:
                 img = Image.open(file)
-                # Convert to RGB if needed
                 if img.mode not in ("RGB", "L"):
                     img = img.convert("RGB")
                 text = pytesseract.image_to_string(img)
             except Exception as e:
                 print("Image OCR error:", e)
 
-        # Plain text
+        # ── Plain text ────────────────────────────────────
         elif filename.endswith(".txt"):
             text = file.read().decode("utf-8", errors="ignore")
 
-        # CSV
+        # ── CSV ───────────────────────────────────────────
         elif filename.endswith(".csv"):
             text = file.read().decode("utf-8", errors="ignore")
             text = "CSV Data:\n" + text
 
-        # JSON
+        # ── JSON ──────────────────────────────────────────
         elif filename.endswith(".json"):
             raw = file.read().decode("utf-8", errors="ignore")
             try:
@@ -571,20 +643,126 @@ def upload():
             except Exception:
                 text = raw
 
-        # Python / code files
-        elif filename.endswith((".py", ".js", ".ts", ".html", ".css", ".java", ".cpp", ".c", ".md")):
+        # ── XML ───────────────────────────────────────────
+        elif filename.endswith(".xml"):
+            text = file.read().decode("utf-8", errors="ignore")
+            text = "XML Data:\n" + text
+
+        # ── RTF ───────────────────────────────────────────
+        elif filename.endswith(".rtf"):
+            try:
+                from striprtf.striprtf import rtf_to_text
+                raw = file.read().decode("utf-8", errors="ignore")
+                text = rtf_to_text(raw)
+            except Exception as e:
+                print("RTF error:", e)
+                text = file.read().decode("utf-8", errors="ignore")
+
+        # ── ODT (OpenDocument Text) ───────────────────────
+        elif filename.endswith(".odt"):
+            try:
+                from odf.opendocument import load as odf_load
+                from odf.text import P
+                from io import BytesIO as _BIO
+                file_bytes = file.read()
+                doc = odf_load(_BIO(file_bytes))
+                paragraphs = doc.getElementsByType(P)
+                text = "\n".join([
+                    "".join([str(n) for n in p.childNodes if hasattr(n, "data")])
+                    for p in paragraphs
+                ])
+            except Exception as e:
+                print("ODT error:", e)
+
+        # ── ODS (OpenDocument Spreadsheet) ────────────────
+        elif filename.endswith(".ods"):
+            try:
+                import ezodf
+                from io import BytesIO as _BIO
+                file_bytes = file.read()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".ods") as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                import os as _os
+                doc = ezodf.opendoc(tmp_path)
+                parts = []
+                for sheet in doc.sheets:
+                    parts.append(f"[Sheet: {sheet.name}]")
+                    for row in range(sheet.nrows()):
+                        row_data = []
+                        for col in range(sheet.ncols()):
+                            val = sheet[row, col].value
+                            row_data.append(str(val) if val is not None else "")
+                        row_text = "\t".join(row_data)
+                        if row_text.strip():
+                            parts.append(row_text)
+                text = "\n".join(parts)
+                _os.unlink(tmp_path)
+            except Exception as e:
+                print("ODS error:", e)
+
+        # ── Markdown ──────────────────────────────────────
+        elif filename.endswith(".md"):
             text = file.read().decode("utf-8", errors="ignore")
 
+        # ── Code / config files ───────────────────────────
+        elif filename.endswith((
+            ".py", ".js", ".ts", ".jsx", ".tsx",
+            ".html", ".css", ".scss",
+            ".java", ".cpp", ".c", ".h", ".cs",
+            ".go", ".rs", ".rb", ".php", ".swift", ".kt",
+            ".yaml", ".yml", ".toml", ".ini", ".env",
+            ".sh", ".bat", ".ps1", ".r", ".sql"
+        )):
+            text = file.read().decode("utf-8", errors="ignore")
+
+        # ── ZIP archive — extract and read text files ─────
+        elif filename.endswith(".zip"):
+            try:
+                import zipfile
+                from io import BytesIO as _BIO
+                file_bytes = file.read()
+                parts = []
+                with zipfile.ZipFile(_BIO(file_bytes)) as zf:
+                    for name in zf.namelist():
+                        if name.endswith((
+                            ".txt", ".md", ".csv", ".json", ".xml",
+                            ".py", ".js", ".html", ".css", ".yaml", ".yml"
+                        )):
+                            try:
+                                content = zf.read(name).decode("utf-8", errors="ignore")
+                                parts.append(f"[File: {name}]\n{content}")
+                            except Exception:
+                                pass
+                text = "\n\n".join(parts) if parts else ""
+                if not text:
+                    return jsonify({"reply": "The ZIP file was opened but contained no readable text files."})
+            except Exception as e:
+                print("ZIP error:", e)
+
         else:
-            return jsonify({"reply": "Unsupported file type. Supported: PDF, images (PNG/JPG/WEBP), TXT, CSV, JSON, and code files."})
+            return jsonify({"reply": (
+                "Unsupported file type. Supported formats:\n"
+                "• Documents: PDF, DOCX, DOC, TXT, RTF, ODT\n"
+                "• Spreadsheets: XLSX, XLS, XLSM, CSV, ODS\n"
+                "• Presentations: PPTX, PPT\n"
+                "• Images (OCR): PNG, JPG, JPEG, WEBP, BMP, TIFF, GIF\n"
+                "• Data: JSON, XML\n"
+                "• Code: PY, JS, TS, HTML, CSS, Java, C++, Go, SQL, etc.\n"
+                "• Archives: ZIP"
+            )})
 
         if not text.strip():
             return jsonify({"reply": "Could not extract text from this file. The file may be empty, password-protected, or in an unsupported format."})
 
-        text  = safe_trim(text, limit=5000)
+        text     = safe_trim(text, limit=5000)
         user_msg = request.form.get("message", "").strip()
 
-        prompt = f"Please analyze this document and provide:\n1. A clear summary\n2. Key points\n3. Any important details\n\nUser's question: {user_msg}\n\nDocument content:\n{text}" if user_msg else f"Please analyze this document:\n\n{text}"
+        prompt = (
+            f"Please analyze this document and provide:\n1. A clear summary\n2. Key points\n3. Any important details\n\nUser's question: {user_msg}\n\nDocument content:\n{text}"
+            if user_msg else
+            f"Please analyze this document:\n\n{text}"
+        )
 
         reply = run_ai([
             {
