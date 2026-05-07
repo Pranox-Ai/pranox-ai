@@ -77,6 +77,8 @@ Founder of Pranox AI
 
 - 🌍 Website: https://pranox-ai.onrender.com
 
+-  Instagram : https://www.instagram.com/pranoxgroups?igsh=a2EzOXUzdDV2MzVq
+
 ---
 
 🎯 Vision
