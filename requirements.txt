@@ -7,14 +7,16 @@ gunicorn>=21.0.0
 reportlab>=4.0.0
 pdfplumber>=0.10.0
 pillow>=10.0.0
-pytesseract>=0.3.10
 flask-limiter>=3.5.0
-# ── File format support ──────────────────
+
+# ── Document formats ─────────────────────
 python-docx>=1.1.0
 docx2txt>=0.8
-openpyxl>=3.1.0
-xlrd>=2.0.1
 python-pptx>=0.6.23
 striprtf>=0.0.26
 odfpy>=1.4.1
-# ezodf removed — unreliable on Render; odfpy handles ODS natively
+
+# ── Spreadsheet formats ──────────────────
+openpyxl>=3.1.0
+xlrd>=2.0.1
+pandas>=2.0.0
