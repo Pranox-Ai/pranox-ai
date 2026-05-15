@@ -76,11 +76,18 @@ def search_internet(query):
             json={"q": query, "num": 5}, timeout=5)
         data = res.json()
         results = []
+        if "answerBox" in data:
+            ab = data["answerBox"]
+            answer = ab.get("answer") or ab.get("snippet") or ab.get("title", "")
+            if answer:
+                results.append(f"[Direct Answer]: {answer}")
         if "organic" in data:
             for r in data["organic"][:5]:
                 results.append(f"{r['title']}: {r['link']}\n  {r.get('snippet','')}")
         return "\n\n".join(results)
-    except Exception: return ""
+    except Exception as e:
+        print("SERPER ERROR:", e)
+        return ""
 
 def safe_trim(text, limit=6000):
     return text[:limit] if len(text) > limit else text
@@ -107,7 +114,71 @@ def is_bad_response(reply):
     bad_patterns = ["here's the corrected code", "flask application", "example of how you could", "missing code"]
     return any(p in reply.lower() for p in bad_patterns)
 
-def build_system_prompt(memory: str) -> str:
+# ═══════════════════════════════════════════
+#  SMART SEARCH TRIGGER
+#  Determines whether a query needs live web search
+# ═══════════════════════════════════════════
+
+# Keywords that always trigger a search
+SEARCH_KEYWORDS = [
+    "latest", "recent", "current", "today", "now", "news", "update",
+    "2024", "2025", "2026",
+    "price", "cost", "rate", "stock", "crypto", "bitcoin", "market",
+    "weather", "temperature", "forecast",
+    "who won", "who is winning", "score", "result", "match",
+    "election", "vote", "winner", "elected",
+    "war", "conflict", "attack", "crisis", "protest",
+    "launched", "released", "announced", "introduced",
+    "died", "arrested", "resigned", "appointed", "fired",
+    "ipl", "cricket", "football", "nba", "nfl", "fifa",
+    "trending", "viral", "breaking",
+]
+
+# Regex patterns that always trigger a search
+SEARCH_PATTERNS = [
+    r"\bwho is (the )?(current |new |latest )?(cm|chief minister|pm|prime minister|president|ceo|founder|owner|governor|minister|mayor|chancellor|king|queen|coo|cto|cfo)\b",
+    r"\bwhat is (the )?(current |latest |new )?(price|rate|status|situation|update)\b",
+    r"\b(cm|chief minister|pm|prime minister|president|ceo) of \w+",
+    r"\bcurrent (government|ruling party|leader|head)\b",
+    r"\blatest (news|update|development|result)\b",
+    r"\brecently (happened|announced|launched|released|arrested|elected)\b",
+    r"\bwho (leads?|runs?|heads?|controls?|owns?) \w+",
+    r"\bis \w+ (still|currently|now)\b",
+    r"\bwhat happened (to|with|in|at)\b",
+    r"\bhow much (does|is|are|did)\b",
+]
+
+def needs_live_search(message: str) -> bool:
+    """Return True if the query requires live internet search."""
+    msg_lower = message.lower()
+
+    # Check plain keywords
+    if any(kw in msg_lower for kw in SEARCH_KEYWORDS):
+        return True
+
+    # Check regex patterns
+    for pattern in SEARCH_PATTERNS:
+        if re.search(pattern, msg_lower):
+            return True
+
+    return False
+
+def build_system_prompt(memory: str, has_search_results: bool = False) -> str:
+    search_instruction = ""
+    if has_search_results:
+        search_instruction = """
+========================
+LIVE SEARCH RESULTS (CRITICAL)
+========================
+Live web search results have been provided to you in this conversation.
+- You MUST use these search results to answer the user's question.
+- The search results are MORE ACCURATE than your training data for current/recent information.
+- Always prefer search result data over anything from your training.
+- If the answer is clearly in the search results, state it directly and confidently.
+- Do NOT say "I don't have real-time data" or "as of my knowledge cutoff" when search results are available.
+- Cite from the search results naturally (e.g., "According to recent sources..." or "Latest information shows...").
+"""
+
     return f"""You are Pranox AI — a next-generation AI assistant, highly intelligent, friendly, and precise.
 
 ========================
@@ -132,11 +203,27 @@ THINKING (IMPORTANT)
 ========================
 - Understand the question deeply
 - Break into logical steps internally
-- Do NOT show reasoning
-- Give only final clean answer
-- Before answering think and check that while it is correct or not internally 
-- Before giving response about latest information or frequently changing information through browsing check if it is correct or not internally
-- While user is asking about the questions like general knowledge, like constantly changing things for example weather, about politics, company CEO's , owners of companies and etc, always browse and check it twice internally is it correct or not and give the response correctly
+- Do NOT show reasoning or thinking steps
+- Give only the final clean answer
+
+========================
+REAL-TIME INFORMATION (CRITICAL)
+========================
+Your training data has a knowledge cutoff and may be OUTDATED for:
+- Political leaders (CM, PM, President, Ministers)
+- Company CEOs, founders, owners
+- Sports scores and results
+- Stock prices, crypto rates
+- Recent news and events
+- Election results
+- Government policies
+
+For ALL such questions:
+1. Use the live search results provided (if available)
+2. If no search results: clearly tell the user your data may be outdated and suggest they verify
+3. NEVER confidently state outdated information as current fact
+4. NEVER say a person holds a position if search results contradict it
+{search_instruction}
 
 ========================
 GREETING RULE (IMPORTANT)
@@ -146,7 +233,7 @@ GREETING RULE (IMPORTANT)
 
 Then:
 - Respond with a friendly greeting
-- If user's name exists → include it
+- If user's name exists in memory → include it
 
 Examples:
 - "Hi! How can I help you today?"
@@ -163,20 +250,9 @@ Rules:
 PERSONALIZATION (IMPORTANT)
 ========================
 - If user's name is available in memory:
-  Use it naturally in responses
-
-Examples:
-- "Hi Pranav! How can I help you today?"
-- "Hey Pranav, what would you like to do?"
-
-Rules:
+  Use it naturally in responses — mainly in greetings or first line
 - Do NOT overuse the name
-- Use mainly in greetings or first line
-- Keep it natural and friendly
-
-- If user tells their name:
-  Respond like:
-  "Nice to meet you <name>!"
+- If user tells their name: respond like "Nice to meet you <name>!"
 
 ========================
 CONTEXT
@@ -223,8 +299,7 @@ ONLY provide when user explicitly asks for contact/email info.
 ========================
 BEHAVIOR
 ========================
-- Friendly, smart, helpful — like ChatGPT
-- Use user's name from memory naturally in greetings
+- Friendly, smart, helpful
 - Never robotic
 - Keep answers clean and structured
 - Use bullet points only when helpful
@@ -237,14 +312,7 @@ RESPONSE FORMAT
 2. Bullets when needed
 3. Clean spacing
 4. Code in proper code blocks
-5. Always ask follow-up questions 
-6. When users ask about latest news or anything about recent happened browse and give the answer
-7. When providing a response think and check while it is correct or not internally while giving the response of latest information from browsing
-
-========================
-INTERNET USAGE
-========================
-Use search results only if relevant. Prefer latest info when needed.
+5. Suggest follow-up questions when relevant
 
 ========================
 MEMORY
@@ -339,39 +407,84 @@ def api_chat():
     try:
         db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "user", user_message))
         db.commit()
+
         memory = get_memory(user_email)
+
+        # Auto-extract name from message
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
             memory = get_memory(user_email)
+
+        # Auto-extract age from message
         age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
         if age_match:
             save_memory(user_email, "age", age_match.group(1))
             memory = get_memory(user_email)
-        history = db.execute("SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20", (user_email,)).fetchall()
+
+        # Fetch chat history
+        history = db.execute(
+            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+            (user_email,)
+        ).fetchall()
         history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
-        needs_search = any(kw in user_message.lower() for kw in ["latest", "news", "today", "current", "2024", "2025", "2026", "price", "weather", "stock", "who won", "what happened"])
-        search_results = search_internet(user_message) if needs_search else ""
-        msgs = [{"role": "system", "content": build_system_prompt(memory)}]
+
+        # ── SMART SEARCH ─────────────────────────────────────
+        do_search      = needs_live_search(user_message)
+        search_results = ""
+        if do_search:
+            print(f"[SEARCH TRIGGERED] Query: {user_message}")
+            search_results = search_internet(user_message)
+            if search_results:
+                print(f"[SEARCH RESULTS] {search_results[:200]}...")
+            else:
+                print("[SEARCH] No results returned")
+        # ─────────────────────────────────────────────────────
+
+        has_results = bool(search_results.strip())
+
+        # Build messages — inject search BEFORE user message so model sees it as context
+        msgs = [{"role": "system", "content": build_system_prompt(memory, has_search_results=has_results)}]
+
+        # Inject search results as a system message right before the conversation
+        if has_results:
+            msgs.append({
+                "role": "system",
+                "content": (
+                    f"[LIVE WEB SEARCH RESULTS — use these to answer the user's question accurately]\n\n"
+                    f"{search_results}\n\n"
+                    f"These results are from a real-time search. Trust them over your training data."
+                )
+            })
+
+        # Add conversation history
         for h in reversed(history):
             role = h["role"] if h["role"] in ("user", "assistant") else "user"
             msgs.append({"role": role, "content": h["message"]})
+
+        # Add current user message
         msgs.append({"role": "user", "content": user_message})
-        if search_results:
-            msgs.append({"role": "system", "content": f"[Live web search results for context]\n{search_results}"})
+
         reply = run_ai(msgs)
-        if not reply: reply = "I ran into an issue generating a response. Please try again."
+        if not reply:
+            reply = "I ran into an issue generating a response. Please try again."
+
         if is_bad_response(reply):
             links = search_internet(user_message)
             reply = f"Here are some helpful resources:\n\n{links}" if links else "I couldn't process that. Could you rephrase your question?"
+
         reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
+
         if "user" not in session and "login_nudge" not in session:
             reply += "\n\n💡 *Login to save your chat history and get personalized responses*"
             session["login_nudge"] = True
+
         if "couldn't fully process" not in reply.lower():
             db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "assistant", reply))
             db.commit()
+
         return jsonify({"reply": reply})
+
     except Exception as e:
         print("CHAT ERROR:", e)
         return jsonify({"reply": "An unexpected error occurred. Please try again."}), 500
@@ -380,7 +493,6 @@ def api_chat():
 
 # ═══════════════════════════════════════════
 #  IMAGE VISION — Groq multimodal
-#  Works on BOTH localhost AND Render (no Tesseract needed)
 # ═══════════════════════════════════════════
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif"}
 IMAGE_MIME = {
@@ -598,13 +710,10 @@ def upload():
     user_question = request.form.get("message", "").strip()
     user_email    = session["user"]["email"] if "user" in session else "guest"
 
-    # Images → Groq vision (works on Render, no Tesseract)
     if ext in IMAGE_EXTENSIONS:
         reply = analyse_image(file_bytes, ext, user_question)
         if not reply:
             reply = "I couldn't analyse the image. Please try again or paste any text from it directly into the chat."
-
-    # All other files → extract text → Groq
     else:
         text = extract_text(file_bytes, ext)
         if not text:
