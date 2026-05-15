@@ -68,25 +68,72 @@ def get_memory(user_email):
     return "\n".join([f"{r['key']}: {r['value']}" for r in rows])
 
 def search_internet(query):
+    """Search using Serper API and return clean, structured results."""
     try:
         api_key = os.getenv("SERPER_API_KEY")
-        if not api_key: return ""
-        res = requests.post("https://google.serper.dev/search",
+        if not api_key:
+            print("[SEARCH] SERPER_API_KEY not set")
+            return ""
+
+        res = requests.post(
+            "https://google.serper.dev/search",
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-            json={"q": query, "num": 5}, timeout=5)
+            json={"q": query, "num": 8, "gl": "in", "hl": "en"},
+            timeout=8
+        )
+
+        if res.status_code != 200:
+            print(f"[SEARCH] Serper returned status {res.status_code}")
+            return ""
+
         data = res.json()
         results = []
+
+        # 1. Answer box — highest priority
         if "answerBox" in data:
             ab = data["answerBox"]
             answer = ab.get("answer") or ab.get("snippet") or ab.get("title", "")
+            source = ab.get("link", "")
             if answer:
-                results.append(f"[Direct Answer]: {answer}")
+                results.append(f"[TOP ANSWER]: {answer}" + (f" (Source: {source})" if source else ""))
+
+        # 2. Knowledge graph
+        if "knowledgeGraph" in data:
+            kg = data["knowledgeGraph"]
+            title = kg.get("title", "")
+            desc  = kg.get("description", "")
+            attrs = kg.get("attributes", {})
+            if title or desc:
+                kg_text = f"[KNOWLEDGE GRAPH]: {title}"
+                if desc: kg_text += f" — {desc}"
+                for k, v in list(attrs.items())[:5]:
+                    kg_text += f"\n  {k}: {v}"
+                results.append(kg_text)
+
+        # 3. Organic results
         if "organic" in data:
-            for r in data["organic"][:5]:
-                results.append(f"{r['title']}: {r['link']}\n  {r.get('snippet','')}")
-        return "\n\n".join(results)
+            for r in data["organic"][:6]:
+                snippet = r.get("snippet", "")
+                title   = r.get("title", "")
+                link    = r.get("link", "")
+                if snippet:
+                    results.append(f"[SOURCE: {title}] ({link})\n  {snippet}")
+
+        # 4. Related searches for context
+        if "relatedSearches" in data and len(results) < 3:
+            related = [r.get("query","") for r in data["relatedSearches"][:3]]
+            if related:
+                results.append(f"[Related]: {', '.join(related)}")
+
+        final = "\n\n".join(results)
+        print(f"[SEARCH SUCCESS] {len(results)} results, {len(final)} chars")
+        return final
+
+    except requests.Timeout:
+        print("[SEARCH] Timeout after 8s")
+        return ""
     except Exception as e:
-        print("SERPER ERROR:", e)
+        print(f"[SEARCH ERROR]: {e}")
         return ""
 
 def safe_trim(text, limit=6000):
@@ -103,7 +150,7 @@ def run_ai(messages, model_index=0, max_tokens=1200):
     for i in range(model_index, len(MODELS)):
         try:
             completion = client.chat.completions.create(
-                model=MODELS[i], messages=messages, temperature=0.7, max_tokens=max_tokens)
+                model=MODELS[i], messages=messages, temperature=0.3, max_tokens=max_tokens)
             return completion.choices[0].message.content.strip()
         except Exception as e:
             print(f"AI ERROR (model {MODELS[i]}):", e)
@@ -116,10 +163,8 @@ def is_bad_response(reply):
 
 # ═══════════════════════════════════════════
 #  SMART SEARCH TRIGGER
-#  Determines whether a query needs live web search
 # ═══════════════════════════════════════════
 
-# Keywords that always trigger a search
 SEARCH_KEYWORDS = [
     "latest", "recent", "current", "today", "now", "news", "update",
     "2024", "2025", "2026",
@@ -132,11 +177,18 @@ SEARCH_KEYWORDS = [
     "died", "arrested", "resigned", "appointed", "fired",
     "ipl", "cricket", "football", "nba", "nfl", "fifa",
     "trending", "viral", "breaking",
+    # Political roles — always need live data
+    "chief minister", "cm of", "cm is", "who is cm",
+    "prime minister", "pm of", "pm is", "who is pm",
+    "president of", "who is president",
+    "minister of", "governor of", "mayor of",
+    "mla", "mp ", "mp of", "mpp",
+    "ruling party", "government of",
+    "ceo of", "founder of", "owner of", "head of",
 ]
 
-# Regex patterns that always trigger a search
 SEARCH_PATTERNS = [
-    r"\bwho is (the )?(current |new |latest )?(cm|chief minister|pm|prime minister|president|ceo|founder|owner|governor|minister|mayor|chancellor|king|queen|coo|cto|cfo)\b",
+    r"\bwho is (the )?(current |new |latest |present )?(cm|chief minister|pm|prime minister|president|ceo|founder|owner|governor|minister|mayor|chancellor|king|queen|coo|cto|cfo)\b",
     r"\bwhat is (the )?(current |latest |new )?(price|rate|status|situation|update)\b",
     r"\b(cm|chief minister|pm|prime minister|president|ceo) of \w+",
     r"\bcurrent (government|ruling party|leader|head)\b",
@@ -146,11 +198,22 @@ SEARCH_PATTERNS = [
     r"\bis \w+ (still|currently|now)\b",
     r"\bwhat happened (to|with|in|at)\b",
     r"\bhow much (does|is|are|did)\b",
+    r"\bpresent (cm|pm|president|minister|ceo|chief)\b",
+    r"\b(cm|pm|president|minister|ceo|governor) of (india|bengal|tamilnadu|tamil nadu|karnataka|kerala|andhra|telangana|maharashtra|gujarat|rajasthan|punjab|delhi|bihar|up|odisha|assam|jharkhand|chhattisgarh|uttarakhand|himachal|goa|manipur|meghalaya|mizoram|nagaland|sikkim|tripura|arunachal)\b",
+    r"\bwho (is|are|was|were) (the )?(new|current|present|latest|sitting|elected|appointed|acting)\b",
 ]
 
 def needs_live_search(message: str) -> bool:
     """Return True if the query requires live internet search."""
-    msg_lower = message.lower()
+    msg_lower = message.lower().strip()
+
+    # Always search for very short political questions
+    short_political = re.search(
+        r"^(who is|what is|tell me about|who['']?s|whats).{0,60}(cm|pm|president|minister|ceo|price|rate|score|result|winner|latest|current|present)",
+        msg_lower
+    )
+    if short_political:
+        return True
 
     # Check plain keywords
     if any(kw in msg_lower for kw in SEARCH_KEYWORDS):
@@ -163,162 +226,127 @@ def needs_live_search(message: str) -> bool:
 
     return False
 
-def build_system_prompt(memory: str, has_search_results: bool = False) -> str:
-    search_instruction = ""
-    if has_search_results:
-        search_instruction = """
-========================
-LIVE SEARCH RESULTS (CRITICAL)
-========================
-Live web search results have been provided to you in this conversation.
-- You MUST use these search results to answer the user's question.
-- The search results are MORE ACCURATE than your training data for current/recent information.
-- Always prefer search result data over anything from your training.
-- If the answer is clearly in the search results, state it directly and confidently.
-- Do NOT say "I don't have real-time data" or "as of my knowledge cutoff" when search results are available.
-- Cite from the search results naturally (e.g., "According to recent sources..." or "Latest information shows...").
+
+# ═══════════════════════════════════════════
+#  SYSTEM PROMPTS — split into base + search override
+# ═══════════════════════════════════════════
+
+BASE_SYSTEM_PROMPT = """You are Pranox AI — a highly intelligent, friendly, and precise AI assistant.
+
+IDENTITY:
+- Founder: Chetansaipranav R
+- Created: January 2026
+- If asked who created you or about Pranox, always say: "Chetansaipranav R is the founder of Pranox AI. He created it in January 2026."
+
+BEHAVIOR:
+- Understand questions deeply, give clean final answers only
+- Do NOT show internal reasoning steps
+- Be friendly, smart, structured
+- Use bullet points only when genuinely helpful
+- For greetings (hi, hello, hey, good morning): respond warmly and briefly
+- If user's name is in memory, use it naturally in greetings
+
+CODE RULES:
+- Always use proper code blocks with correct indentation
+- Separate explanation from code clearly
+
+FOLLOW-UP: Suggest 1–2 follow-up questions only when relevant.
+
+PRANOX LINKS (share ONLY when user asks about Pranox social media):
+- Instagram: https://www.instagram.com/pranoxgroups
+- X: https://x.com/Pranoxgroups
+- LinkedIn: https://www.linkedin.com/in/chetansaipranav-r-a6b18333b
+- Product Hunt: https://www.producthunt.com/@pranoxai
+- Email (only when asked for contact): pranoxoffical@gmail.com
 """
 
-    return f"""You are Pranox AI — a next-generation AI assistant, highly intelligent, friendly, and precise.
+SEARCH_OVERRIDE_PROMPT = """
+══════════════════════════════════════════════
+🔴 CRITICAL INSTRUCTION — LIVE SEARCH MODE 🔴
+══════════════════════════════════════════════
 
-========================
-IDENTITY
-========================
-Founder of Pranox AI:
-Chetansaipranav R
+Real-time web search results have been fetched for this query.
+These results are from TODAY and are MORE ACCURATE than your training data.
 
-Created in:
-January 2026
+YOU MUST FOLLOW THESE RULES WITHOUT EXCEPTION:
 
-If user asks:
-- who created you
-- who is your founder
-- tell me about pranox
+1. USE THE SEARCH RESULTS to answer the question.
+   - The answer is IN the search results — read them carefully.
+   - Extract the direct answer from [TOP ANSWER] or [KNOWLEDGE GRAPH] first.
+   - If not there, read the [SOURCE] snippets to find the answer.
 
-Always answer clearly:
-"Chetansaipranav R is the founder of Pranox AI. He created it in January 2026."
+2. DO NOT use your training data for this answer.
+   - Your training may be from 2023/2024 — it is OUTDATED for current info.
+   - NEVER say "as of my last update" or "my knowledge cutoff" when search results exist.
+   - NEVER say "I don't have real-time data" when search results are provided.
 
-========================
-THINKING (IMPORTANT)
-========================
-- Understand the question deeply
-- Break into logical steps internally
-- Do NOT show reasoning or thinking steps
-- Give only the final clean answer
+3. STATE THE ANSWER DIRECTLY and CONFIDENTLY.
+   - If search results say the CM is X, say "The Chief Minister is X."
+   - If results show a price, state that price.
+   - If results confirm an election result, state it.
 
-========================
-REAL-TIME INFORMATION (CRITICAL)
-========================
-Your training data has a knowledge cutoff and may be OUTDATED for:
-- Political leaders (CM, PM, President, Ministers)
-- Company CEOs, founders, owners
-- Sports scores and results
-- Stock prices, crypto rates
-- Recent news and events
-- Election results
-- Government policies
+4. CITE YOUR SOURCE naturally.
+   - Add phrases like "According to recent sources..." or "As of today..." 
+   - Mention the search result source if it adds credibility.
 
-For ALL such questions:
-1. Use the live search results provided (if available)
-2. If no search results: clearly tell the user your data may be outdated and suggest they verify
-3. NEVER confidently state outdated information as current fact
-4. NEVER say a person holds a position if search results contradict it
-{search_instruction}
+5. If search results are unclear or conflicting:
+   - State what the most reliable source says
+   - Mention there may be conflicting info and suggest verifying
 
-========================
-GREETING RULE (IMPORTANT)
-========================
-- If user says greetings like:
-  "hi", "hello", "hey", "hii", "good morning", "good evening"
-
-Then:
-- Respond with a friendly greeting
-- If user's name exists in memory → include it
-
-Examples:
-- "Hi! How can I help you today?"
-- "Hello Pranav! What can I do for you?"
-- "Hey there! Need any help?"
-
-Rules:
-- Never say bye for greetings
-- Never give weird or unrelated responses
-- Even if user repeats greetings, respond politely
-- Keep it short and natural
-
-========================
-PERSONALIZATION (IMPORTANT)
-========================
-- If user's name is available in memory:
-  Use it naturally in responses — mainly in greetings or first line
-- Do NOT overuse the name
-- If user tells their name: respond like "Nice to meet you <name>!"
-
-========================
-CONTEXT
-========================
-- Use previous conversation
-- Maintain continuity
-- Do not repeat same answer unnecessarily
-
-========================
-CODE RULES
-========================
-- Always give proper code blocks
-- Clean indentation
-- Separate explanation and code
-
-========================
-FOLLOW-UP
-========================
-- Suggest 1-2 useful follow-up questions (only if relevant)
-
-========================
-IMPORTANT RULES
-========================
-- Never give messy output
-- Keep answers clean and readable
-
-========================
-PRANOX LINKS (STRICT)
-========================
-Instagram: https://www.instagram.com/pranoxgroups
-X: https://x.com/Pranoxgroups
-LinkedIn: https://www.linkedin.com/in/chetansaipranav-r-a6b18333b
-Product Hunt: https://www.producthunt.com/@pranoxai
-
-ONLY share these when user asks about Pranox AI social media or official pages.
-NEVER mix Pranox links with other topics.
-
-========================
-EMAIL (STRICT)
-========================
-Email: pranoxoffical@gmail.com
-ONLY provide when user explicitly asks for contact/email info.
-
-========================
-BEHAVIOR
-========================
-- Friendly, smart, helpful
-- Never robotic
-- Keep answers clean and structured
-- Use bullet points only when helpful
-- For greetings: respond warmly and briefly
-
-========================
-RESPONSE FORMAT
-========================
-1. Clear explanation first
-2. Bullets when needed
-3. Clean spacing
-4. Code in proper code blocks
-5. Suggest follow-up questions when relevant
-
-========================
-MEMORY
-========================
-{memory if memory else "No memory stored yet."}
+BOTTOM LINE: The search results below contain the real answer. Use them.
+══════════════════════════════════════════════
 """
+
+def build_system_prompt(memory: str) -> str:
+    base = BASE_SYSTEM_PROMPT
+    if memory:
+        base += f"\nUSER MEMORY:\n{memory}\n"
+    else:
+        base += "\nUSER MEMORY: No memory stored yet.\n"
+    return base
+
+
+def build_messages_with_search(system_prompt: str, search_results: str, history: list, user_message: str) -> list:
+    """
+    KEY FIX: Instead of a second system message (which Groq ignores),
+    we inject search results directly into the USER message as context.
+    This forces the model to actually read and use the search data.
+    """
+    msgs = [{"role": "system", "content": system_prompt}]
+
+    # Add conversation history (skip current message)
+    for h in reversed(history[1:]):  # skip the latest user message we just added
+        role = h["role"] if h["role"] in ("user", "assistant") else "user"
+        msgs.append({"role": role, "content": h["message"]})
+
+    if search_results.strip():
+        # Inject search results directly INTO the user message — this is the key fix
+        # Groq processes this as part of the user turn and cannot ignore it
+        enriched_user_message = (
+            f"{SEARCH_OVERRIDE_PROMPT}\n\n"
+            f"LIVE SEARCH RESULTS FOR YOUR QUERY:\n"
+            f"{'='*50}\n"
+            f"{search_results}\n"
+            f"{'='*50}\n\n"
+            f"USER QUESTION: {user_message}\n\n"
+            f"Now answer the USER QUESTION using the search results above. "
+            f"Extract the direct answer from the results and state it confidently."
+        )
+        msgs.append({"role": "user", "content": enriched_user_message})
+    else:
+        msgs.append({"role": "user", "content": user_message})
+
+    return msgs
+
+
+def build_messages_no_search(system_prompt: str, history: list, user_message: str) -> list:
+    msgs = [{"role": "system", "content": system_prompt}]
+    for h in reversed(history[1:]):
+        role = h["role"] if h["role"] in ("user", "assistant") else "user"
+        msgs.append({"role": role, "content": h["message"]})
+    msgs.append({"role": "user", "content": user_message})
+    return msgs
+
 
 def get_redirect_uri():
     render_url = os.getenv("RENDER_EXTERNAL_URL")
@@ -436,34 +464,31 @@ def api_chat():
             print(f"[SEARCH TRIGGERED] Query: {user_message}")
             search_results = search_internet(user_message)
             if search_results:
-                print(f"[SEARCH RESULTS] {search_results[:200]}...")
+                print(f"[SEARCH SUCCESS] Got {len(search_results)} chars of results")
             else:
-                print("[SEARCH] No results returned")
+                print("[SEARCH] No results returned — will warn user")
         # ─────────────────────────────────────────────────────
 
-        has_results = bool(search_results.strip())
+        system_prompt = build_system_prompt(memory)
 
-        # Build messages — inject search BEFORE user message so model sees it as context
-        msgs = [{"role": "system", "content": build_system_prompt(memory, has_search_results=has_results)}]
-
-        # Inject search results as a system message right before the conversation
-        if has_results:
-            msgs.append({
-                "role": "system",
-                "content": (
-                    f"[LIVE WEB SEARCH RESULTS — use these to answer the user's question accurately]\n\n"
-                    f"{search_results}\n\n"
-                    f"These results are from a real-time search. Trust them over your training data."
-                )
-            })
-
-        # Add conversation history
-        for h in reversed(history):
-            role = h["role"] if h["role"] in ("user", "assistant") else "user"
-            msgs.append({"role": role, "content": h["message"]})
-
-        # Add current user message
-        msgs.append({"role": "user", "content": user_message})
+        # ── BUILD MESSAGES with search injected into user turn ──
+        if search_results.strip():
+            msgs = build_messages_with_search(system_prompt, search_results, history, user_message)
+        elif do_search and not search_results:
+            # Search was triggered but returned nothing — tell the model to be honest
+            no_result_note = (
+                f"NOTE: A live web search was attempted for this query but returned no results. "
+                f"Your training data may be outdated for this question. "
+                f"Please give your best answer but clearly tell the user to verify the information independently.\n\n"
+                f"USER QUESTION: {user_message}"
+            )
+            msgs = [{"role": "system", "content": system_prompt}]
+            for h in reversed(history[1:]):
+                role = h["role"] if h["role"] in ("user", "assistant") else "user"
+                msgs.append({"role": role, "content": h["message"]})
+            msgs.append({"role": "user", "content": no_result_note})
+        else:
+            msgs = build_messages_no_search(system_prompt, history, user_message)
 
         reply = run_ai(msgs)
         if not reply:
