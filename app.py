@@ -39,9 +39,10 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 CLOUDFLARE_API_TOKEN  = os.getenv("CLOUDFLARE_API_TOKEN", "")
 CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
 #  DATABASE
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
+
 def get_db():
     conn = sqlite3.connect("pranox.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -54,7 +55,8 @@ def init_db():
         message TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)""")
     db.execute("""CREATE TABLE IF NOT EXISTS user_memory(
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_email TEXT, key TEXT, value TEXT)""")
-    db.commit(); db.close()
+    db.commit()
+    db.close()
 
 init_db()
 
@@ -62,7 +64,8 @@ def save_memory(user_email, key, value):
     db = get_db()
     db.execute("DELETE FROM user_memory WHERE user_email=? AND key=?", (user_email, key))
     db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)", (user_email, key, value))
-    db.commit(); db.close()
+    db.commit()
+    db.close()
 
 def get_memory(user_email):
     db = get_db()
@@ -70,50 +73,53 @@ def get_memory(user_email):
     db.close()
     return "\n".join([f"{r['key']}: {r['value']}" for r in rows])
 
-# ─────────────────────────────────────────
-#  UNIVERSAL SEARCH DECISION — AI decides
-#  The AI reads the question and decides:
-#  1. Does it need live search?
-#  2. What is the best Google query?
-#  This works for ANY question automatically.
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  AI-DRIVEN SEARCH DECISION
+#  Uses llama-3.1-8b-instant (fast, cheap) to decide:
+#  1. Does this question need a live web search?
+#  2. What is the best Google query to use?
+#  This handles ALL topics automatically — no keyword lists needed.
+# ═══════════════════════════════════════════════════════
+
 def ai_search_decision(user_message: str) -> tuple:
     """
-    Ask llama-3.1-8b-instant (fast + cheap) to decide:
-    - Does this question need a live web search?
-    - If yes, what Google query should we use?
     Returns: (needs_search: bool, search_query: str)
     """
-    prompt = f"""You are a search decision engine. Analyze the user's question and decide:
-1. Does it need a live web search?
-2. If yes, write the best Google search query.
+    prompt = f"""You are a search decision engine for an AI assistant. Your only job is to decide:
+1. Does the user's question need a live web search to answer correctly?
+2. If yes, write the single best Google search query to find the answer.
 
-Search IS needed for:
-- Current events, news, recent happenings
-- People's current roles (CM, PM, CEO, president, minister, owner, etc.)
-- Prices, stocks, crypto, fuel, gold rates
-- Weather, sports scores, match results
-- Location of places, restaurants, shops, hospitals, malls, branches
-- Recently opened/launched things (new restaurants, stores, products)
-- Anything that changes over time
-- Any place + business query ("is there X in Y city", "where is X in Y")
-- Company news, product launches, policy changes
+SEARCH IS REQUIRED for:
+- Current or recent news, events, updates, announcements
+- People's current roles or positions (Chief Minister, PM, President, CEO, Minister, Owner, Director, etc.)
+- Prices of anything (gold, fuel, crypto, stocks, products, services)
+- Sports scores, match results, standings, schedules
+- Weather forecasts or current conditions
+- Recently launched or released products, apps, movies, shows, songs
+- Election results, political changes, government news
+- Company news, acquisitions, funding, leadership changes
+- Location of any business, shop, restaurant, hospital, branch, office, mall
+- Whether a specific business exists in a city ("is there a Zara in Mysore")
+- "Who won", "what happened", "latest", "recent", "current", "now", "today"
+- Anything that changes over time and the model might have outdated info
 
-Search is NOT needed for:
-- Math calculations
-- General coding / programming concepts
-- Creative writing, poems, stories, essays
-- Definitions of stable/historical concepts
-- Historical facts that won't change
-- Personal advice or opinions
-- Grammar or language questions
-- Explaining how something works (science, tech concepts)
+SEARCH IS NOT REQUIRED for:
+- Math, calculations, unit conversions
+- Coding, programming, technical concepts
+- Creative writing: stories, poems, essays, emails
+- Definitions, meanings, translations
+- Historical facts that cannot change
+- Grammar, spelling, language questions
+- How things work (science, tech explanations that don't change)
+- Personal advice, opinions, recommendations based on user preferences
+- Questions about Pranox AI itself
 
 User question: "{user_message}"
 
-Reply in EXACTLY this format, no extra text:
+Reply in EXACTLY this format. No extra text, no explanation:
 SEARCH: YES or NO
-QUERY: the Google search query if YES, else NONE"""
+QUERY: the best Google search query if YES, or NONE if NO"""
 
     try:
         completion = client.chat.completions.create(
@@ -133,7 +139,7 @@ QUERY: the Google search query if YES, else NONE"""
         query = "" if query.upper() == "NONE" else query
 
         if needs_search and not query:
-            query = user_message  # fallback to raw message
+            query = user_message  # fallback
 
         print(f"[AI DECISION] Search={needs_search} | Query='{query}'")
         return needs_search, query
@@ -142,9 +148,11 @@ QUERY: the Google search query if YES, else NONE"""
         print(f"[AI DECISION ERROR] {e} — defaulting to search")
         return True, user_message  # on error, always search to be safe
 
-# ─────────────────────────────────────────
-#  SERPER SEARCH
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  SERPER WEB SEARCH
+# ═══════════════════════════════════════════════════════
+
 def search_internet(query: str) -> str:
     try:
         api_key = os.getenv("SERPER_API_KEY")
@@ -166,15 +174,17 @@ def search_internet(query: str) -> str:
         data = res.json()
         results = []
 
-        # 1. Answer box — highest priority
+        # 1. Answer box — highest priority, direct answer
         if "answerBox" in data:
             ab = data["answerBox"]
             answer = ab.get("answer") or ab.get("snippet") or ab.get("title", "")
             source = ab.get("link", "")
             if answer:
-                results.append(f"[TOP ANSWER]: {answer}" + (f" (Source: {source})" if source else ""))
+                results.append(
+                    f"[TOP ANSWER]: {answer}" + (f"\n  Source: {source}" if source else "")
+                )
 
-        # 2. Knowledge graph
+        # 2. Knowledge graph — structured facts
         if "knowledgeGraph" in data:
             kg    = data["knowledgeGraph"]
             title = kg.get("title", "")
@@ -182,12 +192,13 @@ def search_internet(query: str) -> str:
             attrs = kg.get("attributes", {})
             if title or desc:
                 kg_text = f"[KNOWLEDGE GRAPH]: {title}"
-                if desc: kg_text += f" — {desc}"
-                for k, v in list(attrs.items())[:5]:
+                if desc:
+                    kg_text += f" — {desc}"
+                for k, v in list(attrs.items())[:6]:
                     kg_text += f"\n  {k}: {v}"
                 results.append(kg_text)
 
-        # 3. Organic results
+        # 3. Organic results — web pages and news
         if "organic" in data:
             for r in data["organic"][:6]:
                 snippet = r.get("snippet", "")
@@ -196,26 +207,28 @@ def search_internet(query: str) -> str:
                 if snippet:
                     results.append(f"[SOURCE: {title}]\n  {snippet}\n  Link: {link}")
 
-        # 4. Related (only if few results)
+        # 4. Related searches — only if very few results
         if "relatedSearches" in data and len(results) < 3:
             related = [r.get("query", "") for r in data["relatedSearches"][:3]]
             if related:
-                results.append(f"[Related]: {', '.join(related)}")
+                results.append(f"[Related searches]: {', '.join(related)}")
 
         final = "\n\n".join(results)
         print(f"[SEARCH SUCCESS] {len(results)} results for: '{query}'")
         return final
 
     except requests.Timeout:
-        print("[SEARCH] Timeout")
+        print("[SEARCH] Timeout after 8s")
         return ""
     except Exception as e:
         print(f"[SEARCH ERROR]: {e}")
         return ""
 
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
 #  UTILITIES
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
+
 def safe_trim(text, limit=6000):
     return text[:limit] if len(text) > limit else text
 
@@ -230,98 +243,229 @@ def run_ai(messages, model_index=0, max_tokens=1200):
     for i in range(model_index, len(MODELS)):
         try:
             completion = client.chat.completions.create(
-                model=MODELS[i], messages=messages, temperature=0.3, max_tokens=max_tokens)
+                model=MODELS[i],
+                messages=messages,
+                temperature=0.3,
+                max_tokens=max_tokens,
+            )
             return completion.choices[0].message.content.strip()
         except Exception as e:
             print(f"AI ERROR (model {MODELS[i]}):", e)
     return None
 
 def is_bad_response(reply):
-    if not reply: return True
-    bad_patterns = ["here's the corrected code", "flask application", "example of how you could", "missing code"]
+    if not reply:
+        return True
+    bad_patterns = [
+        "here's the corrected code",
+        "flask application",
+        "example of how you could",
+        "missing code",
+    ]
     return any(p in reply.lower() for p in bad_patterns)
 
-# ─────────────────────────────────────────
-#  SYSTEM PROMPTS
-# ─────────────────────────────────────────
-BASE_SYSTEM_PROMPT = """You are Pranox AI — a highly intelligent, friendly, and precise AI assistant.
+def is_hedging_response(reply):
+    """Detect if the model ignored search results and fell back to stale training-data hedging."""
+    if not reply:
+        return True
+    hedging_phrases = [
+        "my data may be outdated",
+        "as of my last update",
+        "my knowledge cutoff",
+        "i don't have real-time",
+        "i cannot confirm",
+        "my training data",
+        "as of my training",
+        "i suggest verifying",
+        "may not be accurate",
+        "i cannot provide real-time",
+        "as of my knowledge",
+        "i don't have access to real",
+    ]
+    reply_lower = reply.lower()
+    return any(p in reply_lower for p in hedging_phrases)
 
-IDENTITY:
+
+# ═══════════════════════════════════════════════════════
+#  SYSTEM PROMPTS
+# ═══════════════════════════════════════════════════════
+
+BASE_SYSTEM_PROMPT = """You are Pranox AI — a next-generation AI assistant. You are highly intelligent, friendly, and precise — built to work like the best AI assistants in the world.
+
+════════════════════════════
+IDENTITY
+════════════════════════════
+- Your name: Pranox AI
 - Founder: Chetansaipranav R
 - Created: January 2026
-- If asked who created you or about Pranox, always say: "Chetansaipranav R is the founder of Pranox AI. He created it in January 2026."
+- If anyone asks "who created you", "who is your founder", "tell me about Pranox":
+  Always answer: "Chetansaipranav R is the founder of Pranox AI. He created it in January 2026."
 
-BEHAVIOR:
-- Understand questions deeply, give clean final answers only
-- Do NOT show internal reasoning steps
-- Be friendly, smart, structured
-- Use bullet points only when genuinely helpful
-- For greetings (hi, hello, hey, good morning): respond warmly and briefly
-- If user's name is in memory, use it naturally in greetings
+════════════════════════════
+THINKING (INTERNAL — NEVER SHOW TO USER)
+════════════════════════════
+Before every response:
+- Understand what the user is truly asking
+- Think through the answer step by step internally
+- Verify the answer makes sense before writing it
+- For live search results: check that the result actually answers the question
+- NEVER show your thinking or reasoning steps to the user
+- Give only the final clean, correct answer
 
-CODE RULES:
-- Always use proper code blocks with correct indentation
+════════════════════════════
+GREETING RULES
+════════════════════════════
+When user says: hi, hello, hey, hii, hiya, good morning, good afternoon, good evening, sup, what's up:
+- Respond warmly and briefly
+- If user's name is in memory, include it naturally
+- Examples:
+  "Hi! How can I help you today?"
+  "Hello Pranav! What can I do for you?"
+  "Hey there! Need any help?"
+- NEVER say "bye" in response to a greeting
+- NEVER give an unrelated or weird response to a greeting
+- If user repeats a greeting, respond politely every single time
+- Keep it short, warm, and natural — never robotic
+
+════════════════════════════
+PERSONALIZATION
+════════════════════════════
+- If user's name is in memory, use it naturally — mainly in greetings or the opening line
+- Do NOT repeat the name in every sentence — use it once at most
+- When user tells you their name for the first time: "Nice to meet you, [name]!"
+- Keep personalization natural and human-feeling
+
+════════════════════════════
+CONVERSATION & CONTEXT
+════════════════════════════
+- Always use the conversation history to maintain continuity
+- Never repeat the same answer unnecessarily
+- If user refers to something from earlier in the chat, connect it correctly
+
+════════════════════════════
+CODE RULES
+════════════════════════════
+- Always use fenced code blocks with correct language syntax highlighting
+- Clean indentation — no sloppy formatting
 - Separate explanation from code clearly
+- Briefly explain what the code does before or after the block
 
-FOLLOW-UP: Suggest 1–2 follow-up questions only when relevant.
+════════════════════════════
+RESPONSE FORMAT
+════════════════════════════
+1. Give the direct answer or main point first
+2. Use bullet points only when listing multiple distinct items
+3. Clean spacing between sections — never walls of text
+4. Code goes in proper fenced code blocks
+5. End with 1–2 follow-up question suggestions when they genuinely help the user go deeper
+   (Skip follow-ups for: simple greetings, yes/no answers, very casual one-liners)
 
-PRANOX LINKS (share ONLY when user asks about Pranox social media):
+════════════════════════════
+BEHAVIOR
+════════════════════════════
+- Be friendly, smart, and helpful — like ChatGPT or Claude
+- Never be robotic or give stiff corporate-sounding responses
+- Keep answers structured and easy to read
+- For short casual questions: give short casual answers
+- For complex questions: give thorough, well-organized answers
+
+════════════════════════════
+PRANOX LINKS
+════════════════════════════
+Share ONLY when user explicitly asks about Pranox AI's social media or official pages:
 - Instagram: https://www.instagram.com/pranoxgroups
-- X: https://x.com/Pranoxgroups
+- X (Twitter): https://x.com/Pranoxgroups
 - LinkedIn: https://www.linkedin.com/in/chetansaipranav-r-a6b18333b
 - Product Hunt: https://www.producthunt.com/@pranoxai
-- Email (only when asked for contact): pranoxoffical@gmail.com
+NEVER share these links in unrelated conversations.
+
+════════════════════════════
+CONTACT / EMAIL
+════════════════════════════
+Share ONLY when user explicitly asks for contact or email info:
+- Email: pranoxoffical@gmail.com
 """
 
 SEARCH_OVERRIDE_PROMPT = """
-══════════════════════════════════════════════
-🔴 LIVE SEARCH MODE — STRICT RULES 🔴
-══════════════════════════════════════════════
+╔══════════════════════════════════════════════════╗
+║   🔴 LIVE SEARCH MODE — READ THIS CAREFULLY 🔴  ║
+╚══════════════════════════════════════════════════╝
 
-Real-time web search results are provided below.
-These are from TODAY and are MORE ACCURATE than your training data.
+Real-time web search results have been fetched RIGHT NOW for this question.
+These results are from TODAY. They are the ground truth. They override your training data.
 
-MANDATORY RULES — NO EXCEPTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — READ THE RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Check [TOP ANSWER] first — if the answer is there, use it directly.
+- Check [KNOWLEDGE GRAPH] next for structured facts.
+- Check [SOURCE] snippets for additional context and details.
+- The answer IS in the results. Read carefully before responding.
 
-1. READ the search results carefully. The answer is in there.
-   - Use [TOP ANSWER] first if present.
-   - Then [KNOWLEDGE GRAPH].
-   - Then [SOURCE] snippets.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — ANSWER DIRECTLY AND CONFIDENTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+State the answer in the very first sentence. Examples:
+✅ "The Chief Minister of West Bengal is Mamata Banerjee."
+✅ "Gold price today is ₹7,200 per gram."
+✅ "The latest iPhone model is the iPhone 16 Pro."
+✅ "McDonald's in Davangere is located at P.J. Extension."
 
-2. ANSWER DIRECTLY and CONFIDENTLY.
-   - NEVER say "I couldn't find" when results are present.
-   - NEVER say "my data may be outdated" — you have live data NOW.
-   - NEVER say "please verify" as a substitute for answering.
-   - NEVER say "as of my knowledge cutoff".
-   - NEVER say "I don't have real-time access".
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — BANNED PHRASES (NEVER WRITE ANY OF THESE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+These phrases are COMPLETELY FORBIDDEN. Writing them is a failure:
+❌ "my data may be outdated"
+❌ "as of my last update"
+❌ "as of my knowledge cutoff"
+❌ "as of my training"
+❌ "I don't have real-time data"
+❌ "I don't have real-time access"
+❌ "I cannot confirm"
+❌ "I cannot verify"
+❌ "please verify this information"
+❌ "I suggest verifying"
+❌ "may not be accurate"
+❌ "my training data"
+❌ "served as" (when the person CURRENTLY holds the position)
 
-3. If something EXISTS in results, confirm it and share details.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — IF RESULTS CONFLICT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Prefer: Wikipedia > official government/company sites > major news outlets > YouTube
+Say: "Most sources indicate X." — this is allowed.
+Never pick a random YouTube video over Wikipedia as the truth.
 
-4. For locations: give address, area, or any location detail from results.
-
-5. Only if results are genuinely empty say:
-   "I searched but couldn't find specific details — try Google Maps or the official website."
-
-CORRECT: "McDonald's in Davangere is located at P.J. Extension."
-WRONG:   "I couldn't find any information. Please check Google Maps."
-══════════════════════════════════════════════
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — IF RESULTS ARE GENUINELY EMPTY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Only if the search results section below is actually empty or has no useful data, say:
+"I searched but couldn't find specific details. Try Google Maps or the official website for the most accurate info."
+╔══════════════════════════════════════════════════╗
+║              SEARCH RESULTS BELOW               ║
+╚══════════════════════════════════════════════════╝
 """
 
 def build_system_prompt(memory: str) -> str:
-    base = BASE_SYSTEM_PROMPT
-    base += f"\nUSER MEMORY:\n{memory}\n" if memory else "\nUSER MEMORY: No memory stored yet.\n"
-    return base
+    prompt  = BASE_SYSTEM_PROMPT
+    prompt += "\n════════════════════════════\nUSER MEMORY\n════════════════════════════\n"
+    prompt += f"{memory}\n" if memory else "No memory stored yet.\n"
+    return prompt
 
 def build_messages_with_search(system_prompt, search_results, history, user_message):
     msgs = [{"role": "system", "content": system_prompt}]
+    # Add conversation history oldest-first, skipping history[0] (current user message)
     for h in reversed(list(history)[1:]):
         role = h["role"] if h["role"] in ("user", "assistant") else "user"
         msgs.append({"role": role, "content": h["message"]})
+    # Inject search results directly into the user turn — the model cannot ignore this
     enriched = (
-        f"{SEARCH_OVERRIDE_PROMPT}\n\n"
-        f"LIVE SEARCH RESULTS:\n{'='*50}\n{search_results}\n{'='*50}\n\n"
+        f"{SEARCH_OVERRIDE_PROMPT}\n"
+        f"{search_results}\n"
+        f"{'═'*50}\n\n"
         f"USER QUESTION: {user_message}\n\n"
-        f"Answer using the search results above. Be direct and confident."
+        f"Answer the USER QUESTION using the search results above. "
+        f"Be direct and confident. Give the answer in your first sentence."
     )
     msgs.append({"role": "user", "content": enriched})
     return msgs
@@ -334,15 +478,18 @@ def build_messages_no_search(system_prompt, history, user_message):
     msgs.append({"role": "user", "content": user_message})
     return msgs
 
+
 def get_redirect_uri():
     render_url = os.getenv("RENDER_EXTERNAL_URL")
     if render_url:
         return f"{render_url.rstrip('/')}/authorize"
     return "http://127.0.0.1:8000/authorize"
 
-# ─────────────────────────────────────────
-#  ROUTES
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  ROUTES — AUTH
+# ═══════════════════════════════════════════════════════
+
 @app.route("/")
 def landing():
     return render_template("landing.html")
@@ -358,7 +505,11 @@ def authorize():
     try:
         token = oauth.google.authorize_access_token()
         user  = oauth.google.userinfo()
-        session["user"] = {"email": user.get("email"), "name": user.get("name"), "picture": user.get("picture")}
+        session["user"] = {
+            "email":   user.get("email"),
+            "name":    user.get("name"),
+            "picture": user.get("picture"),
+        }
         return redirect("/dashboard")
     except Exception as e:
         print("GOOGLE LOGIN ERROR:", e)
@@ -371,22 +522,29 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session: return redirect("/login")
+    if "user" not in session:
+        return redirect("/login")
     return render_template("dashboard.html", user=session.get("user"))
 
 @app.route("/chat")
 def chat():
     return render_template("chat.html", user=session.get("user"))
 
+
+# ═══════════════════════════════════════════════════════
+#  ROUTES — TOOLS
+# ═══════════════════════════════════════════════════════
+
 @app.route("/email", methods=["GET", "POST"])
 def email():
-    if "user" not in session: return render_template("login_required.html")
+    if "user" not in session:
+        return render_template("login_required.html")
     output = ""
     if request.method == "POST":
         topic  = request.form.get("topic", "")
         tone   = request.form.get("tone", "professional")
         output = run_ai([
-            {"role": "system", "content": "Write a professional email with clear paragraphs. No markdown."},
+            {"role": "system", "content": "Write a professional email with clear paragraphs. No markdown symbols."},
             {"role": "user",   "content": f"Write a {tone} email about: {topic}"},
         ]) or "Couldn't generate email. Please try again."
         output = clean_text(re.sub(r"[*#_`]", "", output))
@@ -394,7 +552,8 @@ def email():
 
 @app.route("/resume", methods=["GET", "POST"])
 def resume():
-    if "user" not in session: return render_template("login_required.html")
+    if "user" not in session:
+        return render_template("login_required.html")
     output = ""
     if request.method == "POST":
         name       = request.form.get("name", "").strip()
@@ -404,7 +563,12 @@ def resume():
         education  = request.form.get("education", "").strip()
         if not all([name, role, skills, experience, education]):
             return render_template("resume.html", resume="Please fill all fields!")
-        prompt = f"Create a professional resume for:\nName: {name}\nTarget Role: {role}\nSkills: {skills}\nWork Experience: {experience}\nEducation: {education}\n\nFormat cleanly with sections: Summary, Skills, Experience, Education."
+        prompt = (
+            f"Create a professional resume for:\n"
+            f"Name: {name}\nTarget Role: {role}\nSkills: {skills}\n"
+            f"Work Experience: {experience}\nEducation: {education}\n\n"
+            f"Format cleanly with sections: Summary, Skills, Experience, Education."
+        )
         output = run_ai([
             {"role": "system", "content": "You are an expert resume writer. Format cleanly. No markdown symbols."},
             {"role": "user",   "content": prompt},
@@ -412,9 +576,11 @@ def resume():
         output = clean_text(re.sub(r"[*#_`]", "", output))
     return render_template("resume.html", resume=output)
 
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
 #  MAIN CHAT API
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     data         = request.get_json(force=True)
@@ -425,50 +591,61 @@ def api_chat():
     user_email = session["user"]["email"] if "user" in session else "guest"
     db = get_db()
     try:
-        db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "user", user_message))
+        # Save user message to DB
+        db.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email, "user", user_message)
+        )
         db.commit()
 
+        # Load memory
         memory = get_memory(user_email)
 
+        # Auto-save name from message
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
             memory = get_memory(user_email)
 
+        # Auto-save age from message
         age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
         if age_match:
             save_memory(user_email, "age", age_match.group(1))
             memory = get_memory(user_email)
 
+        # Fetch recent conversation history (DESC = newest first, index 0 = current message)
         history = db.execute(
             "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
             (user_email,)
         ).fetchall()
         history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
 
-        # ── UNIVERSAL AI-DRIVEN SEARCH DECISION ──────────────
-        # The AI itself decides if search is needed and writes
-        # the best Google query. Works for ANY question.
+        # ── AI-DRIVEN SEARCH DECISION ─────────────────────────
+        # The AI model decides if search is needed and writes the best query.
+        # This handles ANY topic — no hardcoded keyword lists required.
         do_search, search_query = ai_search_decision(user_message)
         search_results = ""
 
         if do_search and search_query:
             search_results = search_internet(search_query)
-            # Fallback: if AI query returned nothing, try raw message
+            # Fallback: if the AI-optimized query returned nothing, try the raw message
             if not search_results:
-                print(f"[FALLBACK] Trying raw: '{user_message}'")
+                print(f"[FALLBACK SEARCH] Trying raw: '{user_message}'")
                 search_results = search_internet(user_message)
         # ─────────────────────────────────────────────────────
 
         system_prompt = build_system_prompt(memory)
 
+        # Build messages based on whether search results are available
         if search_results.strip():
             msgs = build_messages_with_search(system_prompt, search_results, history, user_message)
         elif do_search and not search_results:
+            # Search was triggered but Serper returned nothing
             no_result_note = (
-                f"NOTE: Live web search was attempted but returned no results. "
-                f"Give your best answer from training knowledge. "
-                f"For location-specific or very recent questions, suggest the user check Google Maps or the official website.\n\n"
+                f"NOTE: A live web search was attempted for this question but returned no results. "
+                f"Answer from your training knowledge as best you can. "
+                f"For location-specific or very recent questions, suggest the user "
+                f"check Google Maps or the official website.\n\n"
                 f"USER QUESTION: {user_message}"
             )
             msgs = [{"role": "system", "content": system_prompt}]
@@ -479,22 +656,67 @@ def api_chat():
         else:
             msgs = build_messages_no_search(system_prompt, history, user_message)
 
+        # Get AI reply
         reply = run_ai(msgs)
         if not reply:
             reply = "I ran into an issue generating a response. Please try again."
 
+        # ── HEDGING DETECTION + RETRY ─────────────────────────
+        # If the model ignored search results and hedged with stale phrases, retry once
+        # with a minimal stripped-down prompt that forces it to use the search data.
+        if search_results.strip() and is_hedging_response(reply):
+            print("[RETRY] Model hedged despite search results — retrying with direct prompt")
+            retry_msgs = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a factual assistant. You have live search results. "
+                        "Answer ONLY from those results. "
+                        "NEVER write 'my data may be outdated', 'as of my last update', "
+                        "'I don't have real-time data', or any similar hedging phrase. "
+                        "State the answer directly and confidently in 1-2 sentences."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Search results:\n{search_results}\n\n"
+                        f"Question: {user_message}\n\n"
+                        f"Give a direct answer from the search results above. "
+                        f"Start with the answer immediately. No hedging."
+                    ),
+                },
+            ]
+            retry_reply = run_ai(retry_msgs)
+            if retry_reply and not is_hedging_response(retry_reply):
+                reply = retry_reply
+                print("[RETRY] Retry succeeded")
+            else:
+                print("[RETRY] Retry also hedged — keeping original reply")
+        # ─────────────────────────────────────────────────────
+
+        # Catch completely broken/irrelevant responses
         if is_bad_response(reply):
             fallback = search_internet(user_message)
-            reply = f"Here are some helpful resources:\n\n{fallback}" if fallback else "I couldn't process that. Could you rephrase your question?"
+            reply = (
+                f"Here are some helpful resources:\n\n{fallback}"
+                if fallback
+                else "I couldn't process that. Could you rephrase your question?"
+            )
 
         reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
 
+        # Nudge guests to log in (once per session)
         if "user" not in session and "login_nudge" not in session:
             reply += "\n\n💡 *Login to save your chat history and get personalized responses*"
             session["login_nudge"] = True
 
+        # Save assistant reply to DB
         if "couldn't fully process" not in reply.lower():
-            db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "assistant", reply))
+            db.execute(
+                "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+                (user_email, "assistant", reply)
+            )
             db.commit()
 
         return jsonify({"reply": reply})
@@ -505,9 +727,11 @@ def api_chat():
     finally:
         db.close()
 
-# ─────────────────────────────────────────
-#  IMAGE VISION
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  IMAGE VISION — Groq multimodal
+# ═══════════════════════════════════════════════════════
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif"}
 IMAGE_MIME = {
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -524,15 +748,20 @@ def analyse_image(image_bytes, ext, user_question=""):
     if ext in (".bmp", ".tiff", ".tif"):
         try:
             img = Image.open(BytesIO(image_bytes)).convert("RGB")
-            buf = BytesIO(); img.save(buf, format="PNG")
-            image_bytes = buf.getvalue(); mime = "image/png"
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            image_bytes = buf.getvalue()
+            mime = "image/png"
         except Exception as e:
             print("Image conversion error:", e)
     b64      = base64.standard_b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime};base64,{b64}"
     prompt   = (
         user_question.strip() if user_question.strip()
-        else "Describe this image in full detail. List every object, person, text, chart or scene visible. If there is readable text, transcribe it exactly."
+        else (
+            "Describe this image in full detail. List every object, person, text, "
+            "chart or scene visible. If there is readable text, transcribe it exactly."
+        )
     )
     for model in VISION_MODELS:
         try:
@@ -542,25 +771,31 @@ def analyse_image(image_bytes, ext, user_question=""):
                     {"type": "image_url", "image_url": {"url": data_url}},
                     {"type": "text", "text": prompt},
                 ]}],
-                max_tokens=1024, temperature=0.5,
+                max_tokens=1024,
+                temperature=0.5,
             )
             return completion.choices[0].message.content.strip()
         except Exception as e:
             print(f"Vision error ({model}):", e)
     return ""
 
-# ─────────────────────────────────────────
-#  TEXT EXTRACTION
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  TEXT EXTRACTION from uploaded files
+# ═══════════════════════════════════════════════════════
+
 def extract_text(file_bytes, ext):
     text = ""
+
     if ext == ".pdf":
         try:
             with pdfplumber.open(BytesIO(file_bytes)) as pdf:
                 for page in pdf.pages:
                     t = page.extract_text()
-                    if t: text += t + "\n"
-        except Exception as e: print("PDF error:", e)
+                    if t:
+                        text += t + "\n"
+        except Exception as e:
+            print("PDF error:", e)
 
     elif ext in (".docx", ".doc"):
         try:
@@ -570,16 +805,20 @@ def extract_text(file_bytes, ext):
             for table in doc.tables:
                 for row in table.rows:
                     rt = "\t".join(c.text for c in row.cells if c.text.strip())
-                    if rt.strip(): parts.append(rt)
+                    if rt.strip():
+                        parts.append(rt)
             text = "\n".join(parts)
         except Exception as e:
             print("python-docx error:", e)
             try:
                 import docx2txt
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-                    tmp.write(file_bytes); tmp_path = tmp.name
-                text = docx2txt.process(tmp_path); os.unlink(tmp_path)
-            except Exception as e2: print("docx2txt error:", e2)
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                text = docx2txt.process(tmp_path)
+                os.unlink(tmp_path)
+            except Exception as e2:
+                print("docx2txt error:", e2)
 
     elif ext in (".xlsx", ".xlsm"):
         try:
@@ -587,12 +826,15 @@ def extract_text(file_bytes, ext):
             wb    = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
             parts = []
             for sn in wb.sheetnames:
-                ws = wb[sn]; parts.append(f"[Sheet: {sn}]")
+                ws = wb[sn]
+                parts.append(f"[Sheet: {sn}]")
                 for row in ws.iter_rows(values_only=True):
                     rs = "\t".join(str(c) if c is not None else "" for c in row)
-                    if rs.strip(): parts.append(rs)
+                    if rs.strip():
+                        parts.append(rs)
             text = "\n".join(parts)
-        except Exception as e: print("openpyxl error:", e)
+        except Exception as e:
+            print("openpyxl error:", e)
 
     elif ext == ".xls":
         try:
@@ -603,22 +845,27 @@ def extract_text(file_bytes, ext):
                 parts.append(f"[Sheet: {sheet.name}]")
                 for ri in range(sheet.nrows):
                     rs = "\t".join(str(sheet.cell_value(ri, ci)) for ci in range(sheet.ncols))
-                    if rs.strip(): parts.append(rs)
+                    if rs.strip():
+                        parts.append(rs)
             text = "\n".join(parts)
-        except Exception as e: print("xlrd error:", e)
+        except Exception as e:
+            print("xlrd error:", e)
 
     elif ext == ".ods":
         try:
             import pandas as pd
             with tempfile.NamedTemporaryFile(delete=False, suffix=".ods") as tmp:
-                tmp.write(file_bytes); tmp_path = tmp.name
+                tmp.write(file_bytes)
+                tmp_path = tmp.name
             df_dict = pd.read_excel(tmp_path, engine="odf", sheet_name=None)
             os.unlink(tmp_path)
             parts = []
             for sheet, df in df_dict.items():
-                parts.append(f"[Sheet: {sheet}]"); parts.append(df.to_string(index=False))
+                parts.append(f"[Sheet: {sheet}]")
+                parts.append(df.to_string(index=False))
             text = "\n\n".join(parts)
-        except Exception as e: print("ODS error:", e)
+        except Exception as e:
+            print("ODS error:", e)
 
     elif ext in (".pptx", ".ppt"):
         try:
@@ -631,13 +878,15 @@ def extract_text(file_bytes, ext):
                     if hasattr(shape, "text") and shape.text.strip():
                         parts.append(shape.text.strip())
             text = "\n".join(parts)
-        except Exception as e: print("PPTX error:", e)
+        except Exception as e:
+            print("PPTX error:", e)
 
     elif ext == ".rtf":
         try:
             from striprtf.striprtf import rtf_to_text
             text = rtf_to_text(file_bytes.decode("utf-8", errors="ignore"))
-        except Exception as e: print("RTF error:", e)
+        except Exception as e:
+            print("RTF error:", e)
 
     elif ext in (".csv", ".tsv"):
         try:
@@ -651,8 +900,12 @@ def extract_text(file_bytes, ext):
 
     elif ext in (".json", ".jsonl"):
         try:
-            raw = file_bytes.decode("utf-8", errors="ignore")
-            text = json.dumps(json.loads(raw), indent=2) if ext == ".json" else "\n".join(raw.splitlines()[:50])
+            raw  = file_bytes.decode("utf-8", errors="ignore")
+            text = (
+                json.dumps(json.loads(raw), indent=2)
+                if ext == ".json"
+                else "\n".join(raw.splitlines()[:50])
+            )
         except Exception as e:
             print("JSON error:", e)
             text = file_bytes.decode("utf-8", errors="ignore")[:4000]
@@ -663,22 +916,28 @@ def extract_text(file_bytes, ext):
             parts = []
             for cell in nb.get("cells", []):
                 src = "".join(cell.get("source", []))
-                if src.strip(): parts.append(f"[{cell.get('cell_type','').upper()}]\n{src}")
+                if src.strip():
+                    parts.append(f"[{cell.get('cell_type','').upper()}]\n{src}")
             text = "\n\n".join(parts)
-        except Exception as e: print("IPYNB error:", e)
+        except Exception as e:
+            print("IPYNB error:", e)
 
     elif ext == ".odt":
         try:
             import odf.opendocument
             with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as tmp:
-                tmp.write(file_bytes); tmp_path = tmp.name
-            doc = odf.opendocument.load(tmp_path); os.unlink(tmp_path)
+                tmp.write(file_bytes)
+                tmp_path = tmp.name
+            doc = odf.opendocument.load(tmp_path)
+            os.unlink(tmp_path)
             parts = []
             for el in doc.text.childNodes:
                 s = el.plaintext() if hasattr(el, "plaintext") else str(el)
-                if s.strip(): parts.append(s.strip())
+                if s.strip():
+                    parts.append(s.strip())
             text = "\n".join(parts)
-        except Exception as e: print("ODT error:", e)
+        except Exception as e:
+            print("ODT error:", e)
 
     elif ext == ".xml":
         text = "XML Data:\n" + file_bytes.decode("utf-8", errors="ignore")
@@ -689,22 +948,29 @@ def extract_text(file_bytes, ext):
             parts = []
             with zipfile.ZipFile(BytesIO(file_bytes)) as zf:
                 for name in zf.namelist():
-                    if name.endswith((".txt",".md",".csv",".json",".xml",".py",".js",".html",".css",".yaml",".yml",".sql")):
+                    if name.endswith((
+                        ".txt", ".md", ".csv", ".json", ".xml",
+                        ".py", ".js", ".html", ".css", ".yaml", ".yml", ".sql"
+                    )):
                         try:
                             content = zf.read(name).decode("utf-8", errors="ignore")
                             parts.append(f"[File: {name}]\n{content}")
-                        except Exception: pass
+                        except Exception:
+                            pass
             text = "\n\n".join(parts)
-        except Exception as e: print("ZIP error:", e)
+        except Exception as e:
+            print("ZIP error:", e)
 
     else:
         text = file_bytes.decode("utf-8", errors="ignore")
 
     return text.strip()
 
-# ─────────────────────────────────────────
-#  FILE UPLOAD
-# ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  FILE UPLOAD ROUTE
+# ═══════════════════════════════════════════════════════
+
 @app.route("/api/upload", methods=["POST"])
 def upload():
     if "file" not in request.files:
@@ -726,54 +992,99 @@ def upload():
     if ext in IMAGE_EXTENSIONS:
         reply = analyse_image(file_bytes, ext, user_question)
         if not reply:
-            reply = "I couldn't analyse the image. Please try again or paste any text from it directly into the chat."
+            reply = (
+                "I couldn't analyse the image. Please try again or "
+                "paste any text from it directly into the chat."
+            )
     else:
         text = extract_text(file_bytes, ext)
         if not text:
-            return jsonify({"reply": "I opened the file but couldn't extract readable content. If it is a scanned document, try uploading as a PNG or JPG image instead."})
+            return jsonify({
+                "reply": (
+                    "I opened the file but couldn't extract readable content. "
+                    "If it is a scanned document, try uploading as a PNG or JPG image instead."
+                )
+            })
         text        = safe_trim(clean_text(text), 6000)
         instruction = user_question if user_question else "Summarise the key information from this file clearly and concisely."
         msgs = [
-            {"role": "system", "content": "You are Pranox AI. A file has been uploaded. Use the extracted content below to answer the user. Be clear, structured, and helpful."},
-            {"role": "user",   "content": f"File content:\n\n{text}\n\nUser request: {instruction}"},
+            {
+                "role": "system",
+                "content": (
+                    "You are Pranox AI. A file has been uploaded. "
+                    "Use the extracted content below to answer the user. "
+                    "Be clear, structured, and helpful."
+                ),
+            },
+            {"role": "user", "content": f"File content:\n\n{text}\n\nUser request: {instruction}"},
         ]
         reply = run_ai(msgs, max_tokens=1200)
-        if not reply: reply = "I read the file but had trouble generating a response. Please try again."
+        if not reply:
+            reply = "I read the file but had trouble generating a response. Please try again."
         reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
 
     db = get_db()
     try:
-        db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "user", f"[File: {file.filename}] {user_question}"))
-        db.execute("INSERT INTO chats(user_email,role,message) VALUES (?,?,?)", (user_email, "assistant", reply))
+        db.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email, "user", f"[File: {file.filename}] {user_question}")
+        )
+        db.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email, "assistant", reply)
+        )
         db.commit()
     finally:
         db.close()
 
     return jsonify({"reply": reply})
 
+
+# ═══════════════════════════════════════════════════════
+#  RESUME DOWNLOAD
+# ═══════════════════════════════════════════════════════
+
 @app.route("/download_resume", methods=["POST"])
 def download_resume():
     buffer = BytesIO()
     p      = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    _, height = A4
     y = height - 50
     p.setFont("Helvetica-Bold", 14)
     p.drawString(50, y, "Resume")
-    y -= 30; p.setFont("Helvetica", 11)
+    y -= 30
+    p.setFont("Helvetica", 11)
     for line in request.form["resume"].split("\n"):
         if y < 60:
-            p.showPage(); y = height - 50; p.setFont("Helvetica", 11)
+            p.showPage()
+            y = height - 50
+            p.setFont("Helvetica", 11)
         line = line.strip()
-        if line: p.drawString(50, y, line[:100]); y -= 18
-        else: y -= 8
-    p.save(); buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="pranox_resume.pdf", mimetype="application/pdf")
+        if line:
+            p.drawString(50, y, line[:100])
+            y -= 18
+        else:
+            y -= 8
+    p.save()
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="pranox_resume.pdf",
+        mimetype="application/pdf",
+    )
+
+
+# ═══════════════════════════════════════════════════════
+#  IMAGE GENERATION — Cloudflare
+# ═══════════════════════════════════════════════════════
 
 @app.route("/api/image", methods=["POST"])
 def generate_image():
     data   = request.get_json(force=True)
     prompt = data.get("prompt", "").strip()
-    if not prompt: return jsonify({"reply": "Please provide an image description."}), 400
+    if not prompt:
+        return jsonify({"reply": "Please provide an image description."}), 400
     token   = CLOUDFLARE_API_TOKEN.strip()
     account = CLOUDFLARE_ACCOUNT_ID.strip()
     if not token or not account:
@@ -782,16 +1093,23 @@ def generate_image():
     url      = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
     headers  = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     try:
-        response = requests.post(url, headers=headers, json={"prompt": enhanced, "num_steps": 20}, timeout=60)
+        response = requests.post(
+            url, headers=headers,
+            json={"prompt": enhanced, "num_steps": 20},
+            timeout=60,
+        )
         if response.status_code == 200:
             ct = response.headers.get("Content-Type", "")
             if "image" in ct or len(response.content) > 1000:
-                return response.content, 200, {"Content-Type": "image/png", "Cache-Control": "no-cache"}
+                return response.content, 200, {
+                    "Content-Type": "image/png",
+                    "Cache-Control": "no-cache",
+                }
             return jsonify({"reply": "Image generation returned unexpected data. Please try again."}), 500
         elif response.status_code == 401:
             return jsonify({"reply": "Image generation auth failed. Check your Cloudflare API token."}), 500
         elif response.status_code == 403:
-            return jsonify({"reply": "Image generation permission denied. Verify your Cloudflare account ID and token permissions."}), 500
+            return jsonify({"reply": "Image generation permission denied. Verify your Cloudflare account and token."}), 500
         else:
             return jsonify({"reply": f"Image generation failed (error {response.status_code})."}), 500
     except requests.Timeout:
@@ -799,6 +1117,31 @@ def generate_image():
     except Exception as e:
         print("IMAGE ERROR:", e)
         return jsonify({"reply": "Server error during image generation."}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  DEBUG — test search without opening the chat UI
+#  Usage: visit /api/debug-search?q=who+is+cm+of+bengal
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/debug-search")
+def debug_search():
+    query         = request.args.get("q", "who is the cm of west bengal")
+    do_search, sq = ai_search_decision(query)
+    results       = search_internet(sq) if do_search and sq else "(search not triggered)"
+    return jsonify({
+        "original_query":    query,
+        "search_triggered":  do_search,
+        "search_query_used": sq,
+        "serper_key_set":    bool(os.getenv("SERPER_API_KEY")),
+        "results_length":    len(results),
+        "results_preview":   results[:600] if results else "NO RESULTS",
+    })
+
+
+# ═══════════════════════════════════════════════════════
+#  STATIC PAGES
+# ═══════════════════════════════════════════════════════
 
 @app.route("/privacy")
 def privacy():
@@ -815,6 +1158,7 @@ def sitemap():
 @app.route("/robots.txt")
 def robots():
     return send_from_directory("static", "robots.txt")
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
