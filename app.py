@@ -39,9 +39,6 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 CLOUDFLARE_API_TOKEN  = os.getenv("CLOUDFLARE_API_TOKEN", "")
 CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 
-# ─────────────────────────────────────────
-#  DATABASE
-# ─────────────────────────────────────────
 def get_db():
     conn = sqlite3.connect("pranox.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -60,12 +57,6 @@ init_db()
 
 def save_memory(user_email, key, value):
     db = get_db()
-    db.execute("DELETE FROM user_email=? AND key=?", (user_email, key))
-    db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)", (user_email, key, value))
-    db.commit(); db.close()
-
-def save_memory(user_email, key, value):
-    db = get_db()
     db.execute("DELETE FROM user_memory WHERE user_email=? AND key=?", (user_email, key))
     db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)", (user_email, key, value))
     db.commit(); db.close()
@@ -76,111 +67,89 @@ def get_memory(user_email):
     db.close()
     return "\n".join([f"{r['key']}: {r['value']}" for r in rows])
 
-# ─────────────────────────────────────────
-#  UNIVERSAL SEARCH DECISION — AI decides
-#  Uses a tiny fast model call to decide if search is needed
-#  and to generate a clean search query.
-#  This works for ANY question, not just ones we manually listed.
-# ─────────────────────────────────────────
-def ai_search_decision(user_message: str) -> tuple[bool, str]:
-    """
-    Ask the AI two things in one call:
-    1. Does this question need a live web search?
-    2. If yes, what is the best Google search query to use?
+# ═══════════════════════════════════════════
+#  QUERY REWRITER
+#  Cleans raw user messages into proper Google search queries
+#  e.g. "tell me the latest cm of bangal" → "Chief Minister West Bengal 2025"
+# ═══════════════════════════════════════════
 
-    Returns: (needs_search: bool, search_query: str)
-    """
-    prompt = f"""You are a search decision engine. Analyze the user's question and decide:
+PLACE_CORRECTIONS = {
+    "bangal": "West Bengal", "bengal": "West Bengal",
+    "tamilnadu": "Tamil Nadu", "tamilnad": "Tamil Nadu", "tn": "Tamil Nadu",
+    "andhra": "Andhra Pradesh", "ap": "Andhra Pradesh",
+    "telangana": "Telangana", "ts": "Telangana",
+    "odisha": "Odisha", "orissa": "Odisha",
+    "himachal": "Himachal Pradesh", "hp": "Himachal Pradesh",
+    "arunachal": "Arunachal Pradesh",
+    "up": "Uttar Pradesh", "uttar pradesh": "Uttar Pradesh",
+    "mp": "Madhya Pradesh", "madhya pradesh": "Madhya Pradesh",
+}
 
-1. Does it need a live web search to answer correctly?
-2. If yes, write the best Google search query for it.
+FILLER_RE = re.compile(
+    r"^(tell me( the)?|can you tell me|do you know|i want to know|"
+    r"please tell me|please |kindly |could you |give me |"
+    r"i need to know |find out |look up |help me with |"
+    r"what('s| is) the |who('s| is) the |let me know |"
+    r"tell me about |give me information (on|about) )\s*",
+    re.IGNORECASE
+)
 
-Search IS needed for:
-- Current events, news, recent happenings
-- People's current roles (CM, PM, CEO, president, minister, etc.)
-- Prices, stocks, crypto, exchange rates
-- Weather, sports scores, match results
-- Location of places, restaurants, shops, hospitals, malls
-- Recently opened/launched things (new restaurants, products, stores)
-- Anything that changes over time
-- Any specific place + business query ("is there X in Y city")
-- Any question about what exists somewhere right now
+ROLE_MAP = {
+    r'\bcm\b': 'Chief Minister',
+    r'\bpm\b': 'Prime Minister',
+    r'\bgovt\b': 'government',
+    r'\bgov\b': 'governor',
+    r'\bmla\b': 'MLA',
+    r'\bceo\b': 'CEO',
+    r'\bcto\b': 'CTO',
+    r'\bcfo\b': 'CFO',
+    r'\bcoo\b': 'COO',
+}
 
-Search is NOT needed for:
-- Math calculations
-- General coding help or programming concepts  
-- Creative writing, poems, stories
-- Definitions of stable concepts
-- Historical facts (things that won't change)
-- Personal advice or opinions
-- Grammar, language questions
+POLITICAL_ROLES = [
+    "chief minister", "prime minister", "president", "governor",
+    "minister", "ceo", "chairman", "mla", "member of parliament",
+    "owner", "head of"
+]
 
-User question: "{user_message}"
+def rewrite_search_query(user_message: str) -> str:
+    """Convert messy user message into a clean Google search query."""
+    msg = user_message.strip()
 
-Reply in EXACTLY this format, nothing else:
-SEARCH: YES or NO
-QUERY: (the Google search query if YES, else NONE)
+    # Step 1: Strip filler phrases from the start
+    msg = FILLER_RE.sub("", msg).strip()
 
-Examples:
-User: "where is mcd in davangere"
-SEARCH: YES
-QUERY: McDonald's Davangere location
+    # Step 2: Fix place name typos (work on lowercase copy)
+    msg_lower = msg.lower()
+    for typo, correct in PLACE_CORRECTIONS.items():
+        msg_lower = re.sub(r'\b' + re.escape(typo) + r'\b', correct, msg_lower)
+    msg = msg_lower
 
-User: "who is pm of india"
-SEARCH: YES
-QUERY: Prime Minister of India 2025
+    # Step 3: Expand role abbreviations
+    for pattern, replacement in ROLE_MAP.items():
+        msg = re.sub(pattern, replacement, msg, flags=re.IGNORECASE)
 
-User: "write a python function to sort a list"
-SEARCH: NO
-QUERY: NONE
+    # Step 4: Remove vague time words (we'll add "2025" instead)
+    msg = re.sub(r'\b(latest|current|present|now|today|recent|new|updated)\b', '', msg, flags=re.IGNORECASE)
+    msg = re.sub(r'\s{2,}', ' ', msg).strip()
 
-User: "what is the capital of france"
-SEARCH: NO
-QUERY: NONE
+    # Step 5: Append year for political/current-affairs queries
+    if any(role in msg.lower() for role in POLITICAL_ROLES):
+        msg = msg + " 2025"
 
-User: "latest ipl score"
-SEARCH: YES
-QUERY: IPL latest score today 2025
+    # Step 6: Clean trailing punctuation
+    msg = re.sub(r'[?!.,;:]+$', '', msg).strip()
 
-User: "is there a kfc in mysore"
-SEARCH: YES
-QUERY: KFC Mysore location branch"""
-
-    try:
-        # Use the fast small model for this decision — saves quota
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=60,
-        )
-        response = completion.choices[0].message.content.strip()
-        lines = response.strip().splitlines()
-
-        search_line = next((l for l in lines if l.upper().startswith("SEARCH:")), "SEARCH: NO")
-        query_line  = next((l for l in lines if l.upper().startswith("QUERY:")),  "QUERY: NONE")
-
-        needs_search = "YES" in search_line.upper()
-        query = query_line.split(":", 1)[1].strip() if ":" in query_line else ""
-        query = "" if query.upper() == "NONE" else query
-
-        # Fallback: if needs_search but query is empty, use the original message
-        if needs_search and not query:
-            query = user_message
-
-        print(f"[AI DECISION] Search: {needs_search} | Query: '{query}'")
-        return needs_search, query
-
-    except Exception as e:
-        print(f"[AI DECISION ERROR] {e} — defaulting to search")
-        # On any error, default to searching with original message
-        return True, user_message
+    print(f"[QUERY REWRITE] '{user_message}' → '{msg}'")
+    return msg if msg else user_message
 
 
-# ─────────────────────────────────────────
-#  SERPER SEARCH
-# ─────────────────────────────────────────
-def search_internet(query: str) -> str:
+# ═══════════════════════════════════════════
+#  SERPER SEARCH  (unchanged structure, just called with rewritten query)
+# ═══════════════════════════════════════════
+
+def search_internet(query):
+    """Search using Serper API and return clean, structured results."""
     try:
         api_key = os.getenv("SERPER_API_KEY")
         if not api_key:
@@ -191,7 +160,7 @@ def search_internet(query: str) -> str:
             "https://google.serper.dev/search",
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
             json={"q": query, "num": 8, "gl": "in", "hl": "en"},
-            timeout=8,
+            timeout=8
         )
 
         if res.status_code != 200:
@@ -211,7 +180,7 @@ def search_internet(query: str) -> str:
 
         # 2. Knowledge graph
         if "knowledgeGraph" in data:
-            kg    = data["knowledgeGraph"]
+            kg = data["knowledgeGraph"]
             title = kg.get("title", "")
             desc  = kg.get("description", "")
             attrs = kg.get("attributes", {})
@@ -229,28 +198,25 @@ def search_internet(query: str) -> str:
                 title   = r.get("title", "")
                 link    = r.get("link", "")
                 if snippet:
-                    results.append(f"[SOURCE: {title}]\n  {snippet}\n  Link: {link}")
+                    results.append(f"[SOURCE: {title}] ({link})\n  {snippet}")
 
-        # 4. Related searches (only if few results)
+        # 4. Related searches for context
         if "relatedSearches" in data and len(results) < 3:
-            related = [r.get("query", "") for r in data["relatedSearches"][:3]]
+            related = [r.get("query","") for r in data["relatedSearches"][:3]]
             if related:
                 results.append(f"[Related]: {', '.join(related)}")
 
         final = "\n\n".join(results)
-        print(f"[SEARCH SUCCESS] {len(results)} results for: '{query}'")
+        print(f"[SEARCH SUCCESS] {len(results)} results, {len(final)} chars")
         return final
 
     except requests.Timeout:
-        print("[SEARCH] Timeout")
+        print("[SEARCH] Timeout after 8s")
         return ""
     except Exception as e:
         print(f"[SEARCH ERROR]: {e}")
         return ""
 
-# ─────────────────────────────────────────
-#  UTILITIES
-# ─────────────────────────────────────────
 def safe_trim(text, limit=6000):
     return text[:limit] if len(text) > limit else text
 
@@ -276,9 +242,76 @@ def is_bad_response(reply):
     bad_patterns = ["here's the corrected code", "flask application", "example of how you could", "missing code"]
     return any(p in reply.lower() for p in bad_patterns)
 
-# ─────────────────────────────────────────
-#  SYSTEM PROMPTS
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════
+#  SMART SEARCH TRIGGER  (unchanged)
+# ═══════════════════════════════════════════
+
+SEARCH_KEYWORDS = [
+    "latest", "recent", "current", "today", "now", "news", "update",
+    "2024", "2025", "2026",
+    "price", "cost", "rate", "stock", "crypto", "bitcoin", "market",
+    "weather", "temperature", "forecast",
+    "who won", "who is winning", "score", "result", "match",
+    "election", "vote", "winner", "elected",
+    "war", "conflict", "attack", "crisis", "protest",
+    "launched", "released", "announced", "introduced",
+    "died", "arrested", "resigned", "appointed", "fired",
+    "ipl", "cricket", "football", "nba", "nfl", "fifa",
+    "trending", "viral", "breaking",
+    "chief minister", "cm of", "cm is", "who is cm",
+    "prime minister", "pm of", "pm is", "who is pm",
+    "president of", "who is president",
+    "minister of", "governor of", "mayor of",
+    "mla", "mp ", "mp of", "mpp",
+    "ruling party", "government of",
+    "ceo of", "founder of", "owner of", "head of",
+]
+
+SEARCH_PATTERNS = [
+    r"\bwho is (the )?(current |new |latest |present )?(cm|chief minister|pm|prime minister|president|ceo|founder|owner|governor|minister|mayor|chancellor|king|queen|coo|cto|cfo)\b",
+    r"\bwhat is (the )?(current |latest |new )?(price|rate|status|situation|update)\b",
+    r"\b(cm|chief minister|pm|prime minister|president|ceo) of \w+",
+    r"\bcurrent (government|ruling party|leader|head)\b",
+    r"\blatest (news|update|development|result)\b",
+    r"\brecently (happened|announced|launched|released|arrested|elected)\b",
+    r"\bwho (leads?|runs?|heads?|controls?|owns?) \w+",
+    r"\bis \w+ (still|currently|now)\b",
+    r"\bwhat happened (to|with|in|at)\b",
+    r"\bhow much (does|is|are|did)\b",
+    r"\bpresent (cm|pm|president|minister|ceo|chief)\b",
+    r"\b(cm|pm|president|minister|ceo|governor) of (india|bengal|tamilnadu|tamil nadu|karnataka|kerala|andhra|telangana|maharashtra|gujarat|rajasthan|punjab|delhi|bihar|up|odisha|assam|jharkhand|chhattisgarh|uttarakhand|himachal|goa|manipur|meghalaya|mizoram|nagaland|sikkim|tripura|arunachal)\b",
+    r"\bwho (is|are|was|were) (the )?(new|current|present|latest|sitting|elected|appointed|acting)\b",
+    # catch "tell me the latest/current X" patterns
+    r"\btell me (the )?(latest|current|present|new|recent)\b",
+    # catch Indian state name mentions that usually need live data
+    r"\b(bangal|bengal|tamilnadu|karnataka|kerala|andhra|telangana|gujarat|rajasthan|punjab|bihar|odisha)\b",
+]
+
+def needs_live_search(message: str) -> bool:
+    """Return True if the query requires live internet search."""
+    msg_lower = message.lower().strip()
+
+    short_political = re.search(
+        r"(who is|what is|tell me|who's|whats).{0,80}(cm|pm|president|minister|ceo|price|rate|score|result|winner|latest|current|present|chief|prime)",
+        msg_lower
+    )
+    if short_political:
+        return True
+
+    if any(kw in msg_lower for kw in SEARCH_KEYWORDS):
+        return True
+
+    for pattern in SEARCH_PATTERNS:
+        if re.search(pattern, msg_lower):
+            return True
+
+    return False
+
+
+# ═══════════════════════════════════════════
+#  SYSTEM PROMPTS  (unchanged)
+# ═══════════════════════════════════════════
+
 BASE_SYSTEM_PROMPT = """You are Pranox AI — a highly intelligent, friendly, and precise AI assistant.
 
 IDENTITY:
@@ -310,41 +343,38 @@ PRANOX LINKS (share ONLY when user asks about Pranox social media):
 
 SEARCH_OVERRIDE_PROMPT = """
 ══════════════════════════════════════════════
-🔴 LIVE SEARCH MODE — STRICT RULES 🔴
+🔴 CRITICAL INSTRUCTION — LIVE SEARCH MODE 🔴
 ══════════════════════════════════════════════
 
-Real-time web search results are provided below.
-These results are from TODAY. They are MORE ACCURATE than your training data.
+Real-time web search results have been fetched for this query.
+These results are from TODAY and are MORE ACCURATE than your training data.
 
-MANDATORY RULES — NO EXCEPTIONS:
+YOU MUST FOLLOW THESE RULES WITHOUT EXCEPTION:
 
-1. READ the search results and EXTRACT the answer from them.
-   - Check [TOP ANSWER] first — use it directly if present.
-   - Then check [KNOWLEDGE GRAPH].
-   - Then read [SOURCE] snippets carefully.
+1. USE THE SEARCH RESULTS to answer the question.
+   - The answer is IN the search results — read them carefully.
+   - Extract the direct answer from [TOP ANSWER] or [KNOWLEDGE GRAPH] first.
+   - If not there, read the [SOURCE] snippets to find the answer.
 
-2. STATE THE ANSWER DIRECTLY and CONFIDENTLY.
-   - NEVER say "I couldn't find" when search results are present.
-   - NEVER say "my data may be outdated" — you have live data RIGHT NOW.
-   - NEVER say "please verify" as a substitute for answering.
-   - NEVER say "as of my knowledge cutoff".
-   - NEVER say "I don't have real-time access".
+2. DO NOT use your training data for this answer.
+   - Your training may be from 2023/2024 — it is OUTDATED for current info.
+   - NEVER say "as of my last update" or "my knowledge cutoff" when search results exist.
+   - NEVER say "I don't have real-time data" when search results are provided.
 
-3. If something EXISTS in search results, confirm it and share the details.
+3. STATE THE ANSWER DIRECTLY and CONFIDENTLY.
+   - If search results say the CM is X, say "The Chief Minister is X."
+   - If results show a price, state that price.
+   - If results confirm an election result, state it.
 
-4. For location queries: give the address, area, or any location detail from results.
+4. CITE YOUR SOURCE naturally.
+   - Add phrases like "According to recent sources..." or "As of today..."
+   - Mention the search result source if it adds credibility.
 
-5. Only if results are genuinely empty/irrelevant say:
-   "I searched but couldn't find specific details — try Google Maps or the official website."
+5. If search results are unclear or conflicting:
+   - State what the most reliable source says
+   - Mention there may be conflicting info and suggest verifying
 
-CORRECT EXAMPLES:
-- "McDonald's in Davangere is located at P.J. Extension."
-- "The Chief Minister of West Bengal is Mamata Banerjee."
-- "As of today, the IPL score is..."
-
-WRONG (NEVER DO THIS):
-- "I couldn't find any information on McDonald's in Davangere."
-- "My data may be outdated, please verify."
+BOTTOM LINE: The search results below contain the real answer. Use them.
 ══════════════════════════════════════════════
 """
 
@@ -359,25 +389,28 @@ def build_system_prompt(memory: str) -> str:
 
 def build_messages_with_search(system_prompt: str, search_results: str, history: list, user_message: str) -> list:
     msgs = [{"role": "system", "content": system_prompt}]
-    for h in reversed(list(history)[1:]):
+
+    for h in reversed(history[1:]):
         role = h["role"] if h["role"] in ("user", "assistant") else "user"
         msgs.append({"role": role, "content": h["message"]})
-    enriched = (
+
+    enriched_user_message = (
         f"{SEARCH_OVERRIDE_PROMPT}\n\n"
-        f"LIVE SEARCH RESULTS:\n"
+        f"LIVE SEARCH RESULTS FOR YOUR QUERY:\n"
         f"{'='*50}\n"
         f"{search_results}\n"
         f"{'='*50}\n\n"
         f"USER QUESTION: {user_message}\n\n"
-        f"Answer the USER QUESTION using the search results above. Be direct and confident."
+        f"Now answer the USER QUESTION using the search results above. "
+        f"Extract the direct answer from the results and state it confidently."
     )
-    msgs.append({"role": "user", "content": enriched})
+    msgs.append({"role": "user", "content": enriched_user_message})
     return msgs
 
 
 def build_messages_no_search(system_prompt: str, history: list, user_message: str) -> list:
     msgs = [{"role": "system", "content": system_prompt}]
-    for h in reversed(list(history)[1:]):
+    for h in reversed(history[1:]):
         role = h["role"] if h["role"] in ("user", "assistant") else "user"
         msgs.append({"role": role, "content": h["message"]})
     msgs.append({"role": "user", "content": user_message})
@@ -390,9 +423,6 @@ def get_redirect_uri():
         return f"{render_url.rstrip('/')}/authorize"
     return "http://127.0.0.1:8000/authorize"
 
-# ─────────────────────────────────────────
-#  ROUTES
-# ─────────────────────────────────────────
 @app.route("/")
 def landing():
     return render_template("landing.html")
@@ -462,9 +492,6 @@ def resume():
         output = clean_text(re.sub(r"[*#_`]", "", output))
     return render_template("resume.html", resume=output)
 
-# ─────────────────────────────────────────
-#  MAIN CHAT API
-# ─────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     data         = request.get_json(force=True)
@@ -483,46 +510,3 @@ def api_chat():
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
-            memory = get_memory(user_email)
-
-        age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
-        if age_match:
-            save_memory(user_email, "age", age_match.group(1))
-            memory = get_memory(user_email)
-
-        history = db.execute(
-            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
-            (user_email,)
-        ).fetchall()
-        history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
-
-        # ── UNIVERSAL SEARCH DECISION ──────────────────────────
-        # The AI itself decides if search is needed and writes the query.
-        # This handles ANY question universally — no manual keyword lists needed.
-        do_search, search_query = ai_search_decision(user_message)
-        search_results = ""
-
-        if do_search and search_query:
-            search_results = search_internet(search_query)
-
-            # Fallback: if AI query returned nothing, try raw user message
-            if not search_results:
-                print(f"[SEARCH FALLBACK] Trying raw message: '{user_message}'")
-                search_results = search_internet(user_message)
-        # ─────────────────────────────────────────────────────
-
-        system_prompt = build_system_prompt(memory)
-
-        if search_results.strip():
-            msgs = build_messages_with_search(system_prompt, search_results, history, user_message)
-        elif do_search and not search_results:
-            # Search was needed but returned nothing
-            no_result_note = (
-                f"NOTE: A live web search was attempted but returned no results. "
-                f"Give your best answer from training knowledge. "
-                f"For location-specific or very recent questions, suggest the user check Google Maps or the official website.\n\n"
-                f"USER QUESTION: {user_message}"
-            )
-            msgs = [{"role": "system", "content": system_prompt}]
-            for h in reversed(list(history)[1:]):
-                role = h["role"] if h["role"] in ("user", "assis
