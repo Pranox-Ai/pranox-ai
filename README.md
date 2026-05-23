@@ -5,26 +5,27 @@
 ### Powerful All-in-One Intelligent Assistant for Coding, Content Creation, Productivity, and Automation
 
 <p>
-  <img src="https://img.shields.io/badge/Backend-Flask-blue?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Database-SQLite-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Frontend-HTML%20%7C%20CSS%20%7C%20JavaScript-orange?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/AI-LLaMA%20Models-purple?style=for-the-badge" />
-</p>
-
-<p>
   <b>Built for students, developers, creators, and productivity-focused users.</b>
 </p>
 
 <p>
   <a href="https://pranox-ai.onrender.com">
-    <img src="https://img.shields.io/badge/Use%20Pranox%20AI-Live%20Website-brightgreen?style=for-the-badge" />
+    <img src="https://img.shields.io/badge/Live-Pranox%20AI-2ea44f?style=for-the-badge" />
   </a>
-  <a href="https://x.com/Pranoxgroups">
-    <img src="https://img.shields.io/badge/Follow%20on-X-black?style=for-the-badge" />
-  </a>
-  <a href="https://www.instagram.com/pranoxgroups?igsh=a2EzOXUzdDV2MzVq">
-    <img src="https://img.shields.io/badge/Instagram-Pranoxgroups-E4405F?style=for-the-badge" />
-  </a>
+  <img src="https://img.shields.io/badge/Backend-Flask-0052CC?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Database-SQLite-07405E?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Frontend-HTML%20%7C%20CSS%20%7C%20JavaScript-F7DF1E?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AI-LLaMA%20Models-6f42c1?style=for-the-badge" />
+</p>
+
+<p>
+  <a href="https://pranox-ai.onrender.com"><b>🌐 Use Pranox AI</b></a>
+  ·
+  <a href="https://x.com/Pranoxgroups"><b>Follow on X</b></a>
+  ·
+  <a href="https://www.instagram.com/pranoxgroups?igsh=a2EzOXUzdDV2MzVq"><b>Instagram</b></a>
+  ·
+  <a href="https://razorpay.me/@pranoxai"><b>Support</b></a>
 </p>
 
 </div>
@@ -37,13 +38,18 @@
 
 Built with a focus on **speed**, **accuracy**, and **simplicity**, Pranox AI combines advanced AI capabilities into a single platform for **students**, **developers**, and **creators**.
 
+The platform is designed to provide a clean and useful AI experience where users can ask questions, generate content, work with code, analyze documents, create images, and complete productivity tasks faster.
+
 ---
 
 ## 📖 Table of Contents
 
+- [Overview](#-overview)
+- [Project Highlights](#-project-highlights)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
-- [Use It Here](#-use-it-here)
+- [How Pranox AI Helps Users](#-how-pranox-ai-helps-users)
+- [Live Project](#-live-project)
 - [Founder](#-founder)
 - [Connect With Me](#-connect-with-me)
 - [Vision](#-vision)
@@ -55,6 +61,25 @@ Built with a focus on **speed**, **accuracy**, and **simplicity**, Pranox AI com
 
 ---
 
+## ✨ Project Highlights
+
+<table>
+<tr>
+<td align="center"><b>⚡ Fast</b></td>
+<td align="center"><b>🎯 Accurate</b></td>
+<td align="center"><b>🧠 Intelligent</b></td>
+<td align="center"><b>🧩 All-in-One</b></td>
+</tr>
+<tr>
+<td align="center">Quick responses for daily tasks</td>
+<td align="center">Clear and useful answers</td>
+<td align="center">Context-aware conversations</td>
+<td align="center">Multiple AI tools in one platform</td>
+</tr>
+</table>
+
+---
+
 ## 🌟 Features
 
 <table>
@@ -63,7 +88,7 @@ Built with a focus on **speed**, **accuracy**, and **simplicity**, Pranox AI com
 
 ### 🤖 AI Chat Assistant
 
-Pranox AI provides a smooth and intelligent chat experience for users who need fast, clear, and useful answers.
+Pranox AI provides a clean and intelligent chat experience for users who need useful answers quickly.
 
 - Answer questions with high accuracy
 - Context-aware conversations
@@ -123,7 +148,7 @@ Pranox AI includes image generation features for creative and visual tasks.
 
 ### 🧠 Smart Memory
 
-Pranox AI is designed to deliver a more personalized assistant experience.
+Pranox AI is designed to provide a more personalized assistant experience.
 
 - Remembers user preferences
 - Personalized responses
@@ -143,17 +168,57 @@ Pranox AI is designed to deliver a more personalized assistant experience.
 | **AI Engine** | API `LLaMA Models` |
 | **Image Generation** | API Used |
 | **Frontend** | HTML, CSS, JavaScript |
+| **Hosting** | Render |
 
 ---
 
-## 🚀 Use It Here
+## 🧩 How Pranox AI Helps Users
+
+<table>
+<tr>
+<td width="33%">
+
+### 🎓 For Students
+
+- Learn concepts faster
+- Understand code easily
+- Generate notes and content
+- Analyze documents
+
+</td>
+<td width="33%">
+
+### 👨‍💻 For Developers
+
+- Generate code
+- Debug errors
+- Improve existing code
+- Understand programming concepts
+
+</td>
+<td width="33%">
+
+### 🎨 For Creators
+
+- Generate content ideas
+- Write articles and text
+- Create image prompts
+- Improve productivity
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Live Project
 
 <div align="center">
 
-### 🔗 Live Website
+### 🌐 Use Pranox AI Here
 
 <a href="https://pranox-ai.onrender.com">
-  <img src="https://img.shields.io/badge/Open-Pranox%20AI-success?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Open-Pranox%20AI-2ea44f?style=for-the-badge" />
 </a>
 
 <br><br>
@@ -168,7 +233,8 @@ Pranox AI is designed to deliver a more personalized assistant experience.
 
 <div align="center">
 
-### Chetansaipranav R  
+### Chetansaipranav R
+
 **Founder of Pranox AI**
 
 > Building intelligent AI systems to simplify coding, content creation, and productivity.
@@ -203,6 +269,8 @@ The goal is to make AI:
 </tr>
 </table>
 
+Pranox AI focuses on making advanced AI tools easier to use for daily productivity, learning, development, and creative work.
+
 ---
 
 ## 🔮 Future Plans
@@ -221,11 +289,14 @@ Pranox AI is continuously improving with more powerful features and performance 
 
 Contributions, suggestions, and feedback are always welcome.
 
-If you would like to contribute:
+To contribute:
 
 1. Fork the repository
 2. Create a new branch
-3. Submit a pull request
+3. Make your changes
+4. Submit a pull request
+
+Your ideas, feedback, and improvements can help make Pranox AI better.
 
 ---
 
@@ -235,7 +306,17 @@ If you like this project, consider giving it a ⭐ on GitHub — it really helps
 
 You can also support us here:
 
-🔗 **Support Pranox AI:** https://razorpay.me/@pranoxai
+<div align="center">
+
+<a href="https://razorpay.me/@pranoxai">
+  <img src="https://img.shields.io/badge/Support-Pranox%20AI-blueviolet?style=for-the-badge" />
+</a>
+
+<br><br>
+
+**Support Link:** https://razorpay.me/@pranoxai
+
+</div>
 
 ---
 
