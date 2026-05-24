@@ -45,7 +45,7 @@ MAX_ROUNDS          = int(os.getenv("DEEPSEARCH_MAX_ROUNDS",         "2"))
 RESULTS_PER_QUERY   = int(os.getenv("DEEPSEARCH_RESULTS_PER_QUERY",  "6"))
 READ_PER_QUERY      = int(os.getenv("DEEPSEARCH_READ_PER_QUERY",     "3"))
 MAX_TOTAL_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_TOTAL_SOURCES",  "20"))
-MAX_SYNTH_SOURCES   = 12   # max sources sent to synthesizer to avoid context overflow
+MAX_SYNTH_SOURCES   = 8    # max sources sent to synthesizer to avoid context overflow
 SCRAPE_TIMEOUT      = 14   # seconds per page fetch
 SERPER_TIMEOUT      = 12   # seconds per search request
 INTER_QUERY_SLEEP   = 0.4  # seconds between queries to respect rate limits
@@ -520,7 +520,7 @@ User's research question:
 You have gathered evidence from {len(ranked)} web sources. Write a premium, comprehensive research report.
 
 EVIDENCE:
-{safe_trim(context, 10000)}
+{safe_trim(context, 6000)}
 
 SOURCE LIST:
 {sources_list}
@@ -533,7 +533,7 @@ REPORT REQUIREMENTS:
 - Include specific numbers, statistics, dates, and named examples where available
 - Acknowledge where sources conflict or where information is uncertain
 - Do NOT write "I searched the web" or "based on my research" — just present findings authoritatively
-- Write at least 700 words — this is a deep research report, not a summary
+- Write at least 500 words — this is a deep research report, not a summary
 - Be specific, analytical, and genuinely useful
 
 STRUCTURE (use these exact headings):
@@ -553,7 +553,7 @@ List 3 specific follow-up research questions the user might want to explore next
 
     return run_llm(
         [{"role": "user", "content": prompt}],
-        max_tokens=3000,
+        max_tokens=2048,
         temperature=0.2,
     )
 
