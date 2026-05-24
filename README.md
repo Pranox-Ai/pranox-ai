@@ -16,6 +16,7 @@
   <img src="https://img.shields.io/badge/Database-SQLite-07405E?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Frontend-HTML%20%7C%20CSS%20%7C%20JavaScript-F7DF1E?style=for-the-badge" />
   <img src="https://img.shields.io/badge/AI-LLaMA%20Models-6f42c1?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Deep%20Research-Live%20Web%20Sources-2563eb?style=for-the-badge" />
 </p>
 
 <p>
@@ -38,7 +39,7 @@
 
 Built with a focus on **speed**, **accuracy**, and **simplicity**, Pranox AI combines advanced AI capabilities into a single platform for **students**, **developers**, and **creators**.
 
-The platform is designed to provide a clean and useful AI experience where users can ask questions, generate content, work with code, analyze documents, create images, and complete productivity tasks faster.
+The platform is designed to provide a clean and useful AI experience where users can ask questions, generate content, work with code, analyze documents, create images, complete productivity tasks faster, and perform **Deep Research** using live web sources.
 
 ---
 
@@ -97,6 +98,22 @@ Pranox AI provides a clean and intelligent chat experience for users who need us
 </td>
 <td width="50%">
 
+### 🔎 Deep Research
+
+Pranox AI includes a dedicated Deep Research mode for users who need detailed answers from multiple web sources.
+
+- Searches live web sources
+- Reads and analyzes multiple pages
+- Creates structured research reports
+- Provides source-based answers
+- Useful for complex topics, comparisons, current updates, and detailed study
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+
 ### 💻 Code Generation & Explanation
 
 Pranox AI helps students and developers write, understand, debug, and improve code.
@@ -106,9 +123,6 @@ Pranox AI helps students and developers write, understand, debug, and improve co
 - Explain complex concepts in simple terms
 
 </td>
-</tr>
-
-<tr>
 <td width="50%">
 
 ### 📝 Content Creation
@@ -120,6 +134,9 @@ Pranox AI supports users in creating professional and useful written content.
 - Article and text generation
 
 </td>
+</tr>
+
+<tr>
 <td width="50%">
 
 ### 📄 Document Analysis
@@ -131,9 +148,6 @@ Pranox AI can analyze documents and extract meaningful information from differen
 - Provides structured insights
 
 </td>
-</tr>
-
-<tr>
 <td width="50%">
 
 ### 🖼️ AI Image Generation
@@ -144,6 +158,9 @@ Pranox AI includes image generation features for creative and visual tasks.
 - Fast and visually detailed outputs
 
 </td>
+</tr>
+
+<tr>
 <td width="50%">
 
 ### 🧠 Smart Memory
@@ -152,6 +169,17 @@ Pranox AI is designed to provide a more personalized assistant experience.
 
 - Remembers user preferences
 - Personalized responses
+
+</td>
+<td width="50%">
+
+### 🌐 Live Web Research
+
+Pranox AI can support research-style queries by collecting information from web sources and generating useful summaries.
+
+- Helps with current information
+- Supports deeper topic exploration
+- Improves answers for research-based questions
 
 </td>
 </tr>
@@ -166,6 +194,7 @@ Pranox AI is designed to provide a more personalized assistant experience.
 | **Backend** | Flask `Python` |
 | **Database** | SQLite |
 | **AI Engine** | API `LLaMA Models` |
+| **Deep Research** | Live Web Search, Source Reading, AI Synthesis |
 | **Image Generation** | API Used |
 | **Frontend** | HTML, CSS, JavaScript |
 | **Hosting** | Render |
@@ -184,6 +213,7 @@ Pranox AI is designed to provide a more personalized assistant experience.
 - Understand code easily
 - Generate notes and content
 - Analyze documents
+- Research complex topics deeply
 
 </td>
 <td width="33%">
@@ -194,6 +224,7 @@ Pranox AI is designed to provide a more personalized assistant experience.
 - Debug errors
 - Improve existing code
 - Understand programming concepts
+- Research technologies and tools
 
 </td>
 <td width="33%">
@@ -204,6 +235,7 @@ Pranox AI is designed to provide a more personalized assistant experience.
 - Write articles and text
 - Create image prompts
 - Improve productivity
+- Explore topics with Deep Research
 
 </td>
 </tr>
@@ -269,7 +301,7 @@ The goal is to make AI:
 </tr>
 </table>
 
-Pranox AI focuses on making advanced AI tools easier to use for daily productivity, learning, development, and creative work.
+Pranox AI focuses on making advanced AI tools easier to use for daily productivity, learning, development, creative work, and deep research.
 
 ---
 
@@ -281,6 +313,7 @@ Pranox AI is continuously improving with more powerful features and performance 
 - Voice assistant integration
 - Mobile app version
 - More AI models and tools
+- Deep Research improvements with better source ranking and citations
 - Performance optimization
 
 ---
@@ -337,7 +370,6 @@ More powerful features and improvements are coming soon.
 ## 📄 Rights
 
 <div align="center">
-
 **All Rights Reserved**
 
 </div>
