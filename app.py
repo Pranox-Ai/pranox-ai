@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, session, jsonify, send_file, send_from_directory, Response, stream_with_context
 import os
 import base64
 import re
@@ -14,6 +14,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 import pdfplumber
 from PIL import Image
+from deepsearch import run_deepsearch
 
 load_dotenv()
 
@@ -1164,6 +1165,37 @@ def debug_search():
         "results_length":    len(results),
         "results_preview":   results[:600] if results else "NO RESULTS",
     })
+
+
+
+# ═══════════════════════════════════════════════════════
+#  DEEPSEARCH ROUTES
+# ═══════════════════════════════════════════════════════
+
+@app.route("/deepsearch")
+def deepsearch_page():
+    return render_template("deepsearch.html", user=session.get("user"))
+
+
+@app.route("/api/deepsearch", methods=["POST"])
+def api_deepsearch():
+    data = request.get_json(force=True)
+    question = data.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "Please provide a research question."}), 400
+
+    def generate():
+        for chunk in run_deepsearch(question):
+            yield chunk
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════

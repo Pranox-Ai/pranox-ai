@@ -1,0 +1,1254 @@
+{% extends "base.html" %}
+{% block title %}Pranox AI — Deep Research{% endblock %}
+{% block content %}
+
+<div class="dr-layout" id="drLayout">
+  <div class="dr-overlay" id="drOverlay" onclick="closeDrSidebar()"></div>
+
+  <aside class="dr-sidebar" id="drSidebar" aria-label="Deep Research sidebar">
+    <div class="dr-sidebar-top">
+      <div class="dr-brand">
+        <div class="dr-brand-icon">P</div>
+        <div class="dr-brand-text">
+          <span class="dr-brand-name">Pranox</span>
+          <span class="dr-brand-sub">Deep Research</span>
+        </div>
+      </div>
+
+      <button class="dr-new-chat-btn" onclick="newResearchChat()" title="New research chat">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Chat
+      </button>
+    </div>
+
+    <div class="dr-history-label">Recent</div>
+    <div id="drHistoryList" class="dr-history-list"></div>
+
+    <div class="dr-sidebar-footer">
+      <span class="dr-footer-info">Pranox AI · Deep Research</span>
+      {% if user %}
+      <a href="/logout" class="dr-footer-logout">Sign out</a>
+      {% else %}
+      <a href="/login" class="dr-footer-logout">Sign in</a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <main class="dr-main">
+    <header class="dr-header">
+      <button class="dr-menu-btn" onclick="toggleDrSidebar()" aria-label="Open sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="dr-header-center">
+        <span class="dr-header-title">Pranox Deep Research</span>
+        <span class="dr-header-status" id="drStatusBadge">
+          <span class="dr-status-dot" id="drStatusDot"></span>
+          <span id="drStatusText">Live web</span>
+        </span>
+      </div>
+
+      <div class="dr-header-right"></div>
+    </header>
+
+    <div id="drMessages" role="log" aria-live="polite"></div>
+
+    <div id="drWelcomeScreen" class="dr-welcome-screen">
+      <div class="dr-welcome-glow"></div>
+      <div class="dr-welcome-logo">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+      </div>
+      <h1 class="dr-welcome-title">Pranox Deep Research</h1>
+      <p class="dr-welcome-sub">Ask complex questions. Deep Research plans, searches, reads sources, checks gaps, and creates a cited research report.</p>
+      <div class="dr-suggestion-chips" id="drSuggestionChips"></div>
+    </div>
+
+    <div class="dr-input-wrapper">
+      <div class="dr-input-area" id="drInputArea">
+        <div class="dr-input-row">
+          <button class="dr-tool-btn" onclick="focusResearchInput()" title="Deep research" aria-label="Deep research">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+          </button>
+
+          <textarea id="drInput" placeholder="Ask Pranox Deep Research…" rows="1" autocomplete="off" spellcheck="true"></textarea>
+
+          <button id="drSendBtn" onclick="startDeepResearch()" title="Start research" aria-label="Start research">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <span>Research</span>
+          </button>
+        </div>
+      </div>
+      <p class="dr-disclaimer">Deep Research reads live web sources. Verify important facts before using them.</p>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+<script>
+/* ══════════════════════════════════════════
+   VIEWPORT LOCK — matches your chat page behavior
+══════════════════════════════════════════ */
+function setResearchHeight() {
+  const root = document.documentElement;
+  root.style.setProperty("--dr-app-height", `${window.innerHeight}px`);
+
+  requestAnimationFrame(() => {
+    const layout = document.getElementById("drLayout");
+    if (!layout) return;
+
+    const footer = document.querySelector("body > footer, footer");
+    const topOffset = layout.getBoundingClientRect().top;
+    const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
+    const availableHeight = Math.max(420, window.innerHeight - topOffset - footerHeight);
+
+    root.style.setProperty("--dr-layout-height", `${availableHeight}px`);
+  });
+}
+setResearchHeight();
+document.addEventListener("DOMContentLoaded", setResearchHeight);
+window.addEventListener("load", setResearchHeight);
+window.addEventListener("resize", setResearchHeight);
+window.addEventListener("orientationchange", () => setTimeout(setResearchHeight, 120));
+
+/* ══════════════════════════════════════════
+   MARKDOWN CONFIG
+══════════════════════════════════════════ */
+marked.setOptions({ breaks: true, gfm: true });
+
+function escapeHtml(str="") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatText(text="") {
+  if (!text) return "";
+  let html = DOMPurify.sanitize(marked.parse(text));
+  html = html.replace(/(<br\s*\/?>\s*){3,}/gi, "<br><br>");
+  return html;
+}
+
+function compactText(text="", limit=160) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  return clean.length > limit ? clean.slice(0, limit).trim() + "…" : clean;
+}
+
+function formatTime() {
+  return new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+
+function formatDate(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  if (isToday) return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  return d.toLocaleDateString([], {month:"short", day:"numeric"});
+}
+
+function domainFromUrl(url="") {
+  try { return new URL(url).hostname.replace(/^www\./, ""); }
+  catch(e) { return ""; }
+}
+
+function showResearchToast(msg, duration=2600) {
+  let t = document.getElementById("drToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "drToast";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), duration);
+}
+
+function copyToClipboard(text, btn) {
+  const originalHTML = btn ? btn.innerHTML : null;
+  const onSuccess = () => {
+    if (!btn) return;
+    btn.innerHTML = "✓ Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.classList.remove("copied");
+    }, 1600);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => fallbackCopy(text, onSuccess));
+  } else {
+    fallbackCopy(text, onSuccess);
+  }
+}
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); cb(); }
+  catch(e) { showResearchToast("Copy failed — please copy manually"); }
+  document.body.removeChild(ta);
+}
+
+/* ══════════════════════════════════════════
+   RANDOM WELCOME SUGGESTIONS — changes every load/new chat
+══════════════════════════════════════════ */
+const RESEARCH_SUGGESTION_POOL = [
+  "⚡ Future of electric vehicles in India",
+  "🤖 How does generative AI actually work?",
+  "🏗️ India's semiconductor manufacturing plan",
+  "🔋 Solid-state batteries current status",
+  "🌍 Climate change latest findings",
+  "🧬 CRISPR gene editing current status",
+  "🚀 SpaceX vs NASA current progress",
+  "💊 Latest cancer treatment breakthroughs",
+  "📱 Apple vs Samsung smartphone strategy",
+  "🧠 Neuroplasticity and learning improvement",
+  "📊 Why global markets became volatile",
+  "🛡️ Zero-trust cybersecurity explained",
+  "🏥 GLP-1 medicines impact on healthcare",
+  "📡 Starlink satellite internet business model",
+  "🌐 South China Sea geopolitics explained",
+  "💰 Bitcoin halving and price impact",
+  "🧪 Neuralink human trials latest status",
+  "🏦 UPI growth and future of payments in India",
+  "🎓 Best AI tools for engineering students",
+  "☁️ AWS vs Azure vs Google Cloud comparison",
+  "🚗 Hybrid cars vs electric cars in India",
+  "🧑‍💻 Future of software engineering jobs",
+  "📈 India's startup ecosystem current state",
+  "🛰️ ISRO future missions and space economy",
+  "🏭 Make in India manufacturing opportunities",
+  "🔐 AI safety and regulation worldwide",
+  "📚 How students can use AI responsibly",
+  "🧾 GST impact on Indian businesses",
+  "🌱 Renewable energy growth in India",
+  "🤝 OpenAI vs Google Gemini comparison"
+];
+
+function randomizeArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function renderWelcomeSuggestions() {
+  const box = document.getElementById("drSuggestionChips");
+  if (!box) return;
+
+  const selected = randomizeArray(RESEARCH_SUGGESTION_POOL).slice(0, 6);
+  box.innerHTML = "";
+
+  selected.forEach(text => {
+    const btn = document.createElement("button");
+    btn.className = "dr-chip";
+    btn.textContent = text;
+    btn.onclick = () => {
+      drInputEl.value = text.replace(/^[^\s]+\s/, "").trim();
+      drInputEl.dispatchEvent(new Event("input"));
+      drInputEl.focus();
+    };
+    box.appendChild(btn);
+  });
+}
+
+function extractResearchTopic(question="") {
+  return String(question || "this topic")
+    .replace(/^(what is|what are|how does|how do|explain|tell me about|who is|why is|why are|compare)\s+/i, "")
+    .replace(/[?.!]+$/g, "")
+    .trim() || "this topic";
+}
+
+function fallbackRecommendations(question="") {
+  const topic = extractResearchTopic(question);
+  return [
+    `What are the biggest challenges and risks related to ${topic}?`,
+    `How will ${topic} change over the next 3 to 5 years?`,
+    `Who are the key companies, people, or organizations shaping ${topic}?`,
+    `What are the latest developments and important updates in ${topic}?`,
+    `How does ${topic} compare with the leading alternatives?`,
+    `What is the real-world impact of ${topic} on India and global markets?`,
+    `What are the strongest arguments for and against ${topic}?`,
+    `What should beginners understand first about ${topic}?`
+  ];
+}
+
+function normalizeRecommendations(list=[], question="") {
+  const backend = (Array.isArray(list) ? list : [])
+    .map(q => String(q || "").trim())
+    .filter(q => q.length > 8);
+
+  const combined = [...backend, ...fallbackRecommendations(question)];
+  const unique = [];
+  const seen = new Set();
+
+  combined.forEach(q => {
+    const key = q.toLowerCase().replace(/\s+/g, " ").trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(q);
+    }
+  });
+
+  return randomizeArray(unique).slice(0, 4);
+}
+
+function stripRelatedQuestionsSection(text="") {
+  return String(text || "")
+    .replace(/\n?##\s*Related Questions[\s\S]*$/i, "")
+    .trim();
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+const drMessagesEl = document.getElementById("drMessages");
+const drInputEl    = document.getElementById("drInput");
+const drSendBtn    = document.getElementById("drSendBtn");
+
+let researchHistory = [];
+let currentChat = createBlankChat();
+let currentChatIdx = -1;
+let isResearching = false;
+let lastResearchQuestion = "";
+let stickToBottom = true;
+let activeProgressId = null;
+let activeSources = [];
+let activeRecommendations = [];
+let activeReportText = "";
+let activePlan = [];
+
+try { researchHistory = JSON.parse(localStorage.getItem("pranoxDeepResearchChats") || "[]"); } catch(e) { researchHistory = []; }
+
+function createBlankChat() {
+  return {
+    id: "dr_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+    title: "New Research",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: []
+  };
+}
+
+/* ══════════════════════════════════════════
+   SCROLL CONTROL
+══════════════════════════════════════════ */
+function isResearchNearBottom() {
+  return drMessagesEl.scrollHeight - drMessagesEl.scrollTop - drMessagesEl.clientHeight < 140;
+}
+
+function scrollResearchToBottom(force=false) {
+  if (force || stickToBottom) {
+    drMessagesEl.scrollTop = drMessagesEl.scrollHeight;
+    stickToBottom = true;
+  }
+}
+
+drMessagesEl.addEventListener("scroll", () => {
+  stickToBottom = isResearchNearBottom();
+}, {passive:true});
+
+/* ══════════════════════════════════════════
+   NETWORK STATUS
+══════════════════════════════════════════ */
+function updateResearchStatus() {
+  const dot = document.getElementById("drStatusDot");
+  const text = document.getElementById("drStatusText");
+  const badge = document.getElementById("drStatusBadge");
+
+  if (navigator.onLine) {
+    dot.className = "dr-status-dot online";
+    text.textContent = "Live web";
+    badge.className = "dr-header-status online";
+  } else {
+    dot.className = "dr-status-dot offline";
+    text.textContent = "Offline";
+    badge.className = "dr-header-status offline";
+  }
+}
+window.addEventListener("online", updateResearchStatus);
+window.addEventListener("offline", updateResearchStatus);
+updateResearchStatus();
+
+/* ══════════════════════════════════════════
+   SIDEBAR + HISTORY
+══════════════════════════════════════════ */
+function saveResearchHistory() {
+  try {
+    localStorage.setItem("pranoxDeepResearchChats", JSON.stringify(researchHistory.slice(-50)));
+  } catch(e) {}
+}
+
+function persistCurrentChat() {
+  if (!currentChat.messages.length) return;
+
+  currentChat.updatedAt = Date.now();
+  const firstUser = currentChat.messages.find(m => m.type === "user");
+  currentChat.title = compactText(firstUser?.text || currentChat.title || "Research", 54);
+
+  if (currentChatIdx === -1) {
+    researchHistory.push(JSON.parse(JSON.stringify(currentChat)));
+    currentChatIdx = researchHistory.length - 1;
+  } else {
+    researchHistory[currentChatIdx] = JSON.parse(JSON.stringify(currentChat));
+  }
+
+  saveResearchHistory();
+  renderResearchHistory();
+}
+
+function renderResearchHistory() {
+  const el = document.getElementById("drHistoryList");
+  el.innerHTML = "";
+
+  if (!researchHistory.length) {
+    el.innerHTML = `<p class="dr-no-history">No research yet</p>`;
+    return;
+  }
+
+  [...researchHistory].reverse().forEach((chat, ri) => {
+    const index = researchHistory.length - 1 - ri;
+    const preview = compactText(chat.title || chat.messages?.find(m => m.type === "user")?.text || "Research", 34);
+    const div = document.createElement("div");
+    div.className = "dr-history-item" + (index === currentChatIdx ? " active" : "");
+    div.innerHTML = `
+      <svg class="dr-hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <div class="dr-hist-text-wrap">
+        <span class="dr-hist-text">${escapeHtml(preview)}</span>
+        <span class="dr-hist-date">${escapeHtml(formatDate(chat.updatedAt || chat.createdAt))}</span>
+      </div>
+      <button class="dr-hist-del" onclick="deleteResearchChat(${index}, event)" title="Delete">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        </svg>
+      </button>`;
+
+    div.onclick = e => {
+      if (!e.target.closest(".dr-hist-del")) loadResearchChat(index);
+    };
+    el.appendChild(div);
+  });
+}
+
+function deleteResearchChat(index, e) {
+  e.stopPropagation();
+  researchHistory.splice(index, 1);
+
+  if (currentChatIdx === index) {
+    currentChat = createBlankChat();
+    currentChatIdx = -1;
+    drMessagesEl.innerHTML = "";
+    showResearchWelcome();
+  } else if (currentChatIdx > index) {
+    currentChatIdx--;
+  }
+
+  saveResearchHistory();
+  renderResearchHistory();
+}
+
+function loadResearchChat(index) {
+  if (isResearching) return;
+
+  currentChat = JSON.parse(JSON.stringify(researchHistory[index]));
+  currentChatIdx = index;
+  drMessagesEl.innerHTML = "";
+  hideResearchWelcome();
+
+  currentChat.messages.forEach(m => {
+    if (m.type === "user") addResearchMessage(m.text, "user", false);
+    else addResearchReportMessage(m.text, m.sources || [], m.recommendations || [], m.source_count || 0, false);
+  });
+
+  closeDrSidebar();
+  renderResearchHistory();
+  scrollResearchToBottom(true);
+}
+
+function newResearchChat() {
+  if (isResearching) return;
+
+  persistCurrentChat();
+  currentChat = createBlankChat();
+  currentChatIdx = -1;
+  drMessagesEl.innerHTML = "";
+  drInputEl.value = "";
+  drInputEl.style.height = "auto";
+  activeProgressId = null;
+  activeSources = [];
+  activeRecommendations = [];
+  activePlan = [];
+
+  showResearchWelcome();
+  renderWelcomeSuggestions();
+  closeDrSidebar();
+  renderResearchHistory();
+  drInputEl.focus();
+}
+
+function toggleDrSidebar() {
+  document.getElementById("drSidebar").classList.toggle("open");
+  document.getElementById("drOverlay").classList.toggle("active");
+}
+
+function closeDrSidebar() {
+  document.getElementById("drSidebar").classList.remove("open");
+  document.getElementById("drOverlay").classList.remove("active");
+}
+
+/* ══════════════════════════════════════════
+   WELCOME + INPUT
+══════════════════════════════════════════ */
+function showResearchWelcome() { document.getElementById("drWelcomeScreen").style.display = "flex"; }
+function hideResearchWelcome() { document.getElementById("drWelcomeScreen").style.display = "none"; }
+function focusResearchInput() { drInputEl.focus(); }
+
+drInputEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    startDeepResearch();
+  }
+});
+
+drInputEl.addEventListener("input", () => {
+  drInputEl.style.height = "auto";
+  drInputEl.style.height = Math.min(drInputEl.scrollHeight, 150) + "px";
+});
+
+/* ══════════════════════════════════════════
+   MESSAGE RENDERING
+══════════════════════════════════════════ */
+function addResearchMessage(text, type, save=true) {
+  hideResearchWelcome();
+  const time = formatTime();
+  const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `dr-msg-row ${type}`;
+  wrapper.innerHTML = `
+    <div class="dr-avatar ${type}-avatar">${type === "ai" ? "P" : "U"}</div>
+    <div class="dr-msg-col">
+      <div class="dr-bubble ${type}-bubble"><div class="dr-msg-text">${formatText(text || "")}</div></div>
+      <div class="dr-msg-meta">
+        <span class="dr-msg-time">${time}</span>
+        <div class="dr-msg-actions">
+          <button class="dr-action-copy" title="Copy">${COPY_ICON} Copy</button>
+        </div>
+      </div>
+    </div>`;
+
+  drMessagesEl.appendChild(wrapper);
+  wrapper.querySelector(".dr-action-copy")?.addEventListener("click", function() {
+    copyToClipboard(wrapper.querySelector(".dr-msg-text")?.innerText || "", this);
+  });
+
+  scrollResearchToBottom(true);
+  if (save) currentChat.messages.push({type, text});
+}
+
+function addResearchProgressPanel() {
+  hideResearchWelcome();
+  const id = "research_progress_" + Date.now();
+  const wrapper = document.createElement("div");
+  wrapper.className = "dr-msg-row ai";
+  wrapper.id = id;
+  wrapper.innerHTML = `
+    <div class="dr-avatar ai-avatar">P</div>
+    <div class="dr-msg-col dr-progress-col">
+      <div class="dr-bubble ai-bubble dr-progress-bubble">
+        <div class="dr-progress-head">
+          <span class="dr-research-loader"></span>
+          <div>
+            <strong>Deep Research is researching</strong>
+            <small>Planning, searching, reading, and synthesizing sources…</small>
+          </div>
+        </div>
+        <div class="dr-plan-box" id="${id}-plan" style="display:none"></div>
+        <div class="dr-progress-list" id="${id}-steps"></div>
+        <div class="dr-source-preview" id="${id}-sources"></div>
+      </div>
+    </div>`;
+
+  drMessagesEl.appendChild(wrapper);
+  scrollResearchToBottom(true);
+  return id;
+}
+
+function addProgressStep(message) {
+  if (!activeProgressId) return;
+  const list = document.getElementById(`${activeProgressId}-steps`);
+  if (!list) return;
+
+  list.querySelectorAll(".dr-step.active").forEach(item => {
+    item.classList.remove("active");
+    item.classList.add("done");
+    const spin = item.querySelector(".dr-step-spin");
+    if (spin) spin.outerHTML = `<span class="dr-step-check">✓</span>`;
+  });
+
+  const div = document.createElement("div");
+  div.className = "dr-step active";
+  div.innerHTML = `<span class="dr-step-spin"></span><span class="dr-step-text">${escapeHtml(message)}</span>`;
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+  scrollResearchToBottom(false);
+}
+
+function markProgressDone() {
+  if (!activeProgressId) return;
+  const list = document.getElementById(`${activeProgressId}-steps`);
+  if (!list) return;
+
+  list.querySelectorAll(".dr-step.active").forEach(item => {
+    item.classList.remove("active");
+    item.classList.add("done");
+    const spin = item.querySelector(".dr-step-spin");
+    if (spin) spin.outerHTML = `<span class="dr-step-check">✓</span>`;
+  });
+}
+
+function renderPlan(questions=[]) {
+  activePlan = questions;
+  if (!activeProgressId || !questions.length) return;
+  const box = document.getElementById(`${activeProgressId}-plan`);
+  if (!box) return;
+
+  box.style.display = "block";
+  box.innerHTML = `
+    <div class="dr-plan-title">Research plan</div>
+    <ol>${questions.map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ol>`;
+  scrollResearchToBottom(false);
+}
+
+function addSourcePreview(source={}) {
+  const url = source.url || "";
+  const domain = source.domain || domainFromUrl(url);
+  const title = source.title || domain || "Source";
+
+  const key = url || title;
+  if (!activeSources.some(s => (s.url || s.title) === key)) {
+    activeSources.push({title, url, domain});
+  }
+
+  if (!activeProgressId) return;
+  const box = document.getElementById(`${activeProgressId}-sources`);
+  if (!box) return;
+
+  const chip = document.createElement(url ? "a" : "span");
+  chip.className = "dr-source-chip";
+  if (url) {
+    chip.href = url;
+    chip.target = "_blank";
+    chip.rel = "noopener noreferrer";
+  }
+  chip.innerHTML = `<span></span>${escapeHtml(compactText(domain || title, 28))}`;
+  box.appendChild(chip);
+  scrollResearchToBottom(false);
+}
+
+function removeProgressPanel() {
+  if (!activeProgressId) return;
+  document.getElementById(activeProgressId)?.remove();
+  activeProgressId = null;
+}
+
+function renderSources(sources=[], count=0) {
+  const finalSources = (Array.isArray(sources) ? sources : [])
+    .filter(s => s && s.url)
+    .filter((s, idx, arr) => arr.findIndex(x => x.url === s.url) === idx)
+    .slice(0, 12);
+
+  if (!finalSources.length && !count) return "";
+
+  const cards = finalSources.map((s, i) => {
+    const domain = s.domain || domainFromUrl(s.url);
+    return `
+      <a class="dr-source-card" href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">
+        <span class="dr-source-num">${i + 1}</span>
+        <span class="dr-source-info">
+          <strong>${escapeHtml(compactText(s.title || domain || "Source", 58))}</strong>
+          <small>${escapeHtml(domain)}</small>
+        </span>
+      </a>`;
+  }).join("");
+
+  return `
+    <div class="dr-sources-block">
+      <div class="dr-sources-title">
+        <span>Sources</span>
+        <small>${Number(count || finalSources.length)} researched</small>
+      </div>
+      <div class="dr-source-grid">${cards}</div>
+    </div>`;
+}
+
+function renderRecommendations(questions=[]) {
+  const clean = normalizeRecommendations(questions, lastResearchQuestion);
+  if (!clean.length) return "";
+
+  return `
+    <div class="dr-related-block">
+      <div class="dr-related-title">Suggested next questions</div>
+      <div class="dr-related-list">
+        ${clean.map(q => `<button class="dr-related-chip" data-question="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("")}
+      </div>
+    </div>`;
+}
+
+function attachRecommendationHandlers(scope) {
+  scope.querySelectorAll(".dr-related-chip").forEach(btn => {
+    btn.addEventListener("click", () => askRelatedQuestion(btn.dataset.question || btn.textContent || ""));
+  });
+}
+
+function addResearchReportMessage(report, sources=[], recommendations=[], sourceCount=0, save=true) {
+  const time = formatTime();
+  const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  const RETRY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`;
+
+  const shownRecommendations = normalizeRecommendations(recommendations, lastResearchQuestion);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "dr-msg-row ai";
+  wrapper.innerHTML = `
+    <div class="dr-avatar ai-avatar">P</div>
+    <div class="dr-msg-col dr-report-col">
+      <div class="dr-bubble ai-bubble dr-report-bubble">
+        <div class="dr-report-topline">
+          <span class="dr-report-pill">Deep Research Report</span>
+          <span class="dr-report-count">${Number(sourceCount || sources.length || 0)} sources</span>
+        </div>
+        ${renderSources(sources, sourceCount)}
+        <div class="dr-msg-text dr-report-text">${formatText(stripRelatedQuestionsSection(report || ""))}</div>
+        ${renderRecommendations(shownRecommendations)}
+      </div>
+      <div class="dr-msg-meta">
+        <span class="dr-msg-time">${time}</span>
+        <div class="dr-msg-actions">
+          <button class="dr-action-copy" title="Copy">${COPY_ICON} Copy</button>
+          <button class="dr-action-retry" title="Retry">${RETRY_ICON} Retry</button>
+        </div>
+      </div>
+    </div>`;
+
+  drMessagesEl.appendChild(wrapper);
+  attachRecommendationHandlers(wrapper);
+
+  wrapper.querySelector(".dr-action-copy")?.addEventListener("click", function() {
+    copyToClipboard(wrapper.querySelector(".dr-report-text")?.innerText || report || "", this);
+  });
+  wrapper.querySelector(".dr-action-retry")?.addEventListener("click", retryDeepResearch);
+
+  scrollResearchToBottom(true);
+
+  if (save) {
+    currentChat.messages.push({
+      type: "ai",
+      text: report,
+      sources,
+      recommendations: shownRecommendations,
+      source_count: sourceCount
+    });
+    persistCurrentChat();
+  }
+}
+
+function addResearchErrorMessage(message) {
+  addResearchMessage(`⚠️ ${message || "Something went wrong. Please try again."}`, "ai", true);
+  persistCurrentChat();
+}
+
+function askRelatedQuestion(question) {
+  const q = String(question || "").trim();
+  if (!q || isResearching) return;
+  drInputEl.value = q;
+  drInputEl.dispatchEvent(new Event("input"));
+  startDeepResearch();
+}
+
+/* ══════════════════════════════════════════
+   RESEARCH REQUEST
+══════════════════════════════════════════ */
+async function startDeepResearch(forcedQuestion="") {
+  if (isResearching) return;
+
+  const question = (forcedQuestion || drInputEl.value || "").trim();
+  if (!question) {
+    drInputEl.focus();
+    return;
+  }
+
+  // If current chat already has content, start a fresh research thread automatically.
+  if (currentChat.messages.length) {
+    persistCurrentChat();
+    currentChat = createBlankChat();
+    currentChatIdx = -1;
+    drMessagesEl.innerHTML = "";
+  }
+
+  hideResearchWelcome();
+  isResearching = true;
+  lastResearchQuestion = question;
+  activeSources = [];
+  activeRecommendations = [];
+  activeReportText = "";
+  activePlan = [];
+
+  drSendBtn.disabled = true;
+  drSendBtn.style.opacity = "0.55";
+  drInputEl.disabled = true;
+
+  currentChat.title = compactText(question, 54);
+  currentChat.messages.push({type:"user", text:question});
+  addResearchMessage(question, "user", false);
+
+  drInputEl.value = "";
+  drInputEl.style.height = "auto";
+
+  activeProgressId = addResearchProgressPanel();
+  addProgressStep("Starting Deep Research...");
+
+  try {
+    const response = await fetch("/api/deepsearch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question})
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error("Research request failed.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, {stream:true});
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop();
+
+      chunks.forEach(chunk => {
+        const line = chunk.split("\n").find(l => l.startsWith("data: "));
+        if (!line) return;
+        try {
+          const data = JSON.parse(line.slice(6));
+          handleResearchEvent(data);
+        } catch(e) {}
+      });
+    }
+  } catch(e) {
+    removeProgressPanel();
+    addResearchErrorMessage("Connection lost or network error. Please try again.");
+  } finally {
+    finishDeepResearch();
+  }
+}
+
+function handleResearchEvent(data) {
+  if (!data || !data.type) return;
+
+  if (data.type === "progress") {
+    addProgressStep(data.message || "Working...");
+    return;
+  }
+
+  if (data.type === "plan") {
+    renderPlan(data.questions || []);
+    return;
+  }
+
+  if (data.type === "source") {
+    addSourcePreview({
+      title: data.title || "Source",
+      url: data.url || "",
+      domain: data.domain || domainFromUrl(data.url || "")
+    });
+    return;
+  }
+
+  if (data.type === "suggestions") {
+    activeRecommendations = normalizeRecommendations(data.questions || activeRecommendations || [], lastResearchQuestion);
+    return;
+  }
+
+  if (data.type === "result") {
+    markProgressDone();
+    activeReportText = data.content || "";
+    activeSources = data.sources || activeSources || [];
+    activeRecommendations = normalizeRecommendations(data.recommendations || activeRecommendations || [], lastResearchQuestion);
+
+    setTimeout(() => {
+      removeProgressPanel();
+      addResearchReportMessage(
+        activeReportText,
+        activeSources,
+        activeRecommendations,
+        data.source_count || activeSources.length,
+        true
+      );
+    }, 250);
+    return;
+  }
+
+  if (data.type === "error") {
+    removeProgressPanel();
+    addResearchErrorMessage(data.message || "Deep Research failed. Please try again.");
+    finishDeepResearch();
+  }
+}
+
+function finishDeepResearch() {
+  isResearching = false;
+  drSendBtn.disabled = false;
+  drSendBtn.style.opacity = "1";
+  drInputEl.disabled = false;
+  renderResearchHistory();
+}
+
+function retryDeepResearch() {
+  if (!lastResearchQuestion || isResearching) return;
+  drInputEl.value = lastResearchQuestion;
+  drInputEl.dispatchEvent(new Event("input"));
+  startDeepResearch();
+}
+
+/* ══════════════════════════════════════════
+   KEYBOARD SHORTCUTS + INIT
+══════════════════════════════════════════ */
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeDrSidebar();
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    newResearchChat();
+  }
+});
+
+renderWelcomeSuggestions();
+renderResearchHistory();
+
+if (researchHistory.length > 0) {
+  currentChatIdx = researchHistory.length - 1;
+  currentChat = JSON.parse(JSON.stringify(researchHistory[currentChatIdx]));
+  hideResearchWelcome();
+  currentChat.messages.forEach(m => {
+    if (m.type === "user") addResearchMessage(m.text, "user", false);
+    else addResearchReportMessage(m.text, m.sources || [], m.recommendations || [], m.source_count || 0, false);
+  });
+  scrollResearchToBottom(true);
+} else {
+  showResearchWelcome();
+}
+</script>
+
+<style>
+:root {
+  --dr-bg:        #09090b;
+  --dr-bg2:       #0f0f12;
+  --dr-bg3:       #18181b;
+  --dr-bg4:       #27272a;
+  --dr-border:    rgba(255,255,255,0.075);
+  --dr-text:      #e4e4e7;
+  --dr-text2:     #a1a1aa;
+  --dr-text3:     #71717a;
+  --dr-blue:      #2563eb;
+  --dr-blue-h:    #1d4ed8;
+  --dr-green:     #4ade80;
+  --dr-red:       #f87171;
+  --dr-purple:    #7c3aed;
+  --dr-radius-lg: 20px;
+  --dr-radius-md: 14px;
+  --dr-radius-sm: 8px;
+  --dr-font:      -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --dr-mono:      'JetBrains Mono','Fira Code',Consolas,monospace;
+  --dr-sidebar-w: 262px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;height:100%;overflow:hidden!important;background:var(--dr-bg)}
+body{height:100%;overflow:hidden!important;font-family:var(--dr-font);background:var(--dr-bg);color:var(--dr-text);line-height:1.6;-webkit-font-smoothing:antialiased}
+body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-bottom:8px!important}
+
+.dr-layout{
+  position:relative;
+  z-index:1;
+  display:flex;
+  width:100%;
+  height:var(--dr-layout-height, calc(var(--dr-app-height,100dvh) - 150px));
+  min-height:420px;
+  overflow:hidden;
+  background:var(--dr-bg);
+}
+
+.dr-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:800}
+.dr-overlay.active{display:block}
+
+/* ── SIDEBAR ── */
+.dr-sidebar{width:var(--dr-sidebar-w);background:var(--dr-bg2);border-right:1px solid var(--dr-border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .28s cubic-bezier(.4,0,.2,1)}
+@media(max-width:768px){
+  .dr-sidebar{position:fixed;top:0;left:0;height:var(--dr-app-height,100dvh);z-index:900;transform:translateX(-100%)}
+  .dr-sidebar.open{transform:translateX(0)}
+}
+.dr-sidebar-top{padding:18px 14px 12px;border-bottom:1px solid var(--dr-border)}
+.dr-brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.dr-brand-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--dr-blue),var(--dr-purple));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;box-shadow:0 0 24px rgba(37,99,235,.26)}
+.dr-brand-text{display:flex;flex-direction:column;gap:0;line-height:1.1}
+.dr-brand-name{font-size:16px;font-weight:600;color:var(--dr-text)}
+.dr-brand-sub{font-size:12px;color:var(--dr-text3);margin-top:3px}
+.dr-new-chat-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;background:var(--dr-blue);border:none;border-radius:var(--dr-radius-sm);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
+.dr-new-chat-btn:hover{background:var(--dr-blue-h)}
+.dr-new-chat-btn:active{transform:scale(.985)}
+.dr-history-label{padding:12px 14px 6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dr-text3)}
+.dr-history-list{flex:1;overflow-y:auto;padding:4px 8px;overscroll-behavior:contain}
+.dr-history-list::-webkit-scrollbar{width:3px}
+.dr-history-list::-webkit-scrollbar-thumb{background:var(--dr-bg4);border-radius:4px}
+.dr-no-history{font-size:13px;color:var(--dr-text3);text-align:center;padding:20px 0}
+.dr-history-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--dr-radius-sm);cursor:pointer;font-size:13px;color:var(--dr-text2);transition:background .15s,color .15s;margin-bottom:2px}
+.dr-history-item:hover,.dr-history-item.active{background:var(--dr-bg3);color:var(--dr-text)}
+.dr-hist-icon{flex-shrink:0;color:var(--dr-text3)}
+.dr-hist-text-wrap{min-width:0;display:flex;flex-direction:column;line-height:1.2;flex:1}
+.dr-hist-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.dr-hist-date{font-size:11px;color:var(--dr-text3);margin-top:3px}
+.dr-hist-del{background:none;border:none;color:var(--dr-text3);cursor:pointer;opacity:0;padding:3px;border-radius:4px;display:flex;align-items:center;transition:opacity .15s,color .15s,background .15s}
+.dr-history-item:hover .dr-hist-del{opacity:1}
+.dr-hist-del:hover{color:var(--dr-red);background:rgba(248,113,113,.08)}
+.dr-sidebar-footer{padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--dr-border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dr-footer-info{font-size:12px;color:var(--dr-text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-footer-logout{font-size:13px;color:var(--dr-text3);text-decoration:none;padding:4px 8px;border-radius:6px;transition:background .15s,color .15s;white-space:nowrap}
+.dr-footer-logout:hover{background:var(--dr-bg3);color:var(--dr-text)}
+
+/* ── MAIN ── */
+.dr-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--dr-bg);position:relative;height:100%;overflow:hidden}
+.dr-header{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:56px;background:rgba(9,9,11,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--dr-border);z-index:400;flex-shrink:0}
+.dr-menu-btn{width:36px;height:36px;background:var(--dr-bg3);border:1px solid var(--dr-border);border-radius:var(--dr-radius-sm);color:var(--dr-text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.dr-menu-btn:hover{background:var(--dr-bg4)}
+@media(min-width:769px){.dr-menu-btn{display:none}}
+.dr-header-center{display:flex;flex-direction:column;align-items:center;gap:2px}
+.dr-header-title{font-size:16px;font-weight:600;color:var(--dr-text)}
+.dr-header-status{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500}
+.dr-header-status.online{color:var(--dr-green)}
+.dr-header-status.offline{color:var(--dr-red)}
+.dr-status-dot{width:7px;height:7px;border-radius:50%}
+.dr-status-dot.online{background:var(--dr-green);animation:dr-pulse-dot 2.2s infinite}
+.dr-status-dot.offline{background:var(--dr-red)}
+@keyframes dr-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
+.dr-header-right{min-width:60px}
+
+#drMessages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:24px 16px 16px;scroll-behavior:auto}
+#drMessages::-webkit-scrollbar{width:4px}
+#drMessages::-webkit-scrollbar-thumb{background:var(--dr-bg4);border-radius:4px}
+
+/* ── WELCOME ── */
+.dr-welcome-screen{position:absolute;inset:56px 0 82px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 20px 12px;z-index:2;pointer-events:none;text-align:center;overflow:hidden}
+.dr-welcome-glow{position:absolute;width:min(540px,92vw);height:min(540px,92vw);background:radial-gradient(circle,rgba(37,99,235,.12) 0%,rgba(124,58,237,.06) 35%,transparent 70%);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-57%);animation:dr-glow 7s ease-in-out infinite}
+@keyframes dr-glow{0%,100%{opacity:.8;transform:translate(-50%,-57%) scale(1)}50%{opacity:1;transform:translate(-50%,-57%) scale(1.06)}}
+.dr-welcome-logo{width:64px;height:64px;background:linear-gradient(135deg,var(--dr-blue),var(--dr-purple));border-radius:18px;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;box-shadow:0 0 48px rgba(37,99,235,.3);z-index:1;flex-shrink:0;animation:dr-float 4.5s ease-in-out infinite}
+@keyframes dr-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.dr-welcome-title{font-size:32px;font-weight:700;letter-spacing:-.025em;margin-bottom:6px;z-index:1;flex-shrink:0;color:var(--dr-text)}
+.dr-welcome-sub{font-size:16px;color:var(--dr-text3);margin-bottom:24px;z-index:1;flex-shrink:0;max-width:620px}
+.dr-suggestion-chips{display:grid;grid-template-columns:repeat(2,minmax(230px,1fr));gap:8px;justify-content:center;pointer-events:all;width:min(690px,92vw);max-width:690px;z-index:1;flex-shrink:0}
+.dr-chip{width:100%;padding:9px 17px;background:var(--dr-bg3);border:1px solid var(--dr-border);border-radius:100px;color:var(--dr-text2);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;transition:all .2s}
+.dr-chip:hover{background:var(--dr-bg4);border-color:rgba(37,99,235,.4);color:var(--dr-text);transform:translateY(-1px)}
+
+/* ── MESSAGES ── */
+.dr-msg-row{display:flex;gap:11px;margin-bottom:22px;animation:dr-fade-up .25s ease}
+@keyframes dr-fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.dr-msg-row.user{flex-direction:row-reverse}
+.dr-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;margin-top:2px}
+.ai-avatar{background:linear-gradient(135deg,var(--dr-blue),var(--dr-purple));color:#fff}
+.user-avatar{background:var(--dr-bg4);color:var(--dr-text2)}
+.dr-msg-col{display:flex;flex-direction:column;max-width:min(76%,780px);gap:5px}
+.dr-msg-row.user .dr-msg-col{align-items:flex-end}
+.dr-msg-row.ai .dr-msg-col{align-items:flex-start}
+.dr-bubble{padding:13px 17px;border-radius:var(--dr-radius-lg);line-height:1.65;word-wrap:break-word;overflow-wrap:break-word}
+.user-bubble{background:var(--dr-blue);color:#fff;border-radius:var(--dr-radius-lg) var(--dr-radius-lg) 4px var(--dr-radius-lg);font-size:15px}
+.ai-bubble{background:var(--dr-bg3);color:var(--dr-text);border:1px solid var(--dr-border);border-radius:var(--dr-radius-lg) var(--dr-radius-lg) var(--dr-radius-lg) 4px;font-size:15px}
+
+/* ── PROGRESS ── */
+.dr-progress-col{max-width:min(82%,840px)}
+.dr-progress-bubble{min-width:min(660px,80vw);padding:16px}
+.dr-progress-head{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.dr-progress-head strong{display:block;font-size:14px;color:#fff;font-weight:650}
+.dr-progress-head small{display:block;font-size:12.5px;color:var(--dr-text3);margin-top:2px}
+.dr-research-loader{width:22px;height:22px;border:2px solid rgba(37,99,235,.25);border-top-color:#60a5fa;border-radius:50%;animation:dr-spin .9s linear infinite;flex-shrink:0}
+@keyframes dr-spin{to{transform:rotate(360deg)}}
+.dr-plan-box{background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.16);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.dr-plan-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#93c5fd;margin-bottom:8px}
+.dr-plan-box ol{padding-left:19px;margin:0;color:var(--dr-text2);font-size:13.5px;line-height:1.55}
+.dr-plan-box li{margin-bottom:5px}
+.dr-progress-list{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow-y:auto;padding-right:4px}
+.dr-progress-list::-webkit-scrollbar{width:3px}
+.dr-progress-list::-webkit-scrollbar-thumb{background:var(--dr-bg4);border-radius:4px}
+.dr-step{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:var(--dr-text3);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.035)}
+.dr-step:last-child{border-bottom:none}
+.dr-step.active{color:var(--dr-text)}
+.dr-step-spin{width:13px;height:13px;border:2px solid rgba(124,58,237,.3);border-top-color:#a78bfa;border-radius:50%;animation:dr-spin .8s linear infinite;flex-shrink:0;margin-top:3px}
+.dr-step-check{width:13px;height:13px;color:var(--dr-green);flex-shrink:0;font-size:12px;margin-top:2px;display:flex;align-items:center}
+.dr-step-text{flex:1;line-height:1.45}
+.dr-source-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.dr-source-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);border-radius:100px;font-size:12px;color:#93c5fd;text-decoration:none;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-source-chip span{width:5px;height:5px;background:#60a5fa;border-radius:50%;flex-shrink:0}
+
+/* ── REPORT ── */
+.dr-report-col{max-width:min(86%,940px)}
+.dr-report-bubble{padding:0;overflow:hidden;background:var(--dr-bg2)}
+.dr-report-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dr-border);background:var(--dr-bg3)}
+.dr-report-pill{font-size:12.5px;font-weight:700;color:#bfdbfe;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.22);padding:4px 10px;border-radius:100px}
+.dr-report-count{font-size:12px;color:var(--dr-text3)}
+.dr-report-text{padding:20px 22px 22px}
+
+.dr-sources-block{padding:14px 16px;border-bottom:1px solid var(--dr-border);background:rgba(255,255,255,.012)}
+.dr-sources-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.dr-sources-title span{font-size:13px;font-weight:700;color:var(--dr-text)}
+.dr-sources-title small{font-size:12px;color:var(--dr-text3)}
+.dr-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.dr-source-card{display:flex;align-items:center;gap:9px;padding:9px 10px;background:var(--dr-bg3);border:1px solid var(--dr-border);border-radius:12px;text-decoration:none;color:var(--dr-text2);min-width:0;transition:background .2s,border-color .2s,transform .15s}
+.dr-source-card:hover{background:var(--dr-bg4);border-color:rgba(37,99,235,.35);transform:translateY(-1px)}
+.dr-source-num{width:22px;height:22px;background:rgba(37,99,235,.16);color:#93c5fd;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.dr-source-info{min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.dr-source-info strong{font-size:12.5px;font-weight:600;color:var(--dr-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-source-info small{font-size:11.5px;color:var(--dr-text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.dr-related-block{padding:0 20px 18px}
+.dr-related-title{font-size:13px;font-weight:700;color:var(--dr-text3);margin:0 0 10px}
+.dr-related-list{display:flex;flex-direction:column;gap:8px}
+.dr-related-chip{width:100%;text-align:left;padding:11px 13px;background:var(--dr-bg3);border:1px solid var(--dr-border);border-radius:12px;color:var(--dr-text2);font-size:13.5px;line-height:1.45;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
+.dr-related-chip:hover{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.28);color:var(--dr-text);transform:translateX(3px)}
+
+/* ── MESSAGE TEXT ── */
+.dr-msg-text{font-size:15px;line-height:1.72}
+.dr-msg-text p{margin:0 0 10px}
+.dr-msg-text p:last-child{margin-bottom:0}
+.dr-msg-text ul,.dr-msg-text ol{padding-left:22px;margin:8px 0}
+.dr-msg-text li{margin-bottom:6px}
+.dr-msg-text h1,.dr-msg-text h2,.dr-msg-text h3{font-size:17px;font-weight:650;margin:16px 0 8px;color:#fff}
+.dr-msg-text h2{font-size:18px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06)}
+.dr-msg-text a{color:#60a5fa;text-decoration:none}
+.dr-msg-text a:hover{text-decoration:underline}
+.dr-msg-text strong{font-weight:650;color:inherit}
+.dr-msg-text em{font-style:italic;color:var(--dr-text2)}
+.dr-msg-text code{background:rgba(255,255,255,.09);padding:2px 6px;border-radius:5px;font-family:var(--dr-mono);font-size:14px;color:#38bdf8}
+.dr-msg-text pre{background:#0c0c0e;border:1px solid var(--dr-border);border-radius:12px;padding:14px;overflow-x:auto;margin:10px 0}
+.dr-msg-text pre code{background:none;padding:0;color:inherit}
+.dr-msg-text table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;display:block;overflow-x:auto}
+.dr-msg-text th{background:var(--dr-bg4);padding:8px 12px;text-align:left;font-weight:600;border:1px solid var(--dr-border)}
+.dr-msg-text td{padding:7px 12px;border:1px solid var(--dr-border)}
+.dr-msg-text blockquote{border-left:3px solid var(--dr-blue);padding-left:12px;color:var(--dr-text2);margin:8px 0;font-style:italic}
+.dr-msg-text hr{border:none;border-top:1px solid var(--dr-border);margin:14px 0}
+
+/* ── META / ACTIONS ── */
+.dr-msg-meta{display:flex;align-items:center;gap:10px;padding:0 2px}
+.dr-msg-row.user .dr-msg-meta{justify-content:flex-end}
+.dr-msg-time{font-size:12px;color:var(--dr-text3)}
+.dr-msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.dr-msg-row:hover .dr-msg-actions{opacity:1}
+.dr-msg-actions button,.dr-action-copy,.dr-action-retry{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--dr-text3);font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s,background .2s}
+.dr-msg-actions button:hover,.dr-action-copy:hover,.dr-action-retry:hover{color:var(--dr-text);background:var(--dr-bg3)}
+.dr-action-copy.copied{color:var(--dr-green)}
+
+/* ── INPUT ── */
+.dr-input-wrapper{padding:8px 16px calc(8px + env(safe-area-inset-bottom));flex-shrink:0;background:linear-gradient(to top,var(--dr-bg) 80%,rgba(9,9,11,0));z-index:5}
+.dr-input-area{max-width:800px;margin:0 auto;background:var(--dr-bg2);border:1px solid var(--dr-border);border-radius:var(--dr-radius-lg);padding:6px 8px;transition:border-color .2s,box-shadow .2s}
+.dr-input-area:focus-within{border-color:rgba(37,99,235,.5);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.dr-input-row{display:flex;align-items:flex-end;gap:6px}
+#drInput{flex:1;background:transparent;border:none;outline:none;color:var(--dr-text);font-size:15px;font-family:var(--dr-font);padding:9px 6px;resize:none;max-height:150px;overflow-y:auto;line-height:1.55;min-height:38px}
+#drInput::placeholder{color:var(--dr-text3)}
+#drInput::-webkit-scrollbar{width:3px}
+#drInput::-webkit-scrollbar-thumb{background:var(--dr-bg4);border-radius:4px}
+.dr-tool-btn{width:38px;height:38px;background:none;border:none;border-radius:var(--dr-radius-sm);color:var(--dr-text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s;flex-shrink:0}
+.dr-tool-btn:hover{background:var(--dr-bg4);color:var(--dr-text)}
+#drSendBtn{height:38px;min-width:112px;background:var(--dr-blue);border:none;border-radius:var(--dr-radius-sm);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;font-size:14px;font-weight:650;transition:background .2s,transform .1s;flex-shrink:0}
+#drSendBtn:hover:not(:disabled){background:var(--dr-blue-h)}
+#drSendBtn:active{transform:scale(.96)}
+#drSendBtn:disabled{opacity:.55;cursor:not-allowed}
+.dr-disclaimer{text-align:center;font-size:12px;color:var(--dr-text3);margin-top:5px;line-height:1.25}
+
+/* ── TOAST ── */
+#drToast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--dr-bg3);border:1px solid var(--dr-border);color:var(--dr-text);font-size:14px;padding:10px 20px;border-radius:100px;box-shadow:0 8px 32px rgba(0,0,0,.5);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:30000;white-space:nowrap}
+#drToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE ── */
+@media(min-width:769px) and (max-width:1024px){
+  :root{--dr-sidebar-w:230px}
+  .dr-msg-col{max-width:82%}
+  .dr-progress-bubble{min-width:min(560px,78vw)}
+}
+
+@media(max-width:768px){
+  html{font-size:15px}
+  .dr-header{height:54px}
+  #drMessages{padding:16px 12px 12px}
+  .dr-msg-col{max-width:90%}
+  .dr-report-col,.dr-progress-col{max-width:92%}
+  .dr-progress-bubble{min-width:auto;width:100%}
+  .dr-bubble{padding:11px 14px}
+  .user-bubble,.ai-bubble{font-size:15px}
+  .dr-msg-text{font-size:15px}
+  .dr-welcome-screen{inset:54px 0 78px 0;padding:16px 14px 10px}
+  .dr-welcome-logo{width:54px;height:54px;margin-bottom:18px}
+  .dr-welcome-title{font-size:26px}
+  .dr-welcome-sub{font-size:15px;margin-bottom:28px}
+  .dr-suggestion-chips{width:min(560px,92vw);max-width:560px;grid-template-columns:repeat(2,minmax(150px,1fr))}
+  .dr-chip{font-size:13.5px;padding:8px 12px}
+  .dr-input-wrapper{padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
+  #drInput{font-size:15px}
+  .dr-msg-actions{opacity:1}
+  .dr-hist-del{opacity:1}
+  .dr-source-grid{grid-template-columns:1fr}
+  .dr-report-text{padding:16px 14px 18px}
+  .dr-related-block{padding:0 14px 16px}
+}
+
+@media(max-width:430px){
+  .dr-welcome-title{font-size:23px}
+  .dr-welcome-sub{font-size:14px}
+  .dr-suggestion-chips{grid-template-columns:1fr;width:min(330px,88vw);max-width:330px}
+  .dr-chip{font-size:13px;padding:7px 12px}
+  .dr-tool-btn{width:36px;height:36px}
+  #drSendBtn{min-width:44px;width:auto;padding:0 12px}
+  #drSendBtn span{display:none}
+  .dr-brand-sub{font-size:11px}
+}
+
+@media(min-width:1280px){
+  :root{--dr-sidebar-w:280px}
+  #drMessages{padding:28px 24px 20px}
+  .dr-input-wrapper{padding:10px 24px calc(10px + env(safe-area-inset-bottom))}
+  html{font-size:17px}
+}
+</style>
+
+{% endblock %}
