@@ -2,144 +2,808 @@
 {% block content %}
 
 <style>
-.form-container {
-    max-width: 700px;
-    margin: 60px auto;
-    padding: 30px;
-    background: rgba(17, 24, 39, 0.7);
-    border-radius: 16px;
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.input-group {
-    margin-bottom: 20px;
-}
+  :root {
+    --bg:       #030712;
+    --bg2:      #0d1220;
+    --bg3:      #111827;
+    --card:     rgba(13,18,30,0.90);
+    --border:   rgba(99,102,241,0.18);
+    --border2:  rgba(255,255,255,0.07);
+    --indigo:   #6366f1;
+    --pink:     #ec4899;
+    --violet:   #8b5cf6;
+    --grad:     linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);
+    --grad2:    linear-gradient(90deg,#6366f1,#ec4899);
+    --text:     #f1f5f9;
+    --text2:    #94a3b8;
+    --text3:    #475569;
+    --green:    #10b981;
+    --yellow:   #f59e0b;
+    --radius:   16px;
+    --radius-sm:10px;
+    --shadow:   0 25px 60px rgba(0,0,0,0.55);
+  }
 
-.input-group label {
-    display: block;
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── AMBIENT BG ── */
+  .rv-scene { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .rv-orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.10; animation: orbDrift 20s ease-in-out infinite alternate; }
+  .rv-orb-1 { width: 700px; height: 700px; background: #6366f1; top: -250px; left: -150px; animation-delay: 0s; }
+  .rv-orb-2 { width: 500px; height: 500px; background: #ec4899; bottom: -120px; right: -80px;  animation-delay: -10s; }
+  .rv-orb-3 { width: 350px; height: 350px; background: #8b5cf6; top: 45%; left: 45%; animation-delay: -6s; }
+  @keyframes orbDrift { from{transform:translate(0,0) scale(1)} to{transform:translate(45px,30px) scale(1.08)} }
+  .rv-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px), linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px);
+    background-size: 52px 52px;
+  }
+
+  /* ── LAYOUT ── */
+  .rv-wrap {
+    position: relative; z-index: 1;
+    max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px;
+    display: grid; grid-template-columns: 1fr 1.65fr; gap: 32px; align-items: start;
+  }
+
+  /* ── LEFT PANEL ── */
+  .rv-left { position: sticky; top: 32px; animation: fadeUp 0.5s ease both; }
+
+  .rv-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 99px; padding: 5px 14px; font-size: 12px; font-weight: 600;
+    color: #a5b4fc; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 20px;
+  }
+  .rv-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--indigo); animation: blink 2s step-end infinite; }
+
+  .rv-headline { font-size: clamp(26px,3.8vw,40px); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 14px; animation: fadeUp 0.55s 0.05s ease both; }
+  .rv-headline span { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  .rv-sub { font-size: 14px; color: var(--text2); line-height: 1.75; margin-bottom: 28px; animation: fadeUp 0.55s 0.1s ease both; }
+
+  /* Steps guide */
+  .rv-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 28px; animation: fadeUp 0.55s 0.15s ease both; }
+  .rv-step {
+    display: flex; gap: 14px; align-items: flex-start; padding: 14px 0;
+    border-bottom: 1px solid var(--border2); cursor: default;
+  }
+  .rv-step:last-child { border-bottom: none; }
+  .rv-step-num {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #a5b4fc;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  .rv-step.active .rv-step-num { background: var(--indigo); border-color: var(--indigo); color: white; box-shadow: 0 0 12px rgba(99,102,241,0.5); }
+  .rv-step.done .rv-step-num   { background: var(--green); border-color: var(--green); color: white; }
+  .rv-step-label { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 2px; transition: color 0.25s; }
+  .rv-step.active .rv-step-label { color: var(--text); }
+  .rv-step.done .rv-step-label   { color: var(--green); }
+  .rv-step-desc  { font-size: 12px; color: var(--text3); }
+
+  /* Stats */
+  .rv-perks { display: flex; flex-direction: column; gap: 10px; animation: fadeUp 0.55s 0.2s ease both; }
+  .rv-perk {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 13px; color: var(--text2);
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .rv-perk:hover { background: rgba(99,102,241,0.06); border-color: var(--border); }
+  .rv-perk-icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ── CARD ── */
+  .rv-card {
+    background: var(--card); border: 1px solid var(--border2); border-radius: 20px;
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow), 0 0 0 1px rgba(99,102,241,0.05) inset;
+    overflow: hidden; animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .rv-card-header {
+    padding: 22px 28px 18px; border-bottom: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .rv-card-title-row { display: flex; align-items: center; gap: 12px; }
+  .rv-card-icon {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--grad);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+  }
+  .rv-card-title { font-size: 17px; font-weight: 700; }
+  .rv-card-sub   { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* Progress bar */
+  .rv-progress-wrap { margin-top: 2px; }
+  .rv-progress-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; text-align: right; }
+  .rv-progress-track { width: 120px; height: 4px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
+  .rv-progress-fill  { height: 100%; background: var(--grad2); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+
+  .rv-card-body { padding: 26px 28px; }
+
+  /* ── FIELDS ── */
+  .rv-field { margin-bottom: 20px; }
+  .rv-field-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+  .rv-label { font-size: 13px; font-weight: 500; color: var(--text2); }
+  .rv-hint  { font-size: 11px; color: var(--text3); font-style: italic; }
+  .rv-char  { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+  .rv-input, .rv-textarea {
+    width: 100%; padding: 12px 14px;
+    background: rgba(2,6,23,0.7); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-sm); color: var(--text); font-size: 14px;
+    font-family: inherit; line-height: 1.65; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .rv-input::placeholder, .rv-textarea::placeholder { color: var(--text3); }
+  .rv-input:focus, .rv-textarea:focus {
+    border-color: rgba(99,102,241,0.5);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+  .rv-textarea { resize: vertical; min-height: 90px; }
+
+  .rv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* Tip pill */
+  .rv-tip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 7px; padding: 7px 11px; margin-top: 6px;
+    font-size: 11px; color: #fcd34d;
+  }
+  .rv-tip-icon { font-size: 12px; flex-shrink: 0; }
+
+  /* Divider */
+  .rv-divider { height: 1px; background: var(--border2); margin: 6px 0 22px; }
+
+  /* Submit */
+  .rv-submit {
+    width: 100%; padding: 15px; position: relative; overflow: hidden;
+    background: var(--grad2); border: none; border-radius: 12px;
+    color: white; font-size: 15px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+    transition: transform 0.18s, box-shadow 0.18s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .rv-submit:hover:not(:disabled)  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,102,241,0.55); }
+  .rv-submit:active:not(:disabled) { transform: translateY(0); }
+  .rv-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+  .rv-submit::after {
+    content: ''; position: absolute; top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);
+    animation: shimmer 3s infinite;
+  }
+  @keyframes shimmer { to { left: 160%; } }
+  .rv-spinner { display: none; width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .rv-submit.loading .rv-btn-text  { display: none; }
+  .rv-submit.loading .rv-spinner   { display: block; }
+  .rv-submit.loading::after        { display: none; }
+
+  /* ── OUTPUT ── */
+  .rv-output-section { border-top: 1px solid var(--border2); padding-top: 28px; margin-top: 6px; }
+
+  .rv-output-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .rv-output-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--text2);
+  }
+  .rv-output-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: blink 2s step-end infinite;
+  }
+
+  /* ── ACTION BUTTONS ROW ── */
+  .rv-output-actions {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rv-action-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: rgba(255,255,255,0.04); color: var(--text2);
+    font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    white-space: nowrap; line-height: 1;
+  }
+  .rv-action-btn:hover  { background: rgba(99,102,241,0.1); border-color: var(--border); color: var(--text); }
+  .rv-action-btn.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
+  .rv-action-btn.dl {
+    background: rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.35);
+    color: #a5b4fc;
+  }
+  .rv-action-btn.dl:hover { background: rgba(99,102,241,0.22); color: white; border-color: rgba(99,102,241,0.55); }
+  /* The form wrapper must not break flex layout */
+  .rv-dl-form { display: contents; }
+
+  /* ── OUTPUT BOX — formatted, not monospace ── */
+  .rv-output-box {
+    background: rgba(2,6,23,0.75);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px; padding: 24px 26px;
+    font-size: 14px; line-height: 1.75; color: var(--text);
+    min-height: 100px; position: relative;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* ── RESUME STRUCTURED ELEMENTS ── */
+  .rv-resume-name {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.01em;
+    color: var(--text); margin-bottom: 2px;
+  }
+  .rv-resume-role {
+    font-size: 13px; color: #a5b4fc; font-weight: 500;
+    margin-bottom: 18px; letter-spacing: 0.02em;
+  }
+  .rv-section-block { margin-bottom: 18px; }
+  .rv-section-block:last-child { margin-bottom: 0; }
+  .rv-section-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--indigo);
+    border-bottom: 1px solid rgba(99,102,241,0.2);
+    padding-bottom: 5px; margin-bottom: 10px;
+  }
+  .rv-section-para {
+    font-size: 13.5px; color: var(--text2); line-height: 1.75;
     margin-bottom: 6px;
-    color: #cbd5f5;
-}
+  }
+  .rv-job-title {
+    font-size: 13.5px; font-weight: 600; color: var(--text);
+    margin-bottom: 5px; margin-top: 4px;
+  }
+  .rv-bullet-item {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 13.5px; color: var(--text2); line-height: 1.65;
+    margin-bottom: 4px; padding-left: 4px;
+  }
+  .rv-bullet-dot {
+    flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--indigo); margin-top: 8px;
+  }
 
-.input-group input,
-.input-group textarea {
-    width: 100%;
-    padding: 14px;
-    border-radius: 10px;
-    border: 1px solid #1f2937;
-    background: #020617;
-    color: white;
-    outline: none;
-}
+  /* ── CURSOR ── */
+  .rv-cursor {
+    display: inline-block; width: 2px; height: 1.1em;
+    background: var(--indigo); margin-left: 2px;
+    vertical-align: text-bottom; animation: blink 0.9s step-end infinite;
+  }
 
-.input-group input:focus,
-.input-group textarea:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
-}
+  /* ── WORD ANIMATION ── */
+  .rv-word {
+    display: inline;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .rv-word.visible { opacity: 1; }
 
-.submit-btn {
-    padding: 12px 20px;
-    border-radius: 12px;
-    border: none;
-    background: linear-gradient(90deg, #6366f1, #ec4899);
-    color: white;
-    cursor: pointer;
-    font-weight: 600;
-    transition: 0.3s;
-}
+  .rv-output-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 10px; font-size: 12px; color: var(--text3);
+  }
 
-.submit-btn:hover {
-    transform: scale(1.05);
-    opacity: 0.95;
-}
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0} }
 
-.output-box {
-    background: #020617;
-    padding: 20px;
-    border-radius: 10px;
-    margin-top: 20px;
-    white-space: pre-wrap;
-}
+  /* ── RESPONSIVE ── */
+  @media (max-width: 860px) {
+    .rv-wrap { grid-template-columns: 1fr; }
+    .rv-left  { position: static; }
+    .rv-steps { display: none; }
+  }
+  @media (max-width: 540px) {
+    .rv-row { grid-template-columns: 1fr; }
+    .rv-card-body { padding: 20px 18px; }
+    .rv-output-actions { gap: 6px; }
+    .rv-action-btn { padding: 6px 10px; font-size: 11px; }
+  }
 </style>
 
-<div class="form-container">
-
-<h2>Resume Builder</h2>
-
-<form method="POST">
-
-    <div class="input-group">
-        <label>Full Name</label>
-        <input type="text" name="name" required>
-    </div>
-
-    <div class="input-group">
-        <label>Role</label>
-        <input type="text" name="role" required>
-    </div>
-
-    <div class="input-group">
-        <label>Skills</label>
-        <textarea name="skills" required></textarea>
-    </div>
-
-    <div class="input-group">
-        <label>Experience</label>
-        <textarea name="experience"></textarea>
-    </div>
-
-    <div class="input-group">
-        <label>Education</label>
-        <textarea name="education" required></textarea>
-    </div>
-
-    <button class="submit-btn">Generate Resume</button>
-
-</form>
-
-{% if resume %}
-<h3>Output</h3>
-
-<pre class="output-box" id="resumeText">{{ resume }}</pre>
-
-<div style="margin-top:15px; display:flex; gap:10px;">
-    
-    <!-- COPY BUTTON -->
-    <button onclick="copyResume()" class="submit-btn">
-        📋 Copy
-    </button>
-
-    <!-- DOWNLOAD PDF -->
-    <form method="POST" action="/download_resume">
-        <input type="hidden" name="resume" id="resumeHidden">
-        <button class="submit-btn">
-            📄 Download PDF
-        </button>
-    </form>
-
+<!-- Ambient background -->
+<div class="rv-scene">
+  <div class="rv-grid"></div>
+  <div class="rv-orb rv-orb-1"></div>
+  <div class="rv-orb rv-orb-2"></div>
+  <div class="rv-orb rv-orb-3"></div>
 </div>
-{% endif %}
+
+<div class="rv-wrap">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="rv-left">
+
+    <div class="rv-badge">
+      <span class="rv-badge-dot"></span>
+      AI-Powered
+    </div>
+
+    <h1 class="rv-headline">
+      Your résumé,<br><span>crafted to get hired</span>
+    </h1>
+
+    <p class="rv-sub">
+      Fill in your details — Pranox AI writes a complete, ATS-optimized, interview-winning resume in seconds. No templates. Just results.
+    </p>
+
+    <!-- Step tracker -->
+    <div class="rv-steps" id="stepTracker">
+      <div class="rv-step active" data-step="1">
+        <div class="rv-step-num">1</div>
+        <div>
+          <div class="rv-step-label">Basic Info</div>
+          <div class="rv-step-desc">Name and target role</div>
+        </div>
+      </div>
+      <div class="rv-step" data-step="2">
+        <div class="rv-step-num">2</div>
+        <div>
+          <div class="rv-step-label">Skills</div>
+          <div class="rv-step-desc">Technical & soft skills</div>
+        </div>
+      </div>
+      <div class="rv-step" data-step="3">
+        <div class="rv-step-num">3</div>
+        <div>
+          <div class="rv-step-label">Experience</div>
+          <div class="rv-step-desc">Work history & achievements</div>
+        </div>
+      </div>
+      <div class="rv-step" data-step="4">
+        <div class="rv-step-num">4</div>
+        <div>
+          <div class="rv-step-label">Education</div>
+          <div class="rv-step-desc">Degrees & certifications</div>
+        </div>
+      </div>
+      <div class="rv-step" data-step="5">
+        <div class="rv-step-num">5</div>
+        <div>
+          <div class="rv-step-label">Generate</div>
+          <div class="rv-step-desc">AI builds your full resume</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rv-perks">
+      <div class="rv-perk"><span class="rv-perk-icon">🎯</span>ATS-optimized — passes automated screening</div>
+      <div class="rv-perk"><span class="rv-perk-icon">✍️</span>Action-verb bullet points for every role</div>
+      <div class="rv-perk"><span class="rv-perk-icon">📄</span>Download as PDF, ready to send</div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT CARD ── -->
+  <div class="rv-card">
+
+    <div class="rv-card-header">
+      <div class="rv-card-title-row">
+        <div class="rv-card-icon">📋</div>
+        <div>
+          <div class="rv-card-title">Resume Builder</div>
+          <div class="rv-card-sub">Powered by Pranox AI · llama-3.3-70b</div>
+        </div>
+      </div>
+      <div class="rv-progress-wrap">
+        <div class="rv-progress-label" id="progressLabel">0% complete</div>
+        <div class="rv-progress-track">
+          <div class="rv-progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rv-card-body">
+
+      <form method="POST" id="resumeForm">
+
+        <!-- Row: Name + Role -->
+        <div class="rv-row">
+          <div class="rv-field">
+            <div class="rv-field-top">
+              <label class="rv-label" for="f-name">Full Name</label>
+            </div>
+            <input class="rv-input" type="text" id="f-name" name="name"
+              placeholder="e.g. John Doe"
+              value="{% if request.form.name %}{{ request.form.name }}{% endif %}"
+              required autocomplete="name">
+          </div>
+          <div class="rv-field">
+            <div class="rv-field-top">
+              <label class="rv-label" for="f-role">Target Role</label>
+            </div>
+            <input class="rv-input" type="text" id="f-role" name="role"
+              placeholder="e.g. Software Engineer"
+              value="{% if request.form.role %}{{ request.form.role }}{% endif %}"
+              required autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Skills -->
+        <div class="rv-field">
+          <div class="rv-field-top">
+            <label class="rv-label" for="f-skills">Skills</label>
+            <span class="rv-char" id="skillsChar">0 chars</span>
+          </div>
+          <textarea class="rv-textarea" id="f-skills" name="skills" rows="3"
+            placeholder="e.g. Python, React, Node.js, SQL, AWS, Docker, Agile, Team Leadership, Problem Solving..."
+            required>{% if request.form.skills %}{{ request.form.skills }}{% endif %}</textarea>
+          <div class="rv-tip">
+            <span class="rv-tip-icon">💡</span>
+            Include both technical tools AND soft skills for a stronger profile
+          </div>
+        </div>
+
+        <!-- Experience -->
+        <div class="rv-field">
+          <div class="rv-field-top">
+            <label class="rv-label" for="f-exp">Work Experience</label>
+            <span class="rv-char" id="expChar">0 chars</span>
+          </div>
+          <textarea class="rv-textarea" id="f-exp" name="experience" rows="4"
+            placeholder="e.g. Software Engineer at TechCorp (2022–2024): Built REST APIs, led a team of 4, reduced load time by 40%. Intern at Startup Inc (2021): Developed React dashboard..."
+            >{% if request.form.experience %}{{ request.form.experience }}{% endif %}</textarea>
+          <div class="rv-tip">
+            <span class="rv-tip-icon">💡</span>
+            Mention company names, years, roles and key achievements — AI will expand them
+          </div>
+        </div>
+
+        <!-- Education -->
+        <div class="rv-field">
+          <div class="rv-field-top">
+            <label class="rv-label" for="f-edu">Education</label>
+            <span class="rv-char" id="eduChar">0 chars</span>
+          </div>
+          <textarea class="rv-textarea" id="f-edu" name="education" rows="3"
+            placeholder="e.g. B.Tech Computer Science, BIET University, 2020–2024, CGPA 8.7. Class 12 – CBSE, 2020, 92%..."
+            required>{% if request.form.education %}{{ request.form.education }}{% endif %}</textarea>
+        </div>
+
+        <div class="rv-divider"></div>
+
+        <button class="rv-submit" type="submit" id="submitBtn">
+          <span class="rv-btn-text">✨ &nbsp;Generate My Resume</span>
+          <div class="rv-spinner"></div>
+        </button>
+
+      </form>
+
+      <!-- ── OUTPUT ── -->
+      {% if resume %}
+      <div class="rv-output-section" id="outputSection">
+
+        <div class="rv-output-header">
+          <div class="rv-output-title">
+            <span class="rv-output-dot"></span>
+            Generated Resume
+          </div>
+          <div class="rv-output-actions">
+            <!-- Copy button -->
+            <button class="rv-action-btn" id="copyBtn" onclick="copyResume()">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copy
+            </button>
+            <!-- Download PDF button — form uses display:contents so it doesn't break flex -->
+            <form method="POST" action="/download_resume" class="rv-dl-form">
+              <input type="hidden" name="resume" id="resumeHidden">
+              <button type="submit" class="rv-action-btn dl">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download PDF
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Formatted resume output box -->
+        <div class="rv-output-box" id="resumeText"></div>
+
+        <div class="rv-output-meta">
+          <span id="wordCountLabel"></span>
+          <span>Pranox AI · Resume Builder</span>
+        </div>
+
+      </div>
+
+      <!-- Hidden raw source used by animation, copy, and PDF -->
+      <div id="resumeRaw" style="display:none">{{ resume }}</div>
+      {% endif %}
+
+    </div><!-- card-body -->
+  </div><!-- card -->
+</div><!-- wrap -->
+
+
 <script>
-function copyResume(){
-    const text = document.getElementById("resumeText").innerText;
-    navigator.clipboard.writeText(text);
-    alert("Copied!");
+/* ════════════════════════════════════════════
+   FIELD TRACKERS & PROGRESS
+════════════════════════════════════════════ */
+const fields = [
+  document.getElementById('f-name'),
+  document.getElementById('f-role'),
+  document.getElementById('f-skills'),
+  document.getElementById('f-exp'),
+  document.getElementById('f-edu'),
+];
+const charTrackers = {
+  'f-skills': 'skillsChar',
+  'f-exp':    'expChar',
+  'f-edu':    'eduChar',
+};
+
+function updateProgress() {
+  const filled = fields.filter(f => f && f.value.trim().length > 0).length;
+  const pct    = Math.round((filled / fields.length) * 100);
+  const fill   = document.getElementById('progressFill');
+  const label  = document.getElementById('progressLabel');
+  if (fill)  fill.style.width  = pct + '%';
+  if (label) label.textContent = pct + '% complete';
+
+  const steps = document.querySelectorAll('.rv-step');
+  steps.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i < filled - 1) s.classList.add('done');
+    else if (i === filled - 1 || (filled === 0 && i === 0)) s.classList.add('active');
+  });
 }
 
-// 🔥 Important for PDF download
-document.addEventListener("DOMContentLoaded", function(){
-    const resumeEl = document.getElementById("resumeText");
-    const hiddenInput = document.getElementById("resumeHidden");
+fields.forEach(f => {
+  if (!f) return;
+  f.addEventListener('input', () => {
+    const cc = charTrackers[f.id];
+    if (cc) { const el = document.getElementById(cc); if (el) el.textContent = f.value.length + ' chars'; }
+    updateProgress();
+  });
+  const cc = charTrackers[f.id];
+  if (cc) { const el = document.getElementById(cc); if (el) el.textContent = f.value.length + ' chars'; }
+});
+updateProgress();
 
-    if(resumeEl && hiddenInput){
-        hiddenInput.value = resumeEl.innerText;
+/* ════════════════════════════════════════════
+   FORM LOADING STATE
+════════════════════════════════════════════ */
+const resumeForm = document.getElementById('resumeForm');
+const submitBtn  = document.getElementById('submitBtn');
+if (resumeForm) {
+  resumeForm.addEventListener('submit', () => {
+    if (submitBtn) { submitBtn.classList.add('loading'); submitBtn.disabled = true; }
+  });
+}
+
+/* ════════════════════════════════════════════
+   RESUME PARSER — plain text → structured HTML
+════════════════════════════════════════════ */
+const SECTION_HEADERS = [
+  'PROFESSIONAL SUMMARY', 'SUMMARY', 'OBJECTIVE',
+  'SKILLS', 'TECHNICAL SKILLS', 'CORE SKILLS',
+  'WORK EXPERIENCE', 'EXPERIENCE', 'PROFESSIONAL EXPERIENCE',
+  'EDUCATION', 'ACADEMIC BACKGROUND',
+  'CERTIFICATIONS', 'PROJECTS', 'ACHIEVEMENTS', 'AWARDS',
+];
+
+function isSectionHeader(line) {
+  const upper = line.toUpperCase().trim();
+  return SECTION_HEADERS.some(h => upper === h || upper.startsWith(h + ':'));
+}
+
+function buildResumeHTML(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim());
+  let html = '';
+  let i = 0;
+
+  // First non-empty line = candidate name
+  while (i < lines.length && !lines[i]) i++;
+  if (i < lines.length && !isSectionHeader(lines[i])) {
+    html += `<div class="rv-resume-name">${escH(lines[i])}</div>`;
+    i++;
+  }
+
+  // Second non-empty line = role/tagline (if not a section header)
+  while (i < lines.length && !lines[i]) i++;
+  if (i < lines.length && !isSectionHeader(lines[i]) && lines[i].length < 80) {
+    html += `<div class="rv-resume-role">${escH(lines[i])}</div>`;
+    i++;
+  }
+
+  // Remaining lines: parse into sections
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line) { i++; continue; }
+
+    if (isSectionHeader(line)) {
+      // Collect all lines until next section
+      i++;
+      let sectionLines = [];
+      while (i < lines.length && !isSectionHeader(lines[i])) {
+        sectionLines.push(lines[i]);
+        i++;
+      }
+      // Remove leading/trailing blanks
+      while (sectionLines.length && !sectionLines[0]) sectionLines.shift();
+      while (sectionLines.length && !sectionLines[sectionLines.length - 1]) sectionLines.pop();
+
+      let sectionBody = '';
+      sectionLines.forEach(sl => {
+        if (!sl) {
+          sectionBody += '<div style="height:6px"></div>';
+          return;
+        }
+        const stripped = sl.replace(/^[•\-–]\s*/, '');
+        if (sl.startsWith('•') || sl.startsWith('-') || sl.startsWith('–')) {
+          sectionBody += `<div class="rv-bullet-item"><span class="rv-bullet-dot"></span><span>${escH(stripped)}</span></div>`;
+        } else if (sl.includes(' | ')) {
+          sectionBody += `<div class="rv-job-title">${escH(sl)}</div>`;
+        } else {
+          sectionBody += `<div class="rv-section-para">${escH(sl)}</div>`;
+        }
+      });
+
+      html += `
+        <div class="rv-section-block">
+          <div class="rv-section-title">${escH(line)}</div>
+          ${sectionBody}
+        </div>`;
+    } else {
+      // Loose line outside any section
+      html += `<div class="rv-section-para">${escH(line)}</div>`;
+      i++;
     }
+  }
+
+  return html;
+}
+
+function escH(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ════════════════════════════════════════════
+   WORD-BY-WORD STREAMING ANIMATION
+   Like Claude / ChatGPT token streaming
+════════════════════════════════════════════ */
+function wrapTextNodesInSpans(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+
+  textNodes.forEach(tn => {
+    const text = tn.textContent;
+    if (!text.trim()) return;
+    // Split on word boundaries, preserving spaces
+    const tokens = text.split(/(\s+)/);
+    const frag = document.createDocumentFragment();
+    tokens.forEach(token => {
+      if (/^\s+$/.test(token)) {
+        frag.appendChild(document.createTextNode(token));
+      } else if (token) {
+        const span = document.createElement('span');
+        span.className = 'rv-word';
+        span.textContent = token;
+        frag.appendChild(span);
+      }
+    });
+    tn.parentNode.replaceChild(frag, tn);
+  });
+}
+
+function streamResumeWords(container, onDone) {
+  const words = Array.from(container.querySelectorAll('.rv-word'));
+  if (!words.length) { if (onDone) onDone(); return; }
+
+  // Add blinking cursor after last word
+  const cursor = document.createElement('span');
+  cursor.className = 'rv-cursor';
+  const lastWord = words[words.length - 1];
+  lastWord.parentNode.insertBefore(cursor, lastWord.nextSibling);
+
+  const DELAY_PER_WORD = 22; // ms — tune this for speed
+  words.forEach((word, idx) => {
+    setTimeout(() => {
+      word.classList.add('visible');
+
+      // Move cursor after this word
+      if (idx < words.length - 1) {
+        word.parentNode.insertBefore(cursor, word.nextSibling);
+      }
+
+      // Done
+      if (idx === words.length - 1) {
+        setTimeout(() => {
+          cursor.remove();
+          if (onDone) onDone();
+        }, 400);
+      }
+    }, idx * DELAY_PER_WORD);
+  });
+}
+
+/* ════════════════════════════════════════════
+   INIT OUTPUT — runs when page loads with resume
+════════════════════════════════════════════ */
+const rawEl    = document.getElementById('resumeRaw');
+const outBox   = document.getElementById('resumeText');
+const wordLbl  = document.getElementById('wordCountLabel');
+const hiddenIn = document.getElementById('resumeHidden');
+
+if (rawEl && outBox) {
+  const fullText = (rawEl.textContent || rawEl.innerText).trim();
+
+  // Populate hidden input for PDF download form
+  if (hiddenIn) hiddenIn.value = fullText;
+
+  // Word count
+  const words = fullText.split(/\s+/).filter(Boolean).length;
+  if (wordLbl) wordLbl.textContent = words + ' words generated';
+
+  // Build structured HTML and inject
+  const structuredHTML = buildResumeHTML(fullText);
+  outBox.innerHTML = structuredHTML;
+
+  // Wrap all text in word-spans for animation
+  wrapTextNodesInSpans(outBox);
+
+  // Start streaming animation after short delay
+  setTimeout(() => {
+    streamResumeWords(outBox, null);
+  }, 350);
+
+  // Smooth scroll to output
+  setTimeout(() => {
+    const sec = document.getElementById('outputSection');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 200);
+}
+
+/* ════════════════════════════════════════════
+   COPY
+════════════════════════════════════════════ */
+function copyResume() {
+  const rawEl = document.getElementById('resumeRaw');
+  if (!rawEl) { alert('Nothing to copy!'); return; }
+  const text = (rawEl.textContent || rawEl.innerText).trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    if (btn) {
+      btn.classList.add('copied');
+      btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    }
+    setTimeout(() => {
+      if (btn) {
+        btn.classList.remove('copied');
+        btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+      }
+    }, 2500);
+  }).catch(() => alert('Copy failed. Please try again.'));
+}
+
+/* ════════════════════════════════════════════
+   PDF HIDDEN INPUT — set on DOMContentLoaded
+════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function () {
+  const raw    = document.getElementById('resumeRaw');
+  const hidden = document.getElementById('resumeHidden');
+  if (raw && hidden) hidden.value = (raw.textContent || raw.innerText).trim();
 });
 </script>
-
-</div>
 
 {% endblock %}

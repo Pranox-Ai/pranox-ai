@@ -569,14 +569,49 @@ def email():
         return render_template("login_required.html")
     output = ""
     if request.method == "POST":
-        topic  = request.form.get("topic", "")
-        tone   = request.form.get("tone", "professional")
+        topic  = request.form.get("topic", "").strip()
+        tone   = request.form.get("tone", "Professional").strip()
+        length = request.form.get("length", "Medium").strip()
+
+        length_guide = {
+            "Short":  "Write a concise email of 3-4 short paragraphs (around 100-150 words).",
+            "Medium": "Write a well-developed email of 4-6 paragraphs (around 200-300 words).",
+            "Long":   "Write a detailed, thorough email of 6-8 paragraphs (around 350-500 words) covering every aspect the user mentioned.",
+        }.get(length, "Write a well-developed email of 4-6 paragraphs.")
+
+        system_prompt = (
+            "You are an expert professional email writer with 15+ years of experience writing emails "
+            "for executives, businesses, and individuals across all industries. "
+            "Your emails are always clear, polished, and highly effective. "
+            "RULES:\n"
+            "- Write a COMPLETE, READY-TO-SEND email — include Subject line, greeting, body, and sign-off.\n"
+            "- Use the exact tone and intent described by the user. Understand their requirement deeply and write accordingly.\n"
+            "- Structure: Subject: [subject] then blank line then greeting then body paragraphs then closing then signature placeholder.\n"
+            "- NO markdown symbols (* # _ ` ~). Plain text only.\n"
+            "- Do NOT add meta-commentary like Here is your email or I hope this helps. Just write the email.\n"
+            "- Make the email sound natural, human, and purposeful — never generic or template-like.\n"
+            "- Every paragraph must add real value and move the email forward."
+        )
+
+        user_prompt = (
+            f"Write a {tone.lower()} email for the following requirement:\n\n"
+            f"{topic}\n\n"
+            f"{length_guide}\n"
+            f"Ensure the email fully addresses everything the user described. "
+            f"Make it compelling, accurate, and complete."
+        )
+
         output = run_ai([
-            {"role": "system", "content": "Write a professional email with clear paragraphs. No markdown symbols."},
-            {"role": "user",   "content": f"Write a {tone} email about: {topic}"},
-        ]) or "Couldn't generate email. Please try again."
-        output = clean_text(re.sub(r"[*#_`]", "", output))
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_prompt},
+        ], max_tokens=1800) or "Couldn't generate email. Please try again."
+        output = clean_text(re.sub(r"[*#_`~]", "", output))
     return render_template("email.html", email=output)
+
+# ═══════════════════════════════════════════════════════
+#  RESUME ROUTE  —  REPLACE THIS BLOCK IN app.py
+#  Only this route is changed. Nothing else is touched.
+# ═══════════════════════════════════════════════════════
 
 @app.route("/resume", methods=["GET", "POST"])
 def resume():
@@ -589,21 +624,58 @@ def resume():
         skills     = request.form.get("skills", "").strip()
         experience = request.form.get("experience", "").strip()
         education  = request.form.get("education", "").strip()
+
         if not all([name, role, skills, experience, education]):
             return render_template("resume.html", resume="Please fill all fields!")
+
         prompt = (
             f"Create a professional resume for:\n"
-            f"Name: {name}\nTarget Role: {role}\nSkills: {skills}\n"
-            f"Work Experience: {experience}\nEducation: {education}\n\n"
-            f"Format cleanly with sections: Summary, Skills, Experience, Education."
+            f"Name: {name}\n"
+            f"Target Role: {role}\n"
+            f"Skills: {skills}\n"
+            f"Work Experience: {experience}\n"
+            f"Education: {education}\n\n"
+            f"Format the resume using EXACTLY this structure:\n"
+            f"{name.upper()}\n"
+            f"{role}\n\n"
+            f"PROFESSIONAL SUMMARY\n"
+            f"[Write 2-3 sentence professional summary]\n\n"
+            f"SKILLS\n"
+            f"[List each skill on its own line starting with a bullet •]\n\n"
+            f"WORK EXPERIENCE\n"
+            f"[Job Title] | [Company] | [Duration]\n"
+            f"[List achievements starting with bullet •]\n\n"
+            f"EDUCATION\n"
+            f"[Degree] | [Institution] | [Year]\n"
+            f"[One sentence about education if needed]\n"
         )
-        output = run_ai([
-            {"role": "system", "content": "You are an expert resume writer. Format cleanly. No markdown symbols."},
-            {"role": "user",   "content": prompt},
-        ]) or "Couldn't generate resume. Please try again."
-        output = clean_text(re.sub(r"[*#_`]", "", output))
-    return render_template("resume.html", resume=output)
 
+        output = run_ai(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert professional resume writer. "
+                        "Write ATS-optimized, interview-winning resumes. "
+                        "Follow the exact format given by the user precisely. "
+                        "Use ALL CAPS only for section headers: PROFESSIONAL SUMMARY, SKILLS, WORK EXPERIENCE, EDUCATION. "
+                        "Use the bullet character • (not asterisks or dashes) for all list items. "
+                        "Use pipe | to separate job title, company, and dates. "
+                        "Write clean, confident, action-verb-driven bullet points. "
+                        "Do NOT use asterisks *, hashes #, underscores _, or backticks `. "
+                        "Do NOT use markdown. Plain structured text only."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1500,
+        ) or "Couldn't generate resume. Please try again."
+
+        # Strip any stray markdown symbols but preserve • bullets and | separators
+        output = re.sub(r"[*#_`]", "", output)
+        output = re.sub(r"\n{3,}", "\n\n", output).strip()
+
+    return render_template("resume.html", resume=output)
 
 # ═══════════════════════════════════════════════════════
 #  MAIN CHAT API
