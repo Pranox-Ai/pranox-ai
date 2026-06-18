@@ -1,104 +1,657 @@
 {% extends "base.html" %}
 
 {% block content %}
-
 <style>
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    padding: 20px 40px;
-    background: #020617;
-    border-bottom: 1px solid #1f2937;
+/* ═══════════════════════════════════════════════════════════════
+   PRANOX AI — Dashboard v2
+   Aurora-dark · Per-tool accent glow · Staggered load-in
+═══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Aurora Background ────────────────────────────────────────── */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.logout {
-    color: #f87171;
-    text-decoration: none;
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  animation: drift ease-in-out infinite;
 }
 
-.tools {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-    margin-top: 120px;
-    flex-wrap: wrap;
+.orb-1 {
+  width: 650px; height: 650px;
+  background: radial-gradient(circle, rgba(99,102,241,0.18), transparent 65%);
+  top: -160px; left: -160px;
+  animation-duration: 28s;
 }
 
+.orb-2 {
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(236,72,153,0.14), transparent 65%);
+  top: 25%; right: -180px;
+  animation-duration: 34s;
+  animation-direction: reverse;
+}
+
+.orb-3 {
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(6,182,212,0.12), transparent 65%);
+  bottom: -80px; left: 35%;
+  animation-duration: 22s;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0,   0  ) scale(1);    }
+  33%       { transform: translate(45px,-35px) scale(1.06); }
+  66%       { transform: translate(-25px, 22px) scale(0.94); }
+}
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.dash-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 52px 28px 88px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.hero { margin-bottom: 60px; }
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 18px;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34,197,94,0.8);
+  animation: blink 2.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1);   }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+
+.hero-heading {
+  font-size: clamp(2rem, 4.5vw, 3.1rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  margin-bottom: 14px;
+  color: #f1f5f9;
+}
+
+.hero-greeting { color: #475569; font-weight: 400; }
+
+.hero-name {
+  background: linear-gradient(125deg, #818cf8 0%, #c084fc 45%, #f472b6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  color: #475569;
+  font-size: 1.0rem;
+  line-height: 1.6;
+  margin-bottom: 28px;
+  max-width: 520px;
+}
+
+.stat-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 100px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #64748b;
+  cursor: default;
+  transition: background 0.2s, color 0.2s;
+}
+
+.pill:hover {
+  background: rgba(255,255,255,0.07);
+  color: #94a3b8;
+}
+
+/* ── Section Header ───────────────────────────────────────────── */
+.section-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.section-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #334155;
+  margin-bottom: 5px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  letter-spacing: -0.015em;
+}
+
+.section-count {
+  font-size: 0.78rem;
+  color: #334155;
+  padding-bottom: 2px;
+}
+
+/* ── Tools Grid ───────────────────────────────────────────────── */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+/* ── Tool Card ────────────────────────────────────────────────── */
 .tool-card {
-    background: #111827;
-    padding: 40px;
-    border-radius: 14px;
-    width: 280px;
-    text-align: center;
-    text-decoration: none;
-    color: white;
-    transition: 0.3s;
+  --accent:    #6366f1;
+  --glow:      rgba(99,102,241,0.14);
+  --icon-bg:   rgba(99,102,241,0.12);
+  --icon-col:  #a5b4fc;
+
+  position: relative;
+  display: block;
+  background: #0b1426;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 26px;
+  text-decoration: none;
+  color: #f1f5f9;
+  overflow: hidden;
+  transition: transform 0.3s ease,
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+
+  /* Staggered load-in */
+  opacity: 0;
+  animation: slideUp 0.55s ease forwards;
+}
+
+.tool-card:nth-child(1) { animation-delay: 0.05s; }
+.tool-card:nth-child(2) { animation-delay: 0.13s; }
+.tool-card:nth-child(3) { animation-delay: 0.21s; }
+.tool-card:nth-child(4) { animation-delay: 0.29s; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* Radial glow overlay */
+.tool-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 15% 15%, var(--glow), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Accent border highlight */
+.tool-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 19px;
+  background: linear-gradient(135deg, var(--accent), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
 }
 
 .tool-card:hover {
-    transform: translateY(-8px);
-    background: linear-gradient(90deg, #6366f1, #ec4899);
+  transform: translateY(-7px);
+  border-color: rgba(255,255,255,0.11);
+  box-shadow:
+    0 0 50px var(--glow),
+    0 24px 48px rgba(0,0,0,0.45);
 }
 
-h3 {
-    margin-bottom: 10px;
+.tool-card:hover::before { opacity: 1; }
+.tool-card:hover::after  { opacity: 0.55; }
+
+/* Per-tool accent overrides */
+.card-email    { --accent: #7c3aed; --glow: rgba(124,58,237,0.16); --icon-bg: rgba(124,58,237,0.13); --icon-col: #a78bfa; }
+.card-resume   { --accent: #be185d; --glow: rgba(190,24,93,0.14);  --icon-bg: rgba(236,72,153,0.11); --icon-col: #f472b6; }
+.card-ai       { --accent: #0e7490; --glow: rgba(6,182,212,0.13);  --icon-bg: rgba(6,182,212,0.11);  --icon-col: #22d3ee; }
+.card-research { --accent: #1d4ed8; --glow: rgba(59,130,246,0.13); --icon-bg: rgba(59,130,246,0.11); --icon-col: #60a5fa; }
+.card-locked   { --accent: #334155; --glow: rgba(51,65,85,0.08);   --icon-bg: rgba(51,65,85,0.10);   --icon-col: #475569; }
+
+/* All inner content above pseudo-elements */
+.card-inner { position: relative; z-index: 1; }
+
+/* Card Top Row */
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
-p {
-    color: #cbd5f5;
+.card-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  background: var(--icon-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45rem;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.tool-card:hover .card-icon {
+  transform: scale(1.12) rotate(-5deg);
+}
+
+.card-badge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 100px;
+}
+
+.badge-free {
+  background: rgba(34,197,94,0.1);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.2);
+}
+
+.badge-pro {
+  background: rgba(124,58,237,0.14);
+  color: #a78bfa;
+  border: 1px solid rgba(124,58,237,0.22);
+}
+
+.badge-locked {
+  background: rgba(51,65,85,0.2);
+  color: #475569;
+  border: 1px solid rgba(51,65,85,0.25);
+}
+
+.card-title {
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.card-desc {
+  font-size: 0.855rem;
+  color: #475569;
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+.card-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.055);
+  margin-bottom: 16px;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 0.67rem;
+  font-weight: 500;
+  color: #334155;
+  padding: 3px 8px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 5px;
+  letter-spacing: 0.02em;
+}
+
+.card-arrow {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: #334155;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.tool-card:hover .card-arrow {
+  background: var(--icon-bg);
+  border-color: var(--accent);
+  color: var(--icon-col);
+  transform: translateX(4px);
+}
+
+/* ── Platform Info Bar ────────────────────────────────────────── */
+.info-bar {
+  margin-top: 52px;
+  padding: 18px 26px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+
+  opacity: 0;
+  animation: slideUp 0.55s ease 0.42s forwards;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 24px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.info-item:first-child { padding-left: 0; }
+.info-item:last-child  { padding-right: 0; }
+
+.info-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.info-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #334155;
+  margin-bottom: 2px;
+}
+
+.info-value {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.info-sep {
+  width: 1px;
+  height: 36px;
+  background: rgba(255,255,255,0.055);
+  flex-shrink: 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .dash-wrapper { padding: 36px 16px 64px; }
+  .hero-heading { font-size: 1.8rem; }
+  .tools-grid   { grid-template-columns: 1fr; }
+  .info-bar     { gap: 0; }
+  .info-item    { padding: 8px 12px; min-width: 130px; }
+  .info-sep     { display: none; }
+  .section-count { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb, .status-dot, .tool-card { animation: none !important; }
+  .tool-card { opacity: 1; }
+  .info-bar  { opacity: 1; }
 }
 </style>
 
-<div class="topbar">
-
-    {% if user %}
-        <h2>Welcome {{ user.name }}</h2>
-        <a href="/logout" class="logout">Logout</a>
-    {% else %}
-        <h2>Welcome Guest</h2>
-        <a href="/login" class="logout">Login</a>
-    {% endif %}
-
+<!-- ── Aurora background ──────────────────────────────────────── -->
+<div class="aurora" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
 </div>
 
-<div class="tools">
+<!-- ── Dashboard ─────────────────────────────────────────────── -->
+<div class="dash-wrapper">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <span class="status-dot"></span>
+      All systems operational
+    </div>
 
     {% if user %}
-        <a href="/email" class="tool-card">
-            <h3>Email Writer</h3>
-            <p>Create professional emails instantly</p>
-        </a>
+    <h1 class="hero-heading">
+      <span class="hero-greeting">Good to see you, </span><br>
+      <span class="hero-name">{{ user.name }}</span>
+    </h1>
+    <p class="hero-sub">Your AI workspace is ready. Pick a tool below and get started instantly.</p>
     {% else %}
-        <a href="/login" class="tool-card">
-            <h3>🔒 Email Writer</h3>
-            <p>Login required</p>
-        </a>
+    <h1 class="hero-heading">
+      <span class="hero-greeting">Welcome to </span><br>
+      <span class="hero-name">Pranox AI</span>
+    </h1>
+    <p class="hero-sub">Sign in to unlock all tools and personalize your experience.</p>
     {% endif %}
 
+    <div class="stat-pills">
+      <span class="pill">⚡ AI-powered</span>
+      <span class="pill">🔍 Web-grounded</span>
+      <span class="pill">🛡️ Secure &amp; private</span>
+      <span class="pill">🌐 Always online</span>
+    </div>
+  </section>
+
+  <!-- Section header -->
+  <div class="section-row">
+    <div>
+      <div class="section-eyebrow">Workspace</div>
+      <div class="section-title">Your AI Tools</div>
+    </div>
+    <span class="section-count">4 tools available</span>
+  </div>
+
+  <!-- Tools grid -->
+  <div class="tools-grid">
+
+    <!-- Email Writer -->
     {% if user %}
-        <a href="/resume" class="tool-card">
-            <h3>Resume Builder</h3>
-            <p>Generate ATS-friendly resumes</p>
-        </a>
+    <a href="/email" class="tool-card card-email">
     {% else %}
-        <a href="/login" class="tool-card">
-            <h3>🔒 Resume Builder</h3>
-            <p>Login required</p>
-        </a>
+    <a href="/login" class="tool-card card-email card-locked">
     {% endif %}
-
-    <!-- FREE FEATURE -->
-    <a href="/chat" class="tool-card">
-        <h3>General AI</h3>
-        <p>Ask anything with AI assistant</p>
+      <div class="card-inner">
+        <div class="card-top">
+          <div class="card-icon">✉️</div>
+          {% if user %}
+            <span class="card-badge badge-pro">Try</span>
+          {% else %}
+            <span class="card-badge badge-locked">🔒 Login</span>
+          {% endif %}
+        </div>
+        <div class="card-title">Email Writer</div>
+        <div class="card-desc">Craft professional emails in seconds — cold outreach, follow-ups, or formal correspondence with the right tone.</div>
+        <div class="card-divider"></div>
+        <div class="card-footer">
+          <div class="card-tags">
+            <span class="tag">AI-drafted</span>
+            <span class="tag">Tone control</span>
+            <span class="tag">Any style</span>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
     </a>
 
-    <!-- DEEPSEARCH FEATURE -->
-    <a href="/deepsearch" class="tool-card">
-        <h3>Deep Research</h3>
-        <p>Deep research from multiple sources with AI synthesis</p>
+    <!-- Resume Builder -->
+    {% if user %}
+    <a href="/resume" class="tool-card card-resume">
+    {% else %}
+    <a href="/login" class="tool-card card-resume card-locked">
+    {% endif %}
+      <div class="card-inner">
+        <div class="card-top">
+          <div class="card-icon">📄</div>
+          {% if user %}
+            <span class="card-badge badge-pro">Try</span>
+          {% else %}
+            <span class="card-badge badge-locked">🔒 Login</span>
+          {% endif %}
+        </div>
+        <div class="card-title">Resume Builder</div>
+        <div class="card-desc">Generate ATS-optimized resumes tailored to the job description you're targeting. Stand out from the crowd.</div>
+        <div class="card-divider"></div>
+        <div class="card-footer">
+          <div class="card-tags">
+            <span class="tag">ATS-friendly</span>
+            <span class="tag">Job-matched</span>
+            <span class="tag">PDF-ready</span>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
     </a>
+
+    <!-- General AI -->
+    <a href="/chat" class="tool-card card-ai">
+      <div class="card-inner">
+        <div class="card-top">
+          <div class="card-icon">🤖</div>
+          <span class="card-badge badge-pro">Try</span>
+        </div>
+        <div class="card-title">General AI</div>
+        <div class="card-desc">Ask anything — coding help, writing, analysis, or just a smart conversation with your AI assistant.</div>
+        <div class="card-divider"></div>
+        <div class="card-footer">
+          <div class="card-tags">
+            <span class="tag">LLaMA 3</span>
+            <span class="tag">Open access</span>
+            <span class="tag">Web search</span>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
+
+    <!-- Deep Research -->
+    <a href="/deepsearch" class="tool-card card-research">
+      <div class="card-inner">
+        <div class="card-top">
+          <div class="card-icon">🔬</div>
+          <span class="card-badge badge-pro">Try</span>
+        </div>
+        <div class="card-title">Deep Research</div>
+        <div class="card-desc">Multi-source web research with AI synthesis — go beyond search and get structured, cited insights fast.</div>
+        <div class="card-divider"></div>
+        <div class="card-footer">
+          <div class="card-tags">
+            <span class="tag">Web-grounded</span>
+            <span class="tag">Multi-source</span>
+            <span class="tag">Cited output</span>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Platform info bar -->
+  <div class="info-bar" aria-label="Platform details">
+    <div class="info-item">
+      <div class="info-icon">⚡</div>
+      <div>
+        <div class="info-label">Engine</div>
+        <div class="info-value">LLaMA 3</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">🌐</div>
+      <div>
+        <div class="info-label">Search</div>
+        <div class="info-value">API</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">🔑</div>
+      <div>
+        <div class="info-label">Auth</div>
+        <div class="info-value">Google OAuth</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">🚀</div>
+      <div>
+        <div class="info-label">Deployed on</div>
+        <div class="info-value">Render</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">✨</div>
+      <div>
+        <div class="info-label">Version</div>
+        <div class="info-value">Pranox AI v2</div>
+      </div>
+    </div>
+  </div>
 
 </div>
-
 {% endblock %}
