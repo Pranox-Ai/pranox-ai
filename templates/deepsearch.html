@@ -49,10 +49,6 @@
 
       <div class="dr-header-center">
         <span class="dr-header-title">Pranox Deep Research</span>
-        <span class="dr-header-status" id="drStatusBadge">
-          <span class="dr-status-dot" id="drStatusDot"></span>
-          <span id="drStatusText">Live web</span>
-        </span>
       </div>
 
       <div class="dr-header-right"></div>
@@ -375,28 +371,6 @@ function scrollResearchToBottom(force=false) {
 drMessagesEl.addEventListener("scroll", () => {
   stickToBottom = isResearchNearBottom();
 }, {passive:true});
-
-/* ══════════════════════════════════════════
-   NETWORK STATUS
-══════════════════════════════════════════ */
-function updateResearchStatus() {
-  const dot = document.getElementById("drStatusDot");
-  const text = document.getElementById("drStatusText");
-  const badge = document.getElementById("drStatusBadge");
-
-  if (navigator.onLine) {
-    dot.className = "dr-status-dot online";
-    text.textContent = "Live web";
-    badge.className = "dr-header-status online";
-  } else {
-    dot.className = "dr-status-dot offline";
-    text.textContent = "Offline";
-    badge.className = "dr-header-status offline";
-  }
-}
-window.addEventListener("online", updateResearchStatus);
-window.addEventListener("offline", updateResearchStatus);
-updateResearchStatus();
 
 /* ══════════════════════════════════════════
    SIDEBAR + HISTORY
@@ -1058,13 +1032,6 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 @media(min-width:769px){.dr-menu-btn{display:none}}
 .dr-header-center{display:flex;flex-direction:column;align-items:center;gap:2px}
 .dr-header-title{font-size:16px;font-weight:600;color:var(--dr-text)}
-.dr-header-status{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500}
-.dr-header-status.online{color:var(--dr-green)}
-.dr-header-status.offline{color:var(--dr-red)}
-.dr-status-dot{width:7px;height:7px;border-radius:50%}
-.dr-status-dot.online{background:var(--dr-green);animation:dr-pulse-dot 2.2s infinite}
-.dr-status-dot.offline{background:var(--dr-red)}
-@keyframes dr-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
 .dr-header-right{min-width:60px}
 
 #drMessages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:24px 16px 16px;scroll-behavior:auto}

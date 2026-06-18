@@ -37,10 +37,6 @@
       </button>
       <div class="header-center">
         <span class="header-title">Pranox AI</span>
-        <span class="header-status" id="statusBadge">
-          <span class="status-dot" id="statusDot"></span>
-          <span id="statusText">Online</span>
-        </span>
       </div>
       <div class="header-right"></div>
     </header>
@@ -271,27 +267,6 @@ function scrollToBottom(force=false) {
 messagesEl.addEventListener("scroll", () => {
   stickToBottom = isNearBottom();
 }, {passive:true});
-
-/* ══════════════════════════════════════════
-   NETWORK STATUS
-══════════════════════════════════════════ */
-function updateStatus() {
-  const dot   = document.getElementById("statusDot");
-  const text  = document.getElementById("statusText");
-  const badge = document.getElementById("statusBadge");
-  if (navigator.onLine) {
-    dot.className    = "status-dot online";
-    text.textContent = "Online";
-    badge.className  = "header-status online";
-  } else {
-    dot.className    = "status-dot offline";
-    text.textContent = "Offline";
-    badge.className  = "header-status offline";
-  }
-}
-window.addEventListener("online",  updateStatus);
-window.addEventListener("offline", updateStatus);
-updateStatus();
 
 /* ══════════════════════════════════════════
    TOAST
@@ -987,13 +962,6 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 @media(min-width:769px){.menu-btn{display:none}}
 .header-center{display:flex;flex-direction:column;align-items:center;gap:2px}
 .header-title{font-size:16px;font-weight:600}
-.header-status{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500}
-.header-status.online{color:var(--green)}
-.header-status.offline{color:var(--red)}
-.status-dot{width:7px;height:7px;border-radius:50%}
-.status-dot.online{background:var(--green);animation:pulse-dot 2.2s infinite}
-.status-dot.offline{background:var(--red)}
-@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
 .header-right{min-width:60px}
 
 #messages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:24px 16px 16px;scroll-behavior:auto}

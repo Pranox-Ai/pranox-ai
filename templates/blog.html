@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.blog-wrap {
+    max-width: 760px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+.blog-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+.blog-header h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+.blog-header p {
+    color: #94a3b8;
+    font-size: 15px;
+}
+.blog-card {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px 30px;
+    margin-bottom: 22px;
+}
+.blog-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.25);
+    padding: 3px 12px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.blog-card h3 {
+    font-size: 20px;
+    margin-bottom: 6px;
+}
+.blog-meta {
+    color: #64748b;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.blog-card summary {
+    cursor: pointer;
+    color: #818cf8;
+    font-weight: 600;
+    font-size: 14px;
+    list-style: none;
+    margin-top: 6px;
+}
+.blog-card summary::-webkit-details-marker { display: none; }
+.blog-card summary::after {
+    content: ' →';
+}
+.blog-card[open] summary::after {
+    content: ' ↑';
+}
+.blog-body {
+    margin-top: 16px;
+    color: #cbd5f5;
+    font-size: 14.5px;
+    line-height: 1.9;
+}
+.blog-body p { margin-bottom: 14px; }
+.blog-excerpt {
+    color: #94a3b8;
+    font-size: 14.5px;
+    line-height: 1.8;
+}
+</style>
+
+<div class="blog-wrap">
+
+    <div class="blog-header">
+        <h2>Pranox AI Blog</h2>
+        <p>Practical writing tips, product updates, and AI notes.</p>
+    </div>
+
+    <details class="blog-card">
+        <span class="blog-tag">Email</span>
+        <h3>Cold emails that actually get replies</h3>
+        <div class="blog-meta">5 min read</div>
+        <p class="blog-excerpt">Most cold emails fail before the second sentence. Here's the structure we see work again and again — and how to generate it in seconds with Pranox AI.</p>
+        <summary>Read the full post</summary>
+        <div class="blog-body">
+            <p>The biggest mistake in cold outreach isn't a weak subject line — it's writing for yourself instead of the reader. A good cold email answers one silent question in the first two sentences: "why is this relevant to me, right now?"</p>
+            <p>Structure that consistently performs well: open with a specific, researched detail about the recipient (not "I hope this finds you well"), state one clear value point, and close with a low-friction ask — a yes/no question, not a 30-minute call request.</p>
+            <p>Length matters more than people think. Once an email passes about 150 words, reply rates tend to drop, especially on mobile. Trim ruthlessly: every sentence should either build credibility or move toward the ask.</p>
+            <p>In Pranox AI's Email Writer, describe your goal and the recipient's context in one or two sentences, pick a tone, and you'll get a draft built on this exact structure — ready to tweak and send.</p>
+        </div>
+    </details>
+
+    <details class="blog-card">
+        <span class="blog-tag">Resume</span>
+        <h3>5 resume mistakes that cost you interviews</h3>
+        <div class="blog-meta">6 min read</div>
+        <p class="blog-excerpt">Recruiters spend seconds, not minutes, on a first pass. These five fixable mistakes are the most common reason strong candidates get filtered out.</p>
+        <summary>Read the full post</summary>
+        <div class="blog-body">
+            <p><strong>1. Listing duties instead of impact.</strong> "Responsible for managing social media" tells a recruiter what you were assigned, not what changed because of you. Reframe around outcomes: what grew, shrank, sped up, or got fixed.</p>
+            <p><strong>2. No numbers anywhere.</strong> Even rough, honest estimates ("reduced response time by roughly 30%") are far more convincing than adjectives like "significant" or "major".</p>
+            <p><strong>3. One resume for every job.</strong> The same resume sent to ten different roles reads as generic to all ten. Mirror the language of the job description where it's genuinely true of your experience.</p>
+            <p><strong>4. Burying the most relevant experience.</strong> Recruiters often read top-down and stop early. Your strongest, most relevant point should never be three jobs down the page.</p>
+            <p><strong>5. Skipping the summary.</strong> A two-line summary at the top, naming your target role and your strongest proof point, gives a skimming reader the headline before they decide whether to keep reading.</p>
+            <p>Pranox AI's Resume Builder structures your input into exactly this format — summary, skills, experience, education — so the fix is built in rather than left to chance.</p>
+        </div>
+    </details>
+
+    <details class="blog-card">
+        <span class="blog-tag">Product</span>
+        <h3>What Deep Research is, and when to reach for it</h3>
+        <div class="blog-meta">4 min read</div>
+        <p class="blog-excerpt">AI Chat is great for a quick answer. Deep Research exists for a different kind of question — one that needs more than one source to answer properly.</p>
+        <summary>Read the full post</summary>
+        <div class="blog-body">
+            <p>A single chat response is built to answer a focused question quickly. But some questions aren't really single-answer questions — "compare these three approaches," "what's changed in this space recently," "summarize the current state of X" — these need information pulled together from multiple places and reconciled into one coherent answer.</p>
+            <p>That's the gap Deep Research fills. Instead of one generated response, it gathers from multiple sources and synthesizes them into a structured summary, so you're not the one cross-referencing five tabs.</p>
+            <p>Good candidates for Deep Research: market or competitor comparisons, "what's the current best practice for…", literature-style summaries, and topics where a single, possibly outdated answer isn't good enough on its own.</p>
+            <p>Stick with AI Chat for direct questions, code help, drafting, and brainstorming — it's faster and just as accurate for those.</p>
+        </div>
+    </details>
+
+</div>
+
+{% endblock %}

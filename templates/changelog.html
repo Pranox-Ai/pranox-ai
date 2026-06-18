@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.cl-wrap {
+    max-width: 760px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+.cl-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+.cl-header h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+.cl-header p {
+    color: #94a3b8;
+    font-size: 15px;
+}
+.cl-entry {
+    position: relative;
+    padding: 0 0 36px 28px;
+    border-left: 2px solid #1f2937;
+}
+.cl-entry:last-child {
+    border-left: 2px solid transparent;
+    padding-bottom: 0;
+}
+.cl-entry::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    box-shadow: 0 0 0 4px #020617;
+}
+.cl-card {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 22px 26px;
+}
+.cl-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.cl-version {
+    font-weight: 800;
+    font-size: 16px;
+    color: white;
+}
+.cl-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(52,211,153,0.12);
+    color: #34d399;
+    border: 1px solid rgba(52,211,153,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.cl-date {
+    color: #64748b;
+    font-size: 13px;
+    margin-left: auto;
+}
+.cl-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0;
+    color: #cbd5f5;
+    font-size: 14px;
+    line-height: 1.9;
+}
+.cl-list li {
+    padding-left: 18px;
+    position: relative;
+}
+.cl-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: #6366f1;
+}
+</style>
+
+<div class="cl-wrap">
+
+    <div class="cl-header">
+        <h2>Changelog</h2>
+        <p>Everything we've shipped on Pranox AI, newest first.</p>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.5.0</span>
+                <span class="cl-badge">Latest</span>
+                <span class="cl-date">June 2026</span>
+            </div>
+            <ul class="cl-list">
+                <li>Deep Research tool: multi-source web synthesis with AI-written summaries</li>
+                <li>Faster AI Chat response streaming</li>
+                <li>Fixed formatting issues in downloaded resume PDFs</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.4.0</span>
+                <span class="cl-date">April 2026</span>
+            </div>
+            <ul class="cl-list">
+                <li>Document upload &amp; analysis — PDF, Word, Excel, and image files</li>
+                <li>AI image generation added to the chat assistant</li>
+                <li>Improved mobile navigation and tap targets</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.3.0</span>
+                <span class="cl-date">February 2026</span>
+            </div>
+            <ul class="cl-list">
+                <li>One-click PDF export for the Resume Builder</li>
+                <li>Copy-to-clipboard added across Email and Resume outputs</li>
+                <li>General performance and stability improvements</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.2.0</span>
+                <span class="cl-date">January 2026</span>
+            </div>
+            <ul class="cl-list">
+                <li>Secure Google sign-in (OAuth) for the dashboard and saved tools</li>
+                <li>Personalized dashboard with session-based greeting</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.1.0</span>
+                <span class="cl-date">December 2025</span>
+            </div>
+            <ul class="cl-list">
+                <li>Public beta: AI Email Writer and AI Chat Assistant</li>
+                <li>Initial responsive layout for mobile and tablet</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="cl-entry">
+        <div class="cl-card">
+            <div class="cl-top">
+                <span class="cl-version">v2.0.0</span>
+                <span class="cl-date">November 2025</span>
+            </div>
+            <ul class="cl-list">
+                <li>Pranox AI rebuilt from the ground up on Flask</li>
+                <li>First version of the dashboard and tool layout</li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

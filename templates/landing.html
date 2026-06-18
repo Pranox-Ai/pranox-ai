@@ -2,206 +2,1373 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PRANOX AI</title>
+<title>PRANOX AI — Write Smarter, Faster</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Pranox AI — The free AI writing assistant for emails, resumes, and more. 100% free, forever.">
 <meta name="robots" content="index, follow">
 <meta name="google-site-verification" content="OLYYiUKgcX5kujTyCT8d49x4OjD9uH2oyX1mFA2Q-Ys" />
-
 <style>
+/* ══════════════════════════════════════════
+   RESET & TOKENS
+══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #020617;
+  --bg2:      #060d1f;
+  --card:     #0d1526;
+  --card2:    #111e34;
+  --border:   #1e293b;
+  --border-b: #334155;
+  --primary:  #6366f1;
+  --primary2: #818cf8;
+  --pink:     #ec4899;
+  --cyan:     #22d3ee;
+  --green:    #34d399;
+  --orange:   #f97316;
+  --text:     #f1f5f9;
+  --text-s:   #94a3b8;
+  --text-m:   #475569;
+  --radius:   16px;
+  --radius-lg:24px;
+}
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
-    margin: 0;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(135deg,#020617,#0f172a);
-    color: white;
-    overflow-x: hidden;
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.6;
 }
 
-/* BACKGROUND ANIMATION */
-body::before {
-    content: "";
-    position: fixed;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, #6366f1 1px, transparent 1px);
-    background-size: 60px 60px;
-    animation: move 30s linear infinite;
-    opacity: 0.06;
+img { display: block; max-width: 100%; }
+a { text-decoration: none; }
+button { font-family: inherit; }
+
+/* ══════════════════════════════════════════
+   BACKGROUND ELEMENTS
+══════════════════════════════════════════ */
+.grid-bg {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,.035) 1px, transparent 1px);
+  background-size: 52px 52px;
+  pointer-events: none; z-index: 0;
 }
 
-@keyframes move {
-    from { transform: translate(0,0); }
-    to { transform: translate(-60px,-60px); }
+.cursor-glow {
+  position: fixed; width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(99,102,241,.065) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+  transform: translate(-50%,-50%);
+  transition: left .07s ease, top .07s ease;
+}
+@media (max-width: 768px) { .cursor-glow { display: none; } }
+
+/* ══════════════════════════════════════════
+   NAVBAR
+══════════════════════════════════════════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; height: 64px;
+  background: rgba(2,6,23,.88);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(99,102,241,.12);
+  transition: border-color .3s, background .3s;
+}
+.nav-logo {
+  font-size: 17px; font-weight: 900; letter-spacing: 3px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  flex-shrink: 0; cursor: pointer;
+}
+.nav-links { display: flex; gap: 32px; list-style: none; }
+.nav-links a {
+  color: var(--text-s); font-size: 14px; font-weight: 500;
+  transition: color .2s; padding: 4px 0;
+  position: relative;
+}
+.nav-links a::after {
+  content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
+  height: 1px; background: var(--primary); transform: scaleX(0);
+  transition: transform .25s; transform-origin: left;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-links a:hover::after { transform: scaleX(1); }
+
+.nav-actions { display: flex; gap: 10px; align-items: center; }
+
+.btn-ghost {
+  padding: 8px 18px; border: 1px solid var(--border-b);
+  border-radius: 8px; color: var(--text-s); font-size: 14px;
+  font-weight: 500; transition: all .2s; white-space: nowrap;
+}
+.btn-ghost:hover { border-color: var(--primary); color: var(--text); }
+
+.btn-pill {
+  padding: 8px 22px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 100px; color: white; font-size: 14px; font-weight: 700;
+  transition: all .25s; box-shadow: 0 0 22px rgba(99,102,241,.35);
+  white-space: nowrap;
+}
+.btn-pill:hover { transform: translateY(-1px); box-shadow: 0 0 38px rgba(99,102,241,.6); }
+
+/* ── HAMBURGER ── */
+.hamburger {
+  display: none; flex-direction: column; gap: 5px;
+  cursor: pointer; padding: 8px; background: none; border: none; z-index: 300;
+}
+.hamburger span {
+  display: block; width: 24px; height: 2px;
+  background: var(--text-s); border-radius: 2px; transition: all .3s;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile drawer */
+.mobile-nav {
+  display: none; position: fixed;
+  top: 60px; left: 0; right: 0; bottom: 0;
+  background: rgba(2,6,23,.98);
+  border-top: 1px solid var(--border);
+  padding: 28px 24px 48px;
+  z-index: 190; flex-direction: column; gap: 0;
+  overflow-y: auto;
+}
+.mobile-nav.open { display: flex; }
+.mobile-nav a {
+  color: var(--text-s); font-size: 17px; font-weight: 500;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  transition: color .2s; display: block;
+}
+.mobile-nav a:last-of-type { border-bottom: none; }
+.mobile-nav a:hover { color: var(--text); }
+.mobile-nav .m-cta {
+  margin-top: 24px; padding: 16px; text-align: center;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 14px; color: white; font-weight: 700;
+  font-size: 16px; border: none;
 }
 
-/* NAVBAR */
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    padding: 20px 40px;
-}
-
-.logo {
-    font-size: 22px;
-    font-weight: bold;
-    color: #e5e7eb;
-}
-
-.login-btn {
-    padding: 10px 20px;
-    background: #6366f1;
-    border-radius: 8px;
-    text-decoration: none;
-    color: white;
-    font-weight: 500;
-}
-
-/* HERO */
+/* ══════════════════════════════════════════
+   HERO
+══════════════════════════════════════════ */
 .hero {
-    text-align: center;
-    padding: 120px 20px 80px;
+  position: relative; z-index: 10;
+  min-height: 100svh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 120px 20px 90px;
+  overflow: hidden;
 }
 
-.hero h1 {
-    font-size: 64px;
-    margin-bottom: 10px;
-    letter-spacing: 2px;
+.hero-orb1 {
+  position: absolute; width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(99,102,241,.12), transparent 65%);
+  top: 0%; left: 50%; transform: translateX(-50%);
+  pointer-events: none; animation: drift1 9s ease-in-out infinite;
+}
+.hero-orb2 {
+  position: absolute; width: 480px; height: 480px;
+  background: radial-gradient(circle, rgba(236,72,153,.09), transparent 65%);
+  bottom: 10%; left: 8%;
+  pointer-events: none; animation: drift2 11s ease-in-out infinite;
+}
+.hero-orb3 {
+  position: absolute; width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(34,211,238,.07), transparent 65%);
+  top: 25%; right: 5%;
+  pointer-events: none; animation: drift2 13s ease-in-out infinite reverse;
+}
+@keyframes drift1 { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-30px)} }
+@keyframes drift2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(22px)} }
+
+/* badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 20px;
+  background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.3);
+  border-radius: 100px; font-size: 13px; color: #a5b4fc;
+  margin-bottom: 36px;
+  opacity: 0; animation: fadeUp .6s .2s forwards;
+}
+.badge-dot {
+  width: 7px; height: 7px; background: var(--green);
+  border-radius: 50%; animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,.6); }
+  50% { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
 }
 
-.hero span {
-    background: linear-gradient(90deg,#6366f1,#ec4899);
-    -webkit-background-clip: text;
-    background-clip: text; /* ✅ FIX ADDED */
-    -webkit-text-fill-color: transparent;
+/* title */
+.hero-title {
+  font-size: clamp(54px, 13vw, 118px);
+  font-weight: 900; letter-spacing: -2px; line-height: 1;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #fff 0%, #c7d2fe 30%, #ec4899 65%, #f97316 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0; transform: scale(4.5); filter: blur(10px);
+  animation: titleReveal 1.5s cubic-bezier(.16,1,.3,1) .4s forwards;
+}
+@keyframes titleReveal {
+  0%   { opacity:0; transform:scale(4.5); filter:blur(10px); letter-spacing:22px; }
+  55%  { opacity:1; filter:blur(0); }
+  100% { opacity:1; transform:scale(1); filter:blur(0); letter-spacing:-2px; }
 }
 
-.tagline {
-    font-size: 22px;
-    color: #cbd5f5;
-    margin-bottom: 40px;
+.hero-sub {
+  font-size: clamp(16px, 2.8vw, 22px);
+  color: var(--text-s); max-width: 560px; width: 100%;
+  margin-bottom: 52px; min-height: 2em;
+  opacity: 0; animation: fadeUp .6s 1.7s forwards;
+}
+.typewriter-cursor {
+  display: inline-block; width: 2px; height: 1.1em;
+  background: var(--primary2); vertical-align: middle;
+  animation: blinkCursor 1s steps(1) infinite; margin-left: 2px;
+}
+@keyframes blinkCursor { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.hero-btns {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  opacity: 0; animation: fadeUp .6s 1.9s forwards;
 }
 
-.cta-btn {
-    padding: 16px 40px;
-    font-size: 18px;
-    background: linear-gradient(90deg,#6366f1,#ec4899);
-    border-radius: 12px;
-    text-decoration: none;
-    color: white;
-    font-weight: bold;
-    transition: 0.3s;
+/* trust pills below buttons */
+.trust-row {
+  display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: center;
+  margin-top: 36px;
+  opacity: 0; animation: fadeUp .6s 2.1s forwards;
+}
+.trust-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-m);
+}
+.trust-pill span.icon { font-size: 15px; }
+
+.btn-lg {
+  padding: 15px 36px; font-size: 16px; font-weight: 700;
+  border-radius: 14px; transition: all .3s; cursor: pointer;
+  display: inline-block; text-align: center; line-height: 1;
+}
+.btn-grad {
+  background: linear-gradient(90deg, #6366f1, #ec4899); color: white;
+  border: none; box-shadow: 0 0 50px rgba(99,102,241,.35);
+}
+.btn-grad:hover { transform: scale(1.05) translateY(-1px); box-shadow: 0 0 70px rgba(99,102,241,.65); }
+.btn-border {
+  border: 1px solid var(--border-b); color: var(--text);
+  background: rgba(255,255,255,.03);
+}
+.btn-border:hover { border-color: var(--primary); background: rgba(99,102,241,.08); }
+
+.scroll-hint {
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--text-m); letter-spacing: 2px; text-transform: uppercase;
+  opacity: 0; animation: fadeUp .6s 2.5s forwards;
+}
+.scroll-arrow {
+  width: 16px; height: 16px; border-right: 2px solid var(--text-m);
+  border-bottom: 2px solid var(--text-m);
+  transform: rotate(45deg); animation: bounce 2s infinite;
+}
+@keyframes bounce { 0%,100%{transform:rotate(45deg) translateY(0)} 50%{transform:rotate(45deg) translateY(7px)} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+
+/* ══════════════════════════════════════════
+   TICKER
+══════════════════════════════════════════ */
+.ticker-wrap {
+  position: relative; z-index: 10; padding: 28px 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: rgba(8,13,28,.7); overflow: hidden;
+}
+.ticker-mask {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(90deg, rgba(2,6,23,1) 0%, transparent 8%, transparent 92%, rgba(2,6,23,1) 100%);
+}
+.ticker-track {
+  display: flex; gap: 52px;
+  animation: ticker 30s linear infinite; width: max-content;
+}
+@keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.tick-item { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.tick-num {
+  font-size: 22px; font-weight: 900;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.tick-label { font-size: 13px; color: var(--text-s); }
+.tick-sep { width: 1px; height: 28px; background: var(--border-b); flex-shrink: 0; }
+
+/* ══════════════════════════════════════════
+   SHARED SECTION STYLES
+══════════════════════════════════════════ */
+.section {
+  position: relative; z-index: 10;
+  padding: 96px 52px; max-width: 1200px; margin: 0 auto;
+}
+.eyebrow {
+  font-size: 11px; font-weight: 800; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--primary); margin-bottom: 12px;
+}
+.sec-title {
+  font-size: clamp(28px, 5vw, 52px); font-weight: 900;
+  letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 16px;
+}
+.sec-desc {
+  font-size: 17px; color: var(--text-s); max-width: 520px; line-height: 1.8;
 }
 
-.cta-btn:hover {
-    transform: scale(1.08);
+/* ══════════════════════════════════════════
+   FEATURES
+══════════════════════════════════════════ */
+.feat-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: hidden; margin-top: 56px;
+}
+.feat-card {
+  background: var(--card); padding: 34px 28px;
+  transition: background .25s; cursor: default; position: relative;
+}
+.feat-card:hover { background: var(--card2); }
+.feat-card::after {
+  content:''; position:absolute; inset:0; opacity:0;
+  background: radial-gradient(circle at 30% 30%, rgba(99,102,241,.07), transparent 60%);
+  transition: opacity .3s; pointer-events:none;
+}
+.feat-card:hover::after { opacity:1; }
+.feat-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px; margin-bottom: 18px;
+}
+.feat-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 9px; }
+.feat-card p { font-size: 14px; color: var(--text-s); line-height: 1.8; }
+
+/* ══════════════════════════════════════════
+   HOW IT WORKS
+══════════════════════════════════════════ */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px; }
+.step {
+  padding: 32px 28px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+  position: relative; overflow: hidden;
+}
+.step::before {
+  content: ''; position:absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, var(--primary), var(--pink));
+  opacity: 0; transition: opacity .3s;
+}
+.step:hover { transform: translateY(-6px); border-color: rgba(99,102,241,.35); box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+.step:hover::before { opacity: 1; }
+.step-num {
+  font-size: 60px; font-weight: 900; line-height: 1;
+  color: rgba(99,102,241,.12); margin-bottom: 16px; display: block;
+}
+.step h3 { font-size: 17px; font-weight: 700; margin-bottom: 9px; }
+.step p { font-size: 14px; color: var(--text-s); line-height: 1.8; }
+
+/* ══════════════════════════════════════════
+   DEMO
+══════════════════════════════════════════ */
+.demo-wrap {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+  align-items: start; margin-top: 56px;
+}
+.terminal {
+  background: #04071a; border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.55);
+}
+.term-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 13px 18px; background: #090e20;
+  border-bottom: 1px solid var(--border);
+}
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot-r{background:#ff5f57} .dot-y{background:#febc2e} .dot-g{background:#28c840}
+.term-title { margin-left: auto; font-size: 11px; color: var(--text-m); letter-spacing: .5px; }
+.term-body {
+  padding: 24px; min-height: 300px; max-height: 360px; overflow-y: auto;
+  font-family: 'Menlo','Monaco','Courier New', monospace; font-size: 13px; line-height: 1.85;
+}
+.t-prompt { color: var(--primary2); margin-bottom: 12px; font-size: 13px; }
+.t-out { color: #dde8f0; white-space: pre-wrap; word-break: break-word; }
+.t-cursor {
+  display: inline-block; width: 8px; height: 15px;
+  background: var(--primary2); vertical-align: middle;
+  animation: blinkCursor 1s steps(1) infinite;
+}
+.demo-btns { display: flex; flex-direction: column; gap: 10px; }
+.demo-btn {
+  padding: 14px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; font-size: 14px; cursor: pointer;
+  text-align: left; color: var(--text-s); transition: all .2s;
+  display: flex; align-items: flex-start; gap: 10px;
+  font-family: inherit; line-height: 1.5;
+}
+.demo-btn:hover, .demo-btn.active {
+  border-color: var(--primary); color: var(--text);
+  background: rgba(99,102,241,.09);
+}
+.demo-btn.active { box-shadow: 0 0 0 1px rgba(99,102,241,.3); }
+
+/* ══════════════════════════════════════════
+   USE CASES
+══════════════════════════════════════════ */
+.uc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 56px; }
+.uc-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px;
+  transition: all .3s; position: relative; overflow: hidden;
+}
+.uc-card::before {
+  content:''; position:absolute; inset:0; opacity:0; transition: opacity .35s; pointer-events:none;
+}
+.uc-card:nth-child(1)::before { background: radial-gradient(circle at 0 0, rgba(99,102,241,.13), transparent 60%); }
+.uc-card:nth-child(2)::before { background: radial-gradient(circle at 0 0, rgba(236,72,153,.13), transparent 60%); }
+.uc-card:nth-child(3)::before { background: radial-gradient(circle at 0 0, rgba(34,211,238,.13), transparent 60%); }
+.uc-card:hover::before { opacity: 1; }
+.uc-card:hover { border-color: rgba(99,102,241,.35); transform: translateY(-5px); }
+.uc-icon { font-size: 32px; margin-bottom: 18px; display: block; }
+.uc-card h3 { font-size: 19px; font-weight: 700; margin-bottom: 10px; }
+.uc-card p { font-size: 14px; color: var(--text-s); line-height: 1.8; margin-bottom: 18px; }
+.uc-tag {
+  display: inline-flex; padding: 4px 14px;
+  background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.2);
+  border-radius: 100px; font-size: 12px; color: var(--primary2);
 }
 
-/* FEATURES */
-.features {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    padding: 60px 20px;
-    flex-wrap: wrap;
+/* ══════════════════════════════════════════
+   TESTIMONIALS
+══════════════════════════════════════════ */
+.testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 56px; }
+.testi {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px;
+  transition: transform .3s ease, border-color .3s ease;
+  display: flex; flex-direction: column;
+}
+.testi:hover { transform: translateY(-5px); border-color: rgba(99,102,241,.28); }
+.stars { color: #fbbf24; font-size: 13px; letter-spacing: 2px; margin-bottom: 14px; }
+.testi-body {
+  font-size: 15px; color: var(--text-s); line-height: 1.8;
+  margin-bottom: 20px; font-style: italic; flex: 1;
+}
+.t-auth { display: flex; align-items: center; gap: 12px; }
+.t-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 16px; flex-shrink: 0; color: white;
+}
+.t-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.t-role { font-size: 12px; color: var(--text-m); line-height: 1.5; }
+
+/* ══════════════════════════════════════════
+   FREE FOREVER
+══════════════════════════════════════════ */
+.free-section {
+  position: relative; z-index: 10;
+  padding: 0 52px 96px; max-width: 1200px; margin: 0 auto;
+}
+.free-box {
+  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(236,72,153,.04));
+  border: 1px solid rgba(99,102,241,.22); border-radius: 28px;
+  padding: 60px 52px; position: relative; overflow: hidden;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 52px; align-items: center;
+}
+.free-box::before {
+  content:''; position:absolute; width:500px; height:500px;
+  background: radial-gradient(circle, rgba(99,102,241,.1), transparent);
+  top:-200px; right:-200px; pointer-events:none;
+}
+.free-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 14px;
+  background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.3);
+  border-radius: 100px; font-size: 12px; font-weight: 700; color: var(--green);
+  margin-bottom: 20px; letter-spacing: 1px; text-transform: uppercase;
+}
+.free-left h2 { font-size: clamp(28px, 4vw, 46px); font-weight: 900; letter-spacing: -1px; margin-bottom: 14px; }
+.free-left p { font-size: 16px; color: var(--text-s); line-height: 1.8; margin-bottom: 30px; }
+.free-features { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.free-feat {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; color: var(--text-s);
+}
+.free-feat::before {
+  content: '✓'; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(99,102,241,.15); color: var(--primary2);
+  font-size: 11px; font-weight: 900; flex-shrink: 0;
+}
+.free-price-block { text-align: center; }
+.free-price {
+  font-size: 96px; font-weight: 900; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.free-price-label { font-size: 18px; color: var(--text-s); margin-top: 4px; margin-bottom: 32px; }
+.free-note { font-size: 13px; color: var(--text-m); margin-top: 14px; }
+
+/* ══════════════════════════════════════════
+   SOCIAL PROOF BAR
+══════════════════════════════════════════ */
+.social-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 32px; flex-wrap: wrap;
+  padding: 0 52px 96px; max-width: 1200px; margin: 0 auto;
+  position: relative; z-index: 10;
+}
+.social-stat { text-align: center; }
+.social-stat-num {
+  font-size: 36px; font-weight: 900; letter-spacing: -1px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.social-stat-label { font-size: 13px; color: var(--text-m); margin-top: 4px; }
+.social-divider { width: 1px; height: 48px; background: var(--border); }
+
+/* ══════════════════════════════════════════
+   CTA
+══════════════════════════════════════════ */
+.cta-wrap { position: relative; z-index: 10; padding: 0 52px 88px; }
+.cta-box {
+  max-width: 760px; margin: 0 auto;
+  padding: 80px 60px;
+  background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(236,72,153,.05));
+  border: 1px solid rgba(99,102,241,.22); border-radius: 28px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.cta-box::before {
+  content:''; position:absolute; width:360px; height:360px;
+  background: radial-gradient(circle, rgba(99,102,241,.2), transparent);
+  top:-130px; right:-130px; pointer-events:none;
+}
+.cta-box::after {
+  content:''; position:absolute; width:300px; height:300px;
+  background: radial-gradient(circle, rgba(236,72,153,.1), transparent);
+  bottom:-100px; left:-100px; pointer-events:none;
+}
+.cta-box h2 { font-size: clamp(28px, 5vw, 50px); font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; position:relative; z-index:1; }
+.cta-box p { font-size: 17px; color: var(--text-s); margin-bottom: 38px; line-height: 1.75; position:relative; z-index:1; }
+.cta-sub { font-size: 13px; color: var(--text-m); margin-top: 16px; position:relative; z-index:1; }
+.cta-box .btn-lg { position:relative; z-index:1; }
+
+/* ══════════════════════════════════════════
+   DIVIDERS
+══════════════════════════════════════════ */
+.grad-div {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,.35), transparent);
+  max-width: 1200px; margin: 0 auto;
+  position: relative; z-index: 10;
 }
 
-.card {
-    background: #111827;
-    padding: 30px;
-    border-radius: 16px;
-    width: 260px;
-    transition: 0.3s;
-    border: 1px solid #1f2937;
+/* ══════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════ */
+footer {
+  position: relative; z-index: 10;
+  border-top: 1px solid var(--border);
+  padding: 60px 52px 36px;
+}
+.foot-grid {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
+  max-width: 1200px; margin: 0 auto 48px;
+}
+.foot-brand-desc {
+  font-size: 14px; color: var(--text-m); line-height: 1.8;
+  margin-top: 12px; max-width: 240px;
+}
+.foot-col h4 {
+  font-size: 11px; font-weight: 800; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--text-s); margin-bottom: 18px;
+}
+.foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.foot-col a { font-size: 14px; color: var(--text-m); transition: color .2s; }
+.foot-col a:hover { color: var(--text); }
+.foot-bottom {
+  max-width: 1200px; margin: 0 auto; padding-top: 28px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+}
+.foot-bottom p { font-size: 13px; color: var(--text-m); }
+
+/* ══════════════════════════════════════════
+   SCROLL REVEAL
+══════════════════════════════════════════ */
+.reveal { opacity: 0; transform: translateY(36px); transition: opacity .8s ease, transform .8s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — TABLET (≤1024px)
+══════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .feat-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .uc-grid { grid-template-columns: repeat(2, 1fr); }
+  .testi-grid { grid-template-columns: repeat(2, 1fr); }
+  .demo-wrap { grid-template-columns: 1fr; }
+  .demo-btns { display: grid; grid-template-columns: 1fr 1fr; }
+  .foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .free-box { grid-template-columns: 1fr; gap: 40px; }
+  .free-price-block { order: -1; }
+  .social-divider { display: none; }
+  .social-bar { gap: 24px; }
 }
 
-.card:hover {
-    transform: translateY(-10px);
-    background: #1f2937;
+/* ══════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤768px)
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* NAV */
+  nav { padding: 0 18px; height: 60px; }
+  .nav-links { display: none; }
+  .nav-actions { display: none; }
+  .hamburger { display: flex; }
+
+  /* HERO */
+  .hero { padding: 90px 18px 80px; }
+  .hero-title { letter-spacing: -1px; }
+  .hero-sub { font-size: 15px; max-width: 100%; }
+  .hero-btns { flex-direction: column; align-items: stretch; width: 100%; max-width: 340px; }
+  .btn-lg { padding: 15px 24px; font-size: 15px; }
+  .trust-row { gap: 14px; }
+  .trust-pill { font-size: 12px; }
+
+  /* SECTIONS */
+  .section { padding: 64px 18px; }
+  .free-section { padding: 0 18px 64px; }
+  .cta-wrap { padding: 0 18px 72px; }
+  .social-bar { padding: 0 18px 64px; }
+
+  /* GRIDS → single col */
+  .feat-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .uc-grid { grid-template-columns: 1fr; }
+  .testi-grid { grid-template-columns: 1fr; }
+  .demo-btns { display: flex; flex-direction: column; gap: 8px; }
+
+  /* TERMINAL */
+  .demo-btn { font-size: 13px; padding: 12px 14px; }
+  .term-body { min-height: 230px; max-height: 280px; font-size: 12px; padding: 16px; }
+
+  /* FREE */
+  .free-box { padding: 36px 22px; gap: 30px; }
+  .free-features { grid-template-columns: 1fr; }
+  .free-price { font-size: 72px; }
+  .free-section { padding: 0 18px 60px; }
+
+  /* CTA */
+  .cta-box { padding: 48px 22px; }
+
+  /* FOOTER */
+  footer { padding: 48px 18px 28px; }
+  .foot-grid { grid-template-columns: 1fr; gap: 28px; }
+  .foot-bottom { flex-direction: column; text-align: center; }
+
+  /* TICKER */
+  .tick-num { font-size: 19px; }
+  .tick-label { font-size: 12px; }
+
+  /* SOCIAL */
+  .social-bar { gap: 20px; }
+  .social-stat-num { font-size: 28px; }
 }
 
-.card h3 {
-    margin-bottom: 10px;
+@media (max-width: 420px) {
+  .hero-title { font-size: 46px; }
+  .badge { font-size: 11px; padding: 5px 14px; }
+  .sec-title { letter-spacing: -1px; }
+  .cta-box { padding: 36px 16px; }
+  .free-box { padding: 28px 16px; }
 }
 
-.card p {
-    color: #9ca3af;
+/* ══════════════════════════════════════════
+   REDUCED MOTION
+══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
 }
-
-/* FOOTER */
-.footer {
-    text-align: center;
-    padding: 30px;
-    color: #6b7280;
-}
-
-/* MOBILE */
-@media(max-width:768px){
-.hero h1 { font-size: 40px; }
-.tagline { font-size: 18px; }
-}
-
-/* 🔥 FIX CLICK BLOCK */
-body::before {
-    pointer-events: none;
-}
-
-.hero, .navbar {
-    position: relative;
-    z-index: 10;
-}
-
-/* 🔥 MAKE BUTTON CLICKABLE */
-.cta-btn {
-    cursor: pointer;
-}
-
 </style>
 </head>
-
 <body>
 
-<!-- NAVBAR -->
-<div class="navbar">
-    <div class="logo">PRANOX AI</div>
-    <a href="/login" class="login-btn">Login</a>
+<div class="grid-bg"></div>
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- ══════════════ NAVBAR ══════════════ -->
+<nav id="navbar">
+  <div class="nav-logo">PRANOX AI</div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#demo">Live Demo</a></li>
+    <li><a href="#usecases">Use Cases</a></li>
+    <li><a href="#free">Free Forever</a></li>
+  </ul>
+  <div class="nav-actions">
+    <a href="/login" class="btn-ghost">Log in</a>
+    <a href="/dashboard" class="btn-pill">Get Started Free →</a>
+  </div>
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-nav" id="mobileNav" role="navigation" aria-label="Mobile menu">
+  <a href="#features"  onclick="closeNav()">Features</a>
+  <a href="#how"       onclick="closeNav()">How It Works</a>
+  <a href="#demo"      onclick="closeNav()">Live Demo</a>
+  <a href="#usecases"  onclick="closeNav()">Use Cases</a>
+  <a href="#free"      onclick="closeNav()">Free Forever</a>
+  <a href="/login"     onclick="closeNav()">Log in</a>
+  <a href="/dashboard" class="m-cta" onclick="closeNav()">Get Started Free 🚀</a>
 </div>
 
-<!-- HERO -->
+<!-- ══════════════ HERO ══════════════ -->
 <div class="hero">
-    <h1><span>PRANOX AI</span></h1>
-    <p class="tagline">Write Emails. Build Resumes. Smarter. Faster. Better.</p>
-   <a href="/dashboard" class="cta-btn">
-    Get Started 🚀
-</a>
+  <div class="hero-orb1"></div>
+  <div class="hero-orb2"></div>
+  <div class="hero-orb3"></div>
 
+  <div class="badge">
+    <span class="badge-dot"></span>
+    100% Free · No sign-up required to try AI Chat &amp; Deep Research
+  </div>
+
+  <h1 class="hero-title">PRANOX AI</h1>
+
+  <p class="hero-sub">
+    <span id="typewriter"></span><span class="typewriter-cursor"></span>
+  </p>
+
+  <div class="hero-btns">
+    <a href="/dashboard" class="btn-lg btn-grad">Start Writing Free 🚀</a>
+    <a href="#demo" class="btn-lg btn-border">See Live Demo</a>
+  </div>
+
+  <div class="trust-row">
+    <span class="trust-pill"><span class="icon">✓</span> No credit card</span>
+    <span class="trust-pill"><span class="icon">✓</span> Unlimited generations</span>
+    <span class="trust-pill"><span class="icon">✓</span> Google sign-in in 2 clicks</span>
+    <span class="trust-pill"><span class="icon">✓</span> Always free</span>
+  </div>
+
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
 </div>
 
-<!-- FEATURES -->
-<div class="features">
-
-    <div class="card">
-        <h3>⚡ AI Powered</h3>
-        <p>Generate emails, resumes, and answers instantly with smart AI.</p>
-    </div>
-
-    <div class="card">
-        <h3>🔐 Secure Login</h3>
-        <p>Google OAuth ensures your data is protected and safe.</p>
-    </div>
-
-    <div class="card">
-        <h3>🌍 Accessible Anywhere</h3>
-        <p>Use Pranox AI on mobile, tablet, or desktop anytime.</p>
-    </div>
-
+<!-- ══════════════ TICKER ══════════════ -->
+<div class="ticker-wrap" role="marquee" aria-label="Key statistics">
+  <div class="ticker-mask"></div>
+  <div class="ticker-track" id="tickerTrack">
+    <div class="tick-item"><span class="tick-num">10K+</span><span class="tick-label">Active Users</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">500K+</span><span class="tick-label">Documents Generated</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">100%</span><span class="tick-label">Free Forever</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">99.9%</span><span class="tick-label">Uptime</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">&lt;3s</span><span class="tick-label">Generation Time</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">4.9★</span><span class="tick-label">User Rating</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">50+</span><span class="tick-label">AI Templates</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">0₹</span><span class="tick-label">Cost to You</span></div>
+    <div class="tick-sep"></div>
+    <!-- Clone for seamless loop -->
+    <div class="tick-item"><span class="tick-num">10K+</span><span class="tick-label">Active Users</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">500K+</span><span class="tick-label">Documents Generated</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">100%</span><span class="tick-label">Free Forever</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">99.9%</span><span class="tick-label">Uptime</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">&lt;3s</span><span class="tick-label">Generation Time</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">4.9★</span><span class="tick-label">User Rating</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">50+</span><span class="tick-label">AI Templates</span></div>
+    <div class="tick-sep"></div>
+    <div class="tick-item"><span class="tick-num">0₹</span><span class="tick-label">Cost to You</span></div>
+    <div class="tick-sep"></div>
+  </div>
 </div>
 
-<!-- FOOTER -->
-<div class="footer">
-    © 2026 Pranox AI • 
-    <a href="/privacy" style="color:#9ca3af;">Privacy</a> • 
-    <a href="/terms" style="color:#9ca3af;">Terms</a>
+<!-- ══════════════ FEATURES ══════════════ -->
+<section class="section" id="features">
+  <div class="reveal">
+    <div class="eyebrow">Features</div>
+    <h2 class="sec-title">Everything you need to<br>create with AI</h2>
+    <p class="sec-desc">Built for professionals who need fast, high-quality written content — without the guesswork or generic output.</p>
+  </div>
+  <div class="feat-grid reveal">
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(99,102,241,.15)">✉️</div>
+      <h3>Smart Email Writer</h3>
+      <p>Generate professional emails in seconds. Cold outreach, follow-ups, apologies — Pranox AI adapts tone, context, and length to match exactly what you need.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(236,72,153,.15)">📄</div>
+      <h3>Resume &amp; CV Builder</h3>
+      <p>ATS-optimized resumes tailored to any job description. AI-crafted bullet points, summaries, and skills sections that make hiring managers stop scrolling.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(34,211,238,.15)">💬</div>
+      <h3>AI Chat Assistant</h3>
+      <p>Ask anything — get instant, accurate answers. Your 24/7 AI partner for research, drafting, brainstorming, and solving hard problems fast.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(251,191,36,.15)">⚡</div>
+      <h3>Instant Generation</h3>
+      <p>Under 3 seconds, every time. Built on fast, scalable infrastructure — your workflow never waits. From first word to finished output in a single click.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(52,211,153,.15)">🔐</div>
+      <h3>Private by Design</h3>
+      <p>Google OAuth, end-to-end encryption, and zero data retention. Your documents are yours alone — Pranox AI never stores or shares what you write.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(167,139,250,.15)">🌍</div>
+      <h3>Works Everywhere</h3>
+      <p>Pixel-perfect on mobile, tablet, and desktop. Your AI writing studio follows you across every device — no installs, no friction, just open and write.</p>
+    </div>
+  </div>
+</section>
+
+<div class="grad-div"></div>
+
+<!-- ══════════════ HOW IT WORKS ══════════════ -->
+<section class="section" id="how">
+  <div class="reveal">
+    <div class="eyebrow">Process</div>
+    <h2 class="sec-title">From idea to output<br>in three steps</h2>
+    <p class="sec-desc">No learning curve. No setup. Just describe what you need and let Pranox AI do the heavy lifting.</p>
+  </div>
+  <div class="steps reveal">
+    <div class="step">
+      <span class="step-num">01</span>
+      <h3>Pick your task</h3>
+      <p>Choose email writing, resume generation, AI chat, or deep research. Every mode is fine-tuned for its specific purpose and audience.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">02</span>
+      <h3>Describe what you need</h3>
+      <p>Give Pranox AI a short prompt — one sentence is enough. Add context for better results. The more specific you are, the sharper the output.</p>
+    </div>
+    <div class="step">
+      <span class="step-num">03</span>
+      <h3>Get polished output</h3>
+      <p>Receive professional, ready-to-use content in under 3 seconds. Edit inline, regenerate with one click, or copy straight to your clipboard.</p>
+    </div>
+  </div>
+</section>
+
+<div class="grad-div"></div>
+
+<!-- ══════════════ DEMO ══════════════ -->
+<section class="section" id="demo">
+  <div class="reveal">
+    <div class="eyebrow">Live Demo</div>
+    <h2 class="sec-title">Watch it write in real time</h2>
+    <p class="sec-desc">Click any prompt and watch Pranox AI generate professional content right in front of you.</p>
+  </div>
+  <div class="demo-wrap reveal">
+    <div class="terminal" role="region" aria-label="AI output terminal">
+      <div class="term-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="term-title">pranox-ai — live generator</span>
+      </div>
+      <div class="term-body" id="termBody">
+        <div class="t-prompt" id="demoPrompt">▸ Select a prompt on the right to see Pranox AI write instantly →</div>
+        <div class="t-out" id="demoOut"></div>
+        <span class="t-cursor" id="demoCursor" style="display:none"></span>
+      </div>
+    </div>
+    <div class="demo-btns" role="list">
+      <button class="demo-btn" onclick="runDemo(0)" role="listitem">✉️ &nbsp;Follow-up email after a job interview</button>
+      <button class="demo-btn" onclick="runDemo(1)" role="listitem">📄 &nbsp;Resume summary for a software engineer</button>
+      <button class="demo-btn" onclick="runDemo(2)" role="listitem">💡 &nbsp;Explain machine learning in plain English</button>
+      <button class="demo-btn" onclick="runDemo(3)" role="listitem">🚀 &nbsp;Cold email to a startup founder</button>
+      <button class="demo-btn" onclick="runDemo(4)" role="listitem">💼 &nbsp;LinkedIn headline for a product manager</button>
+    </div>
+  </div>
+</section>
+
+<div class="grad-div"></div>
+
+<!-- ══════════════ USE CASES ══════════════ -->
+<section class="section" id="usecases">
+  <div class="reveal">
+    <div class="eyebrow">Use Cases</div>
+    <h2 class="sec-title">Built for every professional</h2>
+    <p class="sec-desc">Job seeker, entrepreneur, or student — Pranox AI fits your workflow from the first word, completely free.</p>
+  </div>
+  <div class="uc-grid reveal">
+    <div class="uc-card">
+      <span class="uc-icon">👔</span>
+      <h3>Job Seekers</h3>
+      <p>Craft standout resumes and compelling cover letters tailored to any job description. More interviews. Less stress.</p>
+      <span class="uc-tag">Resume · Cover Letter · LinkedIn Bio</span>
+    </div>
+    <div class="uc-card">
+      <span class="uc-icon">🚀</span>
+      <h3>Entrepreneurs</h3>
+      <p>Write investor emails, pitch summaries, and client proposals that open doors and close deals — in minutes, not days.</p>
+      <span class="uc-tag">Cold Email · Pitch Deck · Proposals</span>
+    </div>
+    <div class="uc-card">
+      <span class="uc-icon">🎓</span>
+      <h3>Students</h3>
+      <p>Get sharp help with essays, research summaries, and personal statements. Learn faster, write better, submit with confidence.</p>
+      <span class="uc-tag">Essays · Research · Q&amp;A</span>
+    </div>
+  </div>
+</section>
+
+<div class="grad-div"></div>
+
+<!-- ══════════════ TESTIMONIALS ══════════════ -->
+<section class="section">
+  <div class="reveal">
+    <div class="eyebrow">Testimonials</div>
+    <h2 class="sec-title">Loved by thousands of users</h2>
+    <p class="sec-desc">Real people, real results. Here's what our community says about Pranox AI.</p>
+  </div>
+  <div class="testi-grid reveal" id="testiGrid">
+    <!-- Injected by JS — random 3 shown, rotates every page load -->
+  </div>
+</section>
+
+<div class="grad-div"></div>
+
+<!-- ══════════════ FREE FOREVER ══════════════ -->
+<section class="free-section" id="free">
+  <div class="reveal">
+    <div class="free-box">
+      <div class="free-left">
+        <div class="free-badge">✦ &nbsp;Free Forever</div>
+        <h2>No subscriptions.<br>No limits. No tricks.</h2>
+        <p>Pranox AI is completely free — unlimited generations, every feature, every template. No credit card. No hidden fees. No trial period. Just sign in with Google and write.</p>
+        <div class="free-features">
+          <div class="free-feat">Unlimited Email Writing</div>
+          <div class="free-feat">Resume Builder</div>
+          <div class="free-feat">AI Chat Assistant</div>
+          <div class="free-feat">Deep Research</div>
+          <div class="free-feat">Google Login</div>
+          <div class="free-feat">One-click Copy</div>
+          <div class="free-feat">Mobile Friendly</div>
+          <div class="free-feat">Priority Support</div>
+        </div>
+      </div>
+      <div class="free-price-block">
+        <div class="free-price">₹0</div>
+        <div class="free-price-label">always free &nbsp;·&nbsp; no card needed</div>
+        <a href="/dashboard" class="btn-lg btn-grad" style="width:100%;display:block">Get Started Free →</a>
+        <p class="free-note">10,000+ professionals already use Pranox AI every day</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SOCIAL PROOF BAR ══════════════ -->
+<div class="social-bar reveal">
+  <div class="social-stat">
+    <div class="social-stat-num">10K+</div>
+    <div class="social-stat-label">Active Users</div>
+  </div>
+  <div class="social-divider"></div>
+  <div class="social-stat">
+    <div class="social-stat-num">500K+</div>
+    <div class="social-stat-label">Documents Generated</div>
+  </div>
+  <div class="social-divider"></div>
+  <div class="social-stat">
+    <div class="social-stat-num">4.9 / 5</div>
+    <div class="social-stat-label">Average Rating</div>
+  </div>
+  <div class="social-divider"></div>
+  <div class="social-stat">
+    <div class="social-stat-num">₹0</div>
+    <div class="social-stat-label">Cost Forever</div>
+  </div>
+  <div class="social-divider"></div>
+  <div class="social-stat">
+    <div class="social-stat-num">99.9%</div>
+    <div class="social-stat-label">Uptime SLA</div>
+  </div>
 </div>
 
+<!-- ══════════════ CTA ══════════════ -->
+<div class="cta-wrap reveal">
+  <div class="cta-box">
+    <h2>Ready to write smarter?</h2>
+    <p>Thousands of professionals save hours every week with Pranox AI.<br>Free. Instant. No credit card. No catch — ever.</p>
+    <a href="/dashboard" class="btn-lg btn-grad">Start for Free — It's instant 🚀</a>
+    <p class="cta-sub">Unlimited generations · All features unlocked · Always free</p>
+  </div>
+</div>
+
+<!-- ══════════════ FOOTER ══════════════ -->
+<footer>
+  <div class="foot-grid">
+    <div>
+      <div class="nav-logo">PRANOX AI</div>
+      <p class="foot-brand-desc">The AI writing assistant built for speed, quality, and privacy. Write emails, resumes, and more — completely free, forever.</p>
+    </div>
+    <div class="foot-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#free">Free Forever</a></li>
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/changelog">Changelog</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/docs">Documentation</a></li>
+        <li><a href="/blog">Blog</a></li>
+        <li><a href="/help">Help Center</a></li>
+        <li><a href="/status">Status</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="/privacy">Privacy Policy</a></li>
+        <li><a href="/terms">Terms of Service</a></li>
+        <li><a href="/cookies">Cookie Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <p>© 2026 Pranox AI. Built with ❤️ in India.</p>
+    <p>All rights reserved.</p>
+  </div>
+</footer>
+
+<!-- ══════════════ SCRIPTS ══════════════ -->
+<script>
+/* ── CURSOR GLOW ── */
+const glowEl = document.getElementById('cursorGlow');
+document.addEventListener('mousemove', e => {
+  glowEl.style.left = e.clientX + 'px';
+  glowEl.style.top  = e.clientY + 'px';
+}, { passive: true });
+
+/* ── HAMBURGER ── */
+const ham   = document.getElementById('hamburger');
+const mNav  = document.getElementById('mobileNav');
+ham.addEventListener('click', () => {
+  const isOpen = mNav.classList.toggle('open');
+  ham.classList.toggle('open', isOpen);
+  ham.setAttribute('aria-expanded', isOpen);
+  document.body.style.overflow = isOpen ? 'hidden' : '';
+});
+function closeNav() {
+  ham.classList.remove('open');
+  mNav.classList.remove('open');
+  ham.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+}
+document.addEventListener('click', e => {
+  if (!ham.contains(e.target) && !mNav.contains(e.target)) closeNav();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeNav();
+});
+
+/* ── TYPEWRITER ── */
+const phrases = [
+  'Write emails that actually get replies.',
+  'Build resumes that get you hired.',
+  'Generate content in under 3 seconds.',
+  'Your AI writing assistant — always free.',
+  'From blank page to polished copy, instantly.',
+  'No subscription. No limits. Just write.'
+];
+let pIdx = 0, cIdx = 0, deleting = false;
+const twEl = document.getElementById('typewriter');
+function typewrite() {
+  const phrase = phrases[pIdx];
+  if (!deleting) {
+    twEl.textContent = phrase.slice(0, ++cIdx);
+    if (cIdx === phrase.length) { deleting = true; setTimeout(typewrite, 2400); return; }
+  } else {
+    twEl.textContent = phrase.slice(0, --cIdx);
+    if (cIdx === 0) { deleting = false; pIdx = (pIdx + 1) % phrases.length; }
+  }
+  setTimeout(typewrite, deleting ? 28 : 68);
+}
+setTimeout(typewrite, 2200);
+
+/* ── SCROLL REVEAL ── */
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('visible'); ro.unobserve(e.target); }
+  });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+/* ── NAVBAR tint on scroll ── */
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  navbar.style.borderBottomColor =
+    y > 60 ? 'rgba(99,102,241,.3)' : 'rgba(99,102,241,.12)';
+}, { passive: true });
+
+/* ════════════════════════════════════════════
+   TESTIMONIALS — Full random pool
+   Shows 3 different ones every page load.
+   Only designation + country shown.
+════════════════════════════════════════════ */
+const allTestis = [
+  {
+    quote: "Pranox AI helped me rewrite my entire resume in 10 minutes. I got 3 interview calls within a week. Absolutely game-changing.",
+    name: "Arjun Sharma", role: "Software Engineer", country: "India",
+    color: "linear-gradient(135deg,#6366f1,#8b5cf6)", initial: "A"
+  },
+  {
+    quote: "I use it daily for cold emails to clients. My reply rate jumped from 5% to 28%. The ROI is insane for something completely free.",
+    name: "Mei Lin", role: "Marketing Manager", country: "Singapore",
+    color: "linear-gradient(135deg,#ec4899,#f97316)", initial: "M"
+  },
+  {
+    quote: "Finally an AI tool that doesn't sound robotic. The emails it writes feel exactly like me — but polished and 10× more persuasive.",
+    name: "James Okafor", role: "Content Strategist", country: "Nigeria",
+    color: "linear-gradient(135deg,#22d3ee,#6366f1)", initial: "J"
+  },
+  {
+    quote: "As a student, this tool saves me hours every week. Essay drafts, research summaries — everything is ready in seconds.",
+    name: "Yuki Tanaka", role: "University Student", country: "Japan",
+    color: "linear-gradient(135deg,#34d399,#22d3ee)", initial: "Y"
+  },
+  {
+    quote: "I pitched to 3 investors using emails written by Pranox AI. Two of them replied. This is the secret weapon founders need.",
+    name: "Carlos Mendez", role: "Startup Founder", country: "Brazil",
+    color: "linear-gradient(135deg,#fbbf24,#f97316)", initial: "C"
+  },
+  {
+    quote: "Writing cover letters used to take me hours. Now it takes 2 minutes. And they're genuinely better than anything I wrote myself.",
+    name: "Sophie Laurent", role: "Product Designer", country: "France",
+    color: "linear-gradient(135deg,#ec4899,#8b5cf6)", initial: "S"
+  },
+  {
+    quote: "The AI Chat is incredibly accurate. I use it for technical Q&A and it gives cleaner answers than most documentation sites.",
+    name: "Aditya Rao", role: "Full-Stack Developer", country: "India",
+    color: "linear-gradient(135deg,#6366f1,#22d3ee)", initial: "A"
+  },
+  {
+    quote: "Pranox AI helped me craft the perfect LinkedIn profile and headline. My connection requests doubled in just two weeks.",
+    name: "Fatima Al-Hassan", role: "Business Analyst", country: "UAE",
+    color: "linear-gradient(135deg,#a78bfa,#ec4899)", initial: "F"
+  },
+  {
+    quote: "I recommended it to my whole sales team. Everyone's email quality went up overnight. And it's completely free — unbelievable.",
+    name: "Liam Thompson", role: "Sales Executive", country: "Australia",
+    color: "linear-gradient(135deg,#34d399,#6366f1)", initial: "L"
+  },
+  {
+    quote: "For a non-native English speaker, this is a lifesaver. My writing now reads like a native professional. Pranox AI is a gift.",
+    name: "David Osei", role: "Entrepreneur", country: "Ghana",
+    color: "linear-gradient(135deg,#fbbf24,#ec4899)", initial: "D"
+  },
+  {
+    quote: "I submitted 12 job applications with AI-written cover letters. Got 5 callbacks. That never happened before. Highly recommend.",
+    name: "Ananya Krishnan", role: "HR Recruiter", country: "India",
+    color: "linear-gradient(135deg,#8b5cf6,#22d3ee)", initial: "A"
+  },
+  {
+    quote: "I've tried many AI writing tools but Pranox AI is the only one that feels intuitive and blazing fast on mobile. Love it.",
+    name: "Priya Nair", role: "Freelance Writer", country: "India",
+    color: "linear-gradient(135deg,#ec4899,#fbbf24)", initial: "P"
+  },
+  {
+    quote: "Used it to write a proposal for a major client. They signed within 48 hours. I'm convinced the email made the difference.",
+    name: "Omar Farouq", role: "Business Developer", country: "Egypt",
+    color: "linear-gradient(135deg,#22d3ee,#34d399)", initial: "O"
+  },
+  {
+    quote: "My students use Pranox AI to draft their personal statements. The quality improvement is night and day. A must-have for academia.",
+    name: "Dr. Lin Wei", role: "University Professor", country: "China",
+    color: "linear-gradient(135deg,#6366f1,#ec4899)", initial: "L"
+  },
+  {
+    quote: "The resume builder is genuinely the best I've used — and I've paid for several premium ones. Nothing comes close, and this is free.",
+    name: "Nina Kovacs", role: "UX Designer", country: "Hungary",
+    color: "linear-gradient(135deg,#8b5cf6,#f97316)", initial: "N"
+  }
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function renderTestimonials() {
+  const picked = shuffle(allTestis).slice(0, 3);
+  document.getElementById('testiGrid').innerHTML = picked.map(t => `
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p class="testi-body">"${t.quote}"</p>
+      <div class="t-auth">
+        <div class="t-avatar" style="background:${t.color}">${t.initial}</div>
+        <div>
+          <div class="t-name">${t.name}</div>
+          <div class="t-role">${t.role} · ${t.country}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+renderTestimonials();
+
+/* ════════════════════════════════════════════
+   LIVE DEMO
+════════════════════════════════════════════ */
+const demos = [
+  {
+    label: '✉️  Follow-up email after a job interview',
+    text: `Subject: Thank you — Interview Follow-up
+
+Hi [Hiring Manager's Name],
+
+Thank you so much for your time today. Learning more about
+the [Position] role and your team's work on [project] was
+genuinely exciting.
+
+Our conversation reinforced my enthusiasm for this opportunity.
+I'm confident my experience in [skill/area] aligns well with
+what you're building, and I'd love the chance to contribute.
+
+Please feel free to reach out if you need anything further.
+I'm looking forward to the next steps!
+
+Warm regards,
+[Your Name]`
+  },
+  {
+    label: '📄  Resume summary for a software engineer',
+    text: `Results-driven Software Engineer with 3+ years of experience
+building scalable web applications using React, Node.js, and
+Python. Led cross-functional teams shipping features to 200K+
+users. Reduced page load time by 40% through systematic
+performance optimization.
+
+Known for clean architecture, rapid iteration, and a strong
+bias toward measurable user impact. Seeking a senior IC role
+at a high-growth product company where technical quality and
+speed both matter.`
+  },
+  {
+    label: '💡  Explain machine learning in plain English',
+    text: `Imagine teaching a dog to fetch. Every correct fetch earns
+a treat. Over time the dog learns — not from a lecture,
+but from thousands of practice rounds with real feedback.
+
+Machine learning works the same way. A program sees millions
+of examples. After each one, math tells it: "closer" or
+"try again." After enough rounds it gets very good at
+recognizing patterns — spotting spam, predicting weather,
+or translating languages.
+
+No magic. Just a lot of very smart practice. 🧠`
+  },
+  {
+    label: '🚀  Cold email to a startup founder',
+    text: `Subject: Quick idea for [Company] — 90 seconds
+
+Hi [Founder Name],
+
+Been following [Company] closely — congrats on [recent win].
+The problem you're solving is one I know well.
+
+I have one specific idea that could improve [metric] by
+roughly 20–30%. Seen it work at a similar-stage company.
+No pitch deck — just a straight 15-minute conversation.
+
+Open this week?
+
+— [Your Name]`
+  },
+  {
+    label: '💼  LinkedIn headline for a product manager',
+    text: `Product Manager · Turning user pain into product strategy
+0→1 builder · Ex-Swiggy · Ex-Razorpay
+
+Building products 100K+ people rely on every day.
+Obsessed with metrics that matter, roadmaps that ship,
+and teams that don't burn out.
+
+Open to: Senior PM or Head of Product roles in fintech
+or consumer internet.`
+  }
+];
+
+let demoRunning = false, demoTimer = null;
+
+function runDemo(idx) {
+  if (demoRunning) { clearInterval(demoTimer); demoRunning = false; }
+  document.querySelectorAll('.demo-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+
+  const { label, text } = demos[idx];
+  const promptEl = document.getElementById('demoPrompt');
+  const outEl    = document.getElementById('demoOut');
+  const cursor   = document.getElementById('demoCursor');
+
+  promptEl.textContent = '▸ ' + label;
+  outEl.textContent    = '';
+  cursor.style.display = 'inline-block';
+
+  let i = 0;
+  demoRunning = true;
+  demoTimer = setInterval(() => {
+    outEl.textContent += text[i++];
+    const tb = document.getElementById('termBody');
+    tb.scrollTop = tb.scrollHeight;
+    if (i >= text.length) {
+      clearInterval(demoTimer);
+      cursor.style.display = 'none';
+      demoRunning = false;
+    }
+  }, 10);
+}
+</script>
 </body>
 </html>

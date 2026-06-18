@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.help-wrap {
+    max-width: 760px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+.help-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.help-header h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+.help-header p {
+    color: #94a3b8;
+    font-size: 15px;
+}
+.help-cat {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #818cf8;
+    margin: 36px 0 14px;
+}
+.help-item {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 4px 22px;
+    margin-bottom: 10px;
+}
+.help-item summary {
+    cursor: pointer;
+    padding: 16px 0;
+    font-weight: 600;
+    font-size: 15px;
+    color: white;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.help-item summary::-webkit-details-marker { display: none; }
+.help-item summary::after {
+    content: '+';
+    font-size: 20px;
+    color: #6366f1;
+    font-weight: 400;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+.help-item[open] summary::after {
+    content: '−';
+}
+.help-item p {
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1.8;
+    padding: 0 0 18px;
+    margin: 0;
+}
+.help-contact {
+    text-align: center;
+    margin-top: 50px;
+    padding: 32px;
+    background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(236,72,153,.05));
+    border: 1px solid rgba(99,102,241,.22);
+    border-radius: 16px;
+}
+.help-contact p { color: #cbd5f5; margin-bottom: 14px; }
+.help-contact a {
+    display: inline-block;
+    padding: 10px 24px;
+    background: linear-gradient(90deg, #6366f1, #ec4899);
+    border-radius: 10px;
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+</style>
+
+<div class="help-wrap">
+
+    <div class="help-header">
+        <h2>Help Center</h2>
+        <p>Quick answers to the most common questions about Pranox AI.</p>
+    </div>
+
+    <div class="help-cat">Account &amp; Login</div>
+
+    <details class="help-item">
+        <summary>Do I need an account to use Pranox AI?</summary>
+        <p>No account is needed for AI Chat or Deep Research. Email Writer and Resume Builder require signing in with Google so your generated content can be tied to your session.</p>
+    </details>
+
+    <details class="help-item">
+        <summary>Why does it say "Login Required"?</summary>
+        <p>You've opened a feature that needs authentication. Click "Continue with Google" to sign in — it takes a few seconds and we only request your name, email, and profile picture.</p>
+    </details>
+
+    <details class="help-item">
+        <summary>How do I log out?</summary>
+        <p>Click "Logout" in the navigation bar or your dashboard. This clears your session immediately.</p>
+    </details>
+
+    <div class="help-cat">Email &amp; Resume Tools</div>
+
+    <details class="help-item">
+        <summary>Why did my generated email or resume look off?</summary>
+        <p>More context produces better results. Try being specific about role, audience, and tone instead of a one-word topic, then regenerate.</p>
+    </details>
+
+    <details class="help-item">
+        <summary>Can I download my resume as a PDF?</summary>
+        <p>Yes. After generating a resume, click "Download PDF" beneath the output to save a formatted copy.</p>
+    </details>
+
+    <div class="help-cat">AI Chat &amp; Deep Research</div>
+
+    <details class="help-item">
+        <summary>What's the difference between AI Chat and Deep Research?</summary>
+        <p>AI Chat is best for direct questions, drafting, and quick answers. Deep Research pulls and synthesizes information from multiple sources — better suited to comparisons and broader topics. See our <a href="/blog" style="color:#a5b4fc;">blog post</a> on this for more detail.</p>
+    </details>
+
+    <details class="help-item">
+        <summary>Can I upload files to the AI Chat?</summary>
+        <p>Yes — PDFs, Word documents, spreadsheets, and images can be uploaded for analysis directly inside the chat.</p>
+    </details>
+
+    <div class="help-cat">Pricing</div>
+
+    <details class="help-item">
+        <summary>Is Pranox AI really free?</summary>
+        <p>Yes. Every tool — Email Writer, Resume Builder, AI Chat, and Deep Research — is free with no subscription, card, or trial period.</p>
+    </details>
+
+    <div class="help-cat">Troubleshooting</div>
+
+    <details class="help-item">
+        <summary>A page or generation isn't loading. What should I do?</summary>
+        <p>Refresh the page first. If the issue continues, check <a href="/status" style="color:#a5b4fc;">system status</a> or contact support below.</p>
+    </details>
+
+    <div class="help-contact">
+        <p>Still need help? Our team usually replies within a day.</p>
+        <a href="mailto:pranoxoffical@gmail.com">Email Support</a>
+    </div>
+
+</div>
+
+{% endblock %}

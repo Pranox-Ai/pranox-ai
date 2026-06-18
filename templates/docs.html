@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.doc-wrap {
+    max-width: 880px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+.doc-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.doc-header h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+.doc-header p {
+    color: #94a3b8;
+    font-size: 15px;
+}
+.doc-jump {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 50px;
+}
+.doc-jump a {
+    font-size: 13px;
+    color: #cbd5f5;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    padding: 7px 16px;
+    border-radius: 100px;
+    text-decoration: none;
+    transition: 0.2s;
+}
+.doc-jump a:hover {
+    background: rgba(99,102,241,0.2);
+    color: white;
+}
+.doc-section {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 30px 32px;
+    margin-bottom: 24px;
+}
+.doc-section h3 {
+    font-size: 19px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.doc-section p, .doc-section li {
+    color: #cbd5f5;
+    font-size: 14.5px;
+    line-height: 1.85;
+}
+.doc-section ol, .doc-section ul {
+    padding-left: 20px;
+    margin-top: 6px;
+}
+.doc-section code {
+    background: #020617;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #a5b4fc;
+    border: 1px solid #1f2937;
+}
+</style>
+
+<div class="doc-wrap">
+
+    <div class="doc-header">
+        <h2>Documentation</h2>
+        <p>Everything you need to get the most out of Pranox AI.</p>
+    </div>
+
+    <div class="doc-jump">
+        <a href="#getting-started">Getting Started</a>
+        <a href="#email">Email Writer</a>
+        <a href="#resume">Resume Builder</a>
+        <a href="#chat">AI Chat</a>
+        <a href="#research">Deep Research</a>
+        <a href="#account">Account</a>
+    </div>
+
+    <div class="doc-section" id="getting-started">
+        <h3>🚀 Getting Started</h3>
+        <p>Pranox AI runs entirely in your browser — there's nothing to install.</p>
+        <ol>
+            <li>Open the <a href="/dashboard" style="color:#a5b4fc;">Dashboard</a></li>
+            <li>Sign in with Google to unlock Email Writer and Resume Builder (AI Chat and Deep Research work without signing in)</li>
+            <li>Pick a tool and describe what you need in plain English</li>
+            <li>Generate, copy, or download your result in seconds</li>
+        </ol>
+    </div>
+
+    <div class="doc-section" id="email">
+        <h3>✉️ Email Writer</h3>
+        <p>Go to <code>/email</code>, describe your topic, and choose a tone — Professional, Friendly, or Formal. Pranox AI writes a complete email you can copy with one click.</p>
+        <p>Tip: the more context you give ("follow-up after a final-round interview for a backend role"), the more specific the result.</p>
+    </div>
+
+    <div class="doc-section" id="resume">
+        <h3>📄 Resume Builder</h3>
+        <p>Go to <code>/resume</code> and fill in your name, target role, skills, experience, and education. Pranox AI structures it into a clean Summary / Skills / Experience / Education format, ready to copy or download as a PDF.</p>
+    </div>
+
+    <div class="doc-section" id="chat">
+        <h3>💬 AI Chat Assistant</h3>
+        <p>Go to <code>/chat</code> for an open-ended assistant — ask questions, brainstorm, debug code, or generate images, all in one conversation thread.</p>
+    </div>
+
+    <div class="doc-section" id="research">
+        <h3>🔎 Deep Research</h3>
+        <p>Go to <code>/deepsearch</code> when you need an answer synthesized from multiple sources rather than a single response — useful for comparisons, summaries, and broader topics.</p>
+    </div>
+
+    <div class="doc-section" id="account">
+        <h3>🔐 Account &amp; Privacy</h3>
+        <p>Sign-in uses Google OAuth — we never see or store your Google password. See our <a href="/privacy" style="color:#a5b4fc;">Privacy Policy</a> for full details on what we collect and how it's used.</p>
+        <p>Still stuck? Visit the <a href="/help" style="color:#a5b4fc;">Help Center</a> or email <strong>pranoxoffical@gmail.com</strong>.</p>
+    </div>
+
+</div>
+
+{% endblock %}

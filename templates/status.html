@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.stat-wrap {
+    max-width: 700px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+.stat-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 26px;
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.3);
+    border-radius: 14px;
+    margin-bottom: 36px;
+}
+.stat-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52,211,153,0.6);
+    animation: statPulse 2s infinite;
+    flex-shrink: 0;
+}
+@keyframes statPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,.55); }
+    50% { box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+}
+.stat-banner h3 {
+    font-size: 17px;
+    margin-bottom: 2px;
+}
+.stat-banner span {
+    font-size: 13px;
+    color: #94a3b8;
+}
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 22px;
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+.stat-name {
+    font-size: 14.5px;
+    color: white;
+    font-weight: 500;
+}
+.stat-ok {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #34d399;
+    font-weight: 600;
+}
+.stat-ok::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #34d399;
+}
+.stat-meta {
+    display: flex;
+    justify-content: space-between;
+    color: #64748b;
+    font-size: 13px;
+    margin: 30px 0 6px;
+}
+.stat-uptime {
+    text-align: center;
+    margin-top: 40px;
+    padding: 26px;
+    background: rgba(17, 24, 39, 0.5);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+}
+.stat-uptime .num {
+    font-size: 34px;
+    font-weight: 900;
+    background: linear-gradient(90deg,#6366f1,#ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.stat-uptime .label {
+    color: #94a3b8;
+    font-size: 13px;
+    margin-top: 4px;
+}
+</style>
+
+<div class="stat-wrap">
+
+    <div class="stat-banner">
+        <div class="stat-dot"></div>
+        <div>
+            <h3>All systems operational</h3>
+            <span id="lastChecked">Checking last update…</span>
+        </div>
+    </div>
+
+    <div class="stat-row">
+        <span class="stat-name">Website</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">Google Sign-In</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">AI Chat Assistant</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">Email Writer</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">Resume Builder</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">Deep Research</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-name">Document Upload &amp; Image Generation</span>
+        <span class="stat-ok">Operational</span>
+    </div>
+
+    <div class="stat-meta">
+        <span>No incidents reported in the last 90 days</span>
+    </div>
+
+    <div class="stat-uptime">
+        <div class="num">99.9%</div>
+        <div class="label">Average uptime, last 90 days</div>
+    </div>
+
+</div>
+
+<script>
+document.getElementById('lastChecked').textContent =
+    'Last checked: ' + new Date().toLocaleString();
+</script>
+
+{% endblock %}

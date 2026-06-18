@@ -1210,6 +1210,30 @@ def privacy():
 def terms():
     return render_template("terms.html")
 
+@app.route("/cookies")
+def cookies():
+    return render_template("cookies.html")
+
+@app.route("/changelog")
+def changelog():
+    return render_template("changelog.html")
+
+@app.route("/docs")
+def docs():
+    return render_template("docs.html")
+
+@app.route("/blog")
+def blog():
+    return render_template("blog.html")
+
+@app.route("/help")
+def help_center():
+    return render_template("help.html")
+
+@app.route("/status")
+def status_page():
+    return render_template("status.html")
+
 @app.route("/sitemap.xml")
 def sitemap():
     return send_from_directory("static", "sitemap.xml")
