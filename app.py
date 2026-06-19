@@ -5,6 +5,7 @@ import re
 import json
 import tempfile
 import sqlite3
+import time
 import requests
 from io import BytesIO
 from dotenv import load_dotenv
@@ -241,18 +242,85 @@ def clean_text(text):
 MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 
 def run_ai(messages, model_index=0, max_tokens=1200):
+    # ── ROLLBACK / RETRY LOGIC ────────────────────────────
+    # On transient crashes (rate limits, timeouts, 5xx, overload)
+    # the same model is retried up to MAX_RETRIES times with
+    # exponential backoff before rolling back to the next model.
+    # Permanent errors (bad request, auth) skip retries immediately.
+    MAX_RETRIES  = 2          # attempts per model on transient errors
+    BASE_DELAY   = 1.5        # seconds (multiplied by attempt number)
+    TRANSIENT    = ("rate", "timeout", "429", "500", "502", "503",
+                    "overload", "connection", "unavailable", "reset")
+
     for i in range(model_index, len(MODELS)):
-        try:
-            completion = client.chat.completions.create(
-                model=MODELS[i],
-                messages=messages,
-                temperature=0.3,
-                max_tokens=max_tokens,
-            )
-            return completion.choices[0].message.content.strip()
-        except Exception as e:
-            print(f"AI ERROR (model {MODELS[i]}):", e)
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                completion = client.chat.completions.create(
+                    model=MODELS[i],
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=max_tokens,
+                )
+                return completion.choices[0].message.content.strip()
+            except Exception as e:
+                err_str = str(e).lower()
+                is_transient = any(kw in err_str for kw in TRANSIENT)
+                if is_transient and attempt < MAX_RETRIES:
+                    wait = BASE_DELAY * (attempt + 1)
+                    print(f"[ROLLBACK] Transient crash on {MODELS[i]} "
+                          f"(attempt {attempt+1}/{MAX_RETRIES}): {e} — retrying in {wait}s")
+                    time.sleep(wait)
+                    continue          # retry same model
+                # Permanent error or retries exhausted → roll to next model
+                print(f"AI ERROR (model {MODELS[i]}) after {attempt+1} attempt(s):", e)
+                break
     return None
+    # ─────────────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════
+#  THINKING EFFORT — user-selectable response depth
+#  Purely controls model choice + answer length, scaling
+#  monotonically from low -> medium -> high. The VISIBLE
+#  "thinking" (live reasoning shown to the user) is a separate
+#  concern handled by /api/chat/stream + REASONING_TOKEN_BUDGET
+#  below, so the two controls no longer fight each other.
+# ═══════════════════════════════════════════════════════
+
+EFFORT_CONFIG = {
+    "off":    {"model_index": 0, "max_tokens": 900},
+    "low":    {"model_index": 1, "max_tokens": 500},
+    "medium": {"model_index": 0, "max_tokens": 1300},
+    "high":   {"model_index": 0, "max_tokens": 2200},
+}
+
+# How many tokens the live "thinking" pass gets, scaled by effort.
+REASONING_TOKEN_BUDGET = {
+    "off": 250, "low": 200, "medium": 350, "high": 550,
+}
+
+# How many discrete reasoning steps to ask for, scaled by effort.
+REASONING_STEP_COUNT = {
+    "off": "2-4", "low": "2-3", "medium": "4-6", "high": "6-9",
+}
+
+# Explicit depth/length instruction injected into the final-answer prompt so
+# "high" effort reliably reads as more thorough than "low" — not just a
+# bigger token cap, but an actual instruction to go deeper.
+EFFORT_DEPTH_INSTRUCTIONS = {
+    "off":    "Give a clear, direct answer.",
+    "low":    "Keep the answer brief and to the point — just the essentials, no filler.",
+    "medium": "Give a clear, well-rounded answer with the key points explained.",
+    "high":   "Give a deep, thorough answer: cover the topic fully, explain the reasoning "
+              "behind it, and include relevant detail, nuance, or examples where useful.",
+}
+
+def normalize_effort(value):
+    value = (value or "off").strip().lower()
+    return value if value in EFFORT_CONFIG else "off"
+
+def run_ai_with_effort(messages, effort="off"):
+    cfg = EFFORT_CONFIG.get(effort, EFFORT_CONFIG["off"])
+    return run_ai(messages, model_index=cfg["model_index"], max_tokens=cfg["max_tokens"])
 
 def is_bad_response(reply):
     if not reply:
@@ -685,6 +753,7 @@ def resume():
 def api_chat():
     data         = request.get_json(force=True)
     user_message = safe_trim(data.get("message", "").strip())
+    effort       = normalize_effort(data.get("effort"))
     if not user_message:
         return jsonify({"reply": "Please send a message."}), 400
 
@@ -757,7 +826,7 @@ def api_chat():
             msgs = build_messages_no_search(system_prompt, history, user_message)
 
         # Get AI reply
-        reply = run_ai(msgs)
+        reply = run_ai_with_effort(msgs, effort)
         if not reply:
             reply = "I ran into an issue generating a response. Please try again."
 
@@ -826,6 +895,190 @@ def api_chat():
         return jsonify({"reply": "An unexpected error occurred. Please try again."}), 500
     finally:
         db.close()
+
+
+# ═══════════════════════════════════════════════════════
+#  LIVE THINKING — real-time streamed reasoning + answer
+#  Used when the "Thinking" toggle is ON in the UI.
+#  Unlike /api/chat, this streams the model's ACTUAL
+#  reasoning tokens (not a canned animation) over SSE,
+#  followed by the actual final-answer tokens, both live.
+# ═══════════════════════════════════════════════════════
+
+def _build_chat_context(user_message):
+    """Shared prep: memory, history, search decision, message list. Mirrors /api/chat."""
+    user_email = session["user"]["email"] if "user" in session else "guest"
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+            (user_email, "user", user_message)
+        )
+        db.commit()
+
+        memory = get_memory(user_email)
+
+        name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
+        if name_match:
+            save_memory(user_email, "name", name_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
+        if age_match:
+            save_memory(user_email, "age", age_match.group(1))
+            memory = get_memory(user_email)
+
+        history = db.execute(
+            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+            (user_email,)
+        ).fetchall()
+        history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
+    finally:
+        db.close()
+
+    do_search, search_query = ai_search_decision(user_message)
+    search_results = ""
+    if do_search and search_query:
+        search_results = search_internet(search_query)
+        if not search_results:
+            search_results = search_internet(user_message)
+
+    system_prompt = build_system_prompt(memory)
+
+    if search_results.strip():
+        msgs = build_messages_with_search(system_prompt, search_results, history, user_message)
+    elif do_search and not search_results:
+        no_result_note = (
+            f"NOTE: A live web search was attempted for this question but returned no results. "
+            f"Answer from your training knowledge as best you can. "
+            f"For location-specific or very recent questions, suggest the user "
+            f"check Google Maps or the official website.\n\n"
+            f"USER QUESTION: {user_message}"
+        )
+        msgs = [{"role": "system", "content": system_prompt}]
+        for h in reversed(list(history)[1:]):
+            role = h["role"] if h["role"] in ("user", "assistant") else "user"
+            msgs.append({"role": role, "content": h["message"]})
+        msgs.append({"role": "user", "content": no_result_note})
+    else:
+        msgs = build_messages_no_search(system_prompt, history, user_message)
+
+    return msgs, user_email
+
+
+@app.route("/api/chat/stream", methods=["POST"])
+def api_chat_stream():
+    data         = request.get_json(force=True)
+    user_message = safe_trim(data.get("message", "").strip())
+    effort       = normalize_effort(data.get("effort"))
+    if not user_message:
+        return jsonify({"reply": "Please send a message."}), 400
+
+    msgs, user_email = _build_chat_context(user_message)
+    cfg = EFFORT_CONFIG.get(effort, EFFORT_CONFIG["off"])
+    reasoning_tokens = REASONING_TOKEN_BUDGET.get(effort, 250)
+    step_count = REASONING_STEP_COUNT.get(effort, "3-5")
+    depth_note = EFFORT_DEPTH_INSTRUCTIONS.get(effort, EFFORT_DEPTH_INSTRUCTIONS["off"])
+
+    # Decide the login nudge BEFORE streaming starts, since the session
+    # cookie can only be updated while response headers are still being built.
+    add_nudge = "user" not in session and "login_nudge" not in session
+    if add_nudge:
+        session["login_nudge"] = True
+
+    def generate():
+        last = msgs[-1]
+
+        # ── PASS 1: genuine live reasoning, streamed token-by-token ──
+        # Asked for one short step per line so the UI can render a real,
+        # Claude-style step timeline instead of one big paragraph.
+        reasoning_messages = msgs[:-1] + [{
+            "role": "user",
+            "content": (
+                f"{last['content']}\n\n"
+                f"Think this through step by step, like quick working notes. Write "
+                f"{step_count} short steps, ONE PER LINE, no numbering or bullets — just "
+                f"the plain text of each step (e.g. what's being asked, key facts or "
+                f"context that matter, including any search results above, and how the "
+                f"pieces fit together). Each line under 14 words. Do NOT write the final "
+                f"answer here — only the reasoning steps, one per line."
+            ),
+        }]
+
+        full_thinking = ""
+        try:
+            stream = client.chat.completions.create(
+                model=MODELS[0],
+                messages=reasoning_messages,
+                temperature=0.4,
+                max_tokens=reasoning_tokens,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_thinking += delta
+                    yield f"event: thinking\ndata: {json.dumps(delta)}\n\n"
+        except Exception as e:
+            print("THINKING STREAM ERROR:", e)
+
+        yield f"event: thinking_done\ndata: {json.dumps({})}\n\n"
+
+        # ── PASS 2: real final answer, informed by the reasoning above, streamed live ──
+        # depth_note scales actual answer depth/length with effort, on top of the
+        # max_tokens budget, so "high" reliably gives a fuller answer than "low".
+        final_messages = msgs[:-1] + [{
+            "role": "user",
+            "content": (
+                f"{last['content']}\n\n"
+                + (f"Your reasoning above:\n{full_thinking}\n\n" if full_thinking else "")
+                + f"{depth_note} "
+                  "Do not repeat the reasoning steps — just the polished final answer."
+            ),
+        }]
+
+        full_reply = ""
+        try:
+            stream = client.chat.completions.create(
+                model=MODELS[cfg["model_index"]],
+                messages=final_messages,
+                temperature=0.3,
+                max_tokens=cfg["max_tokens"],
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_reply += delta
+                    yield f"event: answer\ndata: {json.dumps(delta)}\n\n"
+        except Exception as e:
+            print("ANSWER STREAM ERROR:", e)
+
+        if not full_reply.strip():
+            full_reply = "I ran into an issue generating a response. Please try again."
+
+        full_reply = re.sub(r"\n{3,}", "\n\n", full_reply).strip()
+        if add_nudge:
+            full_reply += "\n\n💡 *Login to save your chat history and get personalized responses*"
+
+        db2 = get_db()
+        try:
+            if "couldn't fully process" not in full_reply.lower():
+                db2.execute(
+                    "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+                    (user_email, "assistant", full_reply)
+                )
+                db2.commit()
+        finally:
+            db2.close()
+
+        yield f"event: done\ndata: {json.dumps({'reply': full_reply})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ═══════════════════════════════════════════════════════
@@ -1068,66 +1321,106 @@ def extract_text(file_bytes, ext):
 
 
 # ═══════════════════════════════════════════════════════
-#  FILE UPLOAD ROUTE
+#  FILE UPLOAD ROUTE — multi-file (up to MAX_UPLOAD_FILES)
+#  Reads every uploaded file (images + documents) and answers
+#  using ALL of them together in a single synthesised reply,
+#  the same way ChatGPT/Claude handle multi-file uploads.
 # ═══════════════════════════════════════════════════════
+
+MAX_UPLOAD_FILES     = 10     # max files accepted per message
+MAX_CHARS_PER_FILE   = 3000   # extracted-text budget per file
+MAX_TOTAL_FILE_CHARS = 20000  # combined extracted-text budget for the AI call
 
 @app.route("/api/upload", methods=["POST"])
 def upload():
-    if "file" not in request.files:
+    # Accept multiple files sent under "file" (input multiple / repeated append)
+    # or "files", whichever the frontend uses — without changing anything else.
+    files = request.files.getlist("file") or request.files.getlist("files")
+    files = [f for f in files if f and f.filename]
+
+    if not files:
         return jsonify({"reply": "No file received. Please try again."})
 
-    file     = request.files["file"]
-    filename = file.filename.lower()
-    _, ext   = os.path.splitext(filename)
-
-    try:
-        file_bytes = file.read()
-    except Exception as e:
-        print("FILE READ ERROR:", e)
-        return jsonify({"reply": "Could not read the uploaded file. Please try again."})
+    if len(files) > MAX_UPLOAD_FILES:
+        files = files[:MAX_UPLOAD_FILES]
 
     user_question = request.form.get("message", "").strip()
+    effort        = normalize_effort(request.form.get("effort"))
     user_email    = session["user"]["email"] if "user" in session else "guest"
 
-    if ext in IMAGE_EXTENSIONS:
-        reply = analyse_image(file_bytes, ext, user_question)
-        if not reply:
-            reply = (
-                "I couldn't analyse the image. Please try again or "
-                "paste any text from it directly into the chat."
+    file_sections   = []   # extracted content fed to the model, one block per file
+    processed_names = []   # filenames successfully read
+    failed_names    = []   # filenames that could not be read/extracted
+
+    for file in files:
+        filename = file.filename
+        _, ext   = os.path.splitext(filename.lower())
+
+        try:
+            file_bytes = file.read()
+        except Exception as e:
+            print(f"FILE READ ERROR [{filename}]:", e)
+            failed_names.append(filename)
+            continue
+
+        if ext in IMAGE_EXTENSIONS:
+            description = analyse_image(file_bytes, ext, user_question)
+            if description:
+                file_sections.append(f"[Image: {filename}]\n{description}")
+                processed_names.append(filename)
+            else:
+                failed_names.append(filename)
+        else:
+            text = extract_text(file_bytes, ext)
+            if not text:
+                failed_names.append(filename)
+                continue
+            text = safe_trim(clean_text(text), MAX_CHARS_PER_FILE)
+            file_sections.append(f"[File: {filename}]\n{text}")
+            processed_names.append(filename)
+
+    if not file_sections:
+        return jsonify({
+            "reply": (
+                "I opened the file(s) but couldn't extract readable content. "
+                "If any are scanned documents, try uploading them as PNG or JPG images instead."
             )
-    else:
-        text = extract_text(file_bytes, ext)
-        if not text:
-            return jsonify({
-                "reply": (
-                    "I opened the file but couldn't extract readable content. "
-                    "If it is a scanned document, try uploading as a PNG or JPG image instead."
-                )
-            })
-        text        = safe_trim(clean_text(text), 6000)
-        instruction = user_question if user_question else "Summarise the key information from this file clearly and concisely."
-        msgs = [
-            {
-                "role": "system",
-                "content": (
-                    "You are Pranox AI. A file has been uploaded. "
-                    "Use the extracted content below to answer the user. "
-                    "Be clear, structured, and helpful."
-                ),
-            },
-            {"role": "user", "content": f"File content:\n\n{text}\n\nUser request: {instruction}"},
-        ]
-        reply = run_ai(msgs, max_tokens=1200)
-        if not reply:
-            reply = "I read the file but had trouble generating a response. Please try again."
-        reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
+        })
+
+    combined_context = safe_trim("\n\n".join(file_sections), MAX_TOTAL_FILE_CHARS)
+
+    instruction = (
+        user_question if user_question
+        else "Review all the uploaded files together and summarise the key information clearly and concisely."
+    )
+
+    msgs = [
+        {
+            "role": "system",
+            "content": (
+                f"You are Pranox AI. The user has uploaded {len(processed_names)} file(s). "
+                "Use the extracted content from ALL files below to answer the user. "
+                "Cross-reference information across files where relevant and mention "
+                "specific filenames when it helps clarity. Be clear, structured, and helpful."
+            ),
+        },
+        {"role": "user", "content": f"Uploaded files:\n\n{combined_context}\n\nUser request: {instruction}"},
+    ]
+
+    reply = run_ai_with_effort(msgs, effort)
+    if not reply:
+        reply = "I read the files but had trouble generating a response. Please try again."
+    reply = re.sub(r"\n{3,}", "\n\n", reply).strip()
+
+    if failed_names:
+        reply += f"\n\n_Note: couldn't read {', '.join(failed_names)}._"
 
     db = get_db()
     try:
+        file_label = ", ".join(processed_names) if processed_names else ", ".join(failed_names)
         db.execute(
             "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email, "user", f"[File: {file.filename}] {user_question}")
+            (user_email, "user", f"[Files: {file_label}] {user_question}")
         )
         db.execute(
             "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",

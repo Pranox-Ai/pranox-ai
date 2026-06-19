@@ -70,7 +70,35 @@
           <label for="fileUpload" class="tool-btn" title="Attach file" aria-label="Attach file">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
           </label>
-          <input type="file" id="fileUpload" style="display:none" accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.csv,.json,.py,.js,.ts,.html,.css,.md,.doc,.docx">
+          <input type="file" id="fileUpload" style="display:none" multiple accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.csv,.json,.py,.js,.ts,.html,.css,.md,.doc,.docx">
+          <button type="button" class="tool-btn thinking-toggle-btn" id="thinkingToggleBtn" title="Show live thinking before each answer" aria-label="Toggle live thinking" aria-pressed="false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+            <span class="thinking-toggle-label">Thinking</span>
+          </button>
+          <div class="effort-control" id="effortControl">
+            <button type="button" class="tool-btn effort-btn" id="effortBtn" title="Thinking effort" aria-label="Thinking effort" aria-haspopup="true" aria-expanded="false">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A5.5 5.5 0 004 7.5c0 1.5.6 2.5 1.5 3.5L6 12v3a2 2 0 002 2h.5"/><path d="M14.5 2A5.5 5.5 0 0120 7.5c0 1.5-.6 2.5-1.5 3.5L18 12v3a2 2 0 01-2 2h-.5"/><path d="M9 17h6"/><path d="M10 21h4"/><path d="M9.5 2a2.5 2.5 0 015 0"/></svg>
+              <span class="effort-label" id="effortLabel">Off</span>
+            </button>
+            <div class="effort-menu" id="effortMenu" role="menu" aria-label="Thinking effort options">
+              <button type="button" class="effort-option active" data-effort="off" role="menuitem">
+                <span class="effort-option-title">Off</span>
+                <span class="effort-option-desc">Fast — no extra thinking</span>
+              </button>
+              <button type="button" class="effort-option" data-effort="low" role="menuitem">
+                <span class="effort-option-title">Low</span>
+                <span class="effort-option-desc">Quick, lightweight reasoning</span>
+              </button>
+              <button type="button" class="effort-option" data-effort="medium" role="menuitem">
+                <span class="effort-option-title">Medium</span>
+                <span class="effort-option-desc">Balanced thinking</span>
+              </button>
+              <button type="button" class="effort-option" data-effort="high" role="menuitem">
+                <span class="effort-option-title">High</span>
+                <span class="effort-option-desc">Deep, careful reasoning</span>
+              </button>
+            </div>
+          </div>
           <textarea id="messageInput" placeholder="Message Pranox AI…" rows="1" autocomplete="off" spellcheck="true"></textarea>
           <button onclick="startVoice()" class="tool-btn voice-btn" id="voiceBtn" title="Voice input" aria-label="Voice input">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -236,13 +264,21 @@ const sendBtn     = document.getElementById("sendBtn");
 const fileUpload  = document.getElementById("fileUpload");
 const inputArea   = document.getElementById("inputArea");
 const attachTray  = document.getElementById("attachmentTray");
+const effortControl = document.getElementById("effortControl");
+const effortBtn     = document.getElementById("effortBtn");
+const effortMenu    = document.getElementById("effortMenu");
+const effortLabel   = document.getElementById("effortLabel");
+const thinkingToggleBtn = document.getElementById("thinkingToggleBtn");
 
-let attachedFile      = null;
-let attachedFileMeta  = null;
+const MAX_ATTACHED_FILES = 10;
+let attachedFiles     = [];
+let attachedFileMetas = [];
 let pastedTextBlock   = null;
 let lastUserMessage   = "";
 let isGenerating      = false;
 let thinkingCounter   = 0;
+let selectedEffort    = "off";
+let thinkingEnabled   = false;
 let stickToBottom     = true;
 let chats             = [];
 let currentChat       = [];
@@ -348,12 +384,53 @@ function showWelcome() { document.getElementById("welcomeScreen").style.display=
 function hideWelcome() { document.getElementById("welcomeScreen").style.display="none"; }
 
 /* ══════════════════════════════════════════
+   THINKING EFFORT SELECTOR
+══════════════════════════════════════════ */
+const EFFORT_LABELS = { off: "Off", low: "Low", medium: "Medium", high: "High" };
+
+function openEffortMenu() {
+  effortControl.classList.add("open");
+  effortBtn.setAttribute("aria-expanded", "true");
+}
+function closeEffortMenu() {
+  effortControl.classList.remove("open");
+  effortBtn.setAttribute("aria-expanded", "false");
+}
+function setEffort(value) {
+  selectedEffort = value;
+  effortLabel.textContent = EFFORT_LABELS[value] || "Off";
+  effortMenu.querySelectorAll(".effort-option").forEach(opt => {
+    opt.classList.toggle("active", opt.dataset.effort === value);
+  });
+}
+
+effortBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  effortControl.classList.contains("open") ? closeEffortMenu() : openEffortMenu();
+});
+effortMenu.querySelectorAll(".effort-option").forEach(opt => {
+  opt.addEventListener("click", () => { setEffort(opt.dataset.effort); closeEffortMenu(); });
+});
+document.addEventListener("click", e => {
+  if (!effortControl.contains(e.target)) closeEffortMenu();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeEffortMenu();
+});
+
+thinkingToggleBtn.addEventListener("click", () => {
+  thinkingEnabled = !thinkingEnabled;
+  thinkingToggleBtn.classList.toggle("active", thinkingEnabled);
+  thinkingToggleBtn.setAttribute("aria-pressed", String(thinkingEnabled));
+});
+
+/* ══════════════════════════════════════════
    ATTACHMENT UI
 ══════════════════════════════════════════ */
 function getPendingAttachments() {
   const list = [];
   if (pastedTextBlock) list.push(pastedTextBlock);
-  if (attachedFileMeta) list.push(attachedFileMeta);
+  attachedFileMetas.forEach((meta, idx) => list.push({...meta, _idx: idx}));
   return list;
 }
 
@@ -369,7 +446,7 @@ function renderComposerAttachments() {
   attachTray.innerHTML = list.map(att => {
     const kind = att.kind || "file";
     const isText = kind === "text";
-    const removeFn = isText ? "clearPastedText()" : "clearFile()";
+    const removeFn = isText ? "clearPastedText()" : `removeFile(${att._idx})`;
     const preview = att.previewUrl
       ? `<img src="${att.previewUrl}" alt="" class="attach-thumb">`
       : `<div class="attach-icon ${kind}">${escapeHtml(attachmentIcon(kind))}</div>`;
@@ -441,33 +518,57 @@ function clearPastedText() {
   renderComposerAttachments();
 }
 
-function attachFile(file) {
-  if (!file) return;
-  if (file.size > 16 * 1024 * 1024) { showToast("File too large. Max 16MB."); clearFile(); return; }
+function attachFiles(fileList) {
+  const incoming = Array.from(fileList || []).filter(Boolean);
+  if (!incoming.length) return;
 
-  attachedFile = file;
-  const kind = fileKind(file);
-  attachedFileMeta = {
-    kind,
-    name: file.name || (kind === "image" ? "Pasted image" : "Attachment"),
-    size: file.size,
-    type: file.type || ""
-  };
-
-  if (kind === "image") {
-    const reader = new FileReader();
-    reader.onload = e => {
-      attachedFileMeta.previewUrl = e.target.result;
-      renderComposerAttachments();
-    };
-    reader.readAsDataURL(file);
+  if (attachedFiles.length >= MAX_ATTACHED_FILES) {
+    showToast(`You can attach up to ${MAX_ATTACHED_FILES} files.`);
+    return;
   }
+
+  const room = MAX_ATTACHED_FILES - attachedFiles.length;
+  const toAdd = incoming.slice(0, room);
+  if (incoming.length > toAdd.length) {
+    showToast(`You can attach up to ${MAX_ATTACHED_FILES} files.`);
+  }
+
+  toAdd.forEach(file => {
+    if (file.size > 16 * 1024 * 1024) { showToast(`${file.name} is too large. Max 16MB.`); return; }
+
+    const kind = fileKind(file);
+    const idx  = attachedFiles.length;
+    attachedFiles.push(file);
+    attachedFileMetas.push({
+      kind,
+      name: file.name || (kind === "image" ? "Pasted image" : "Attachment"),
+      size: file.size,
+      type: file.type || ""
+    });
+
+    if (kind === "image") {
+      const reader = new FileReader();
+      reader.onload = e => {
+        if (attachedFileMetas[idx]) attachedFileMetas[idx].previewUrl = e.target.result;
+        renderComposerAttachments();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  renderComposerAttachments();
+}
+
+function removeFile(idx) {
+  attachedFiles.splice(idx, 1);
+  attachedFileMetas.splice(idx, 1);
+  if (!attachedFiles.length) fileUpload.value = "";
   renderComposerAttachments();
 }
 
 function clearFile() {
-  attachedFile = null;
-  attachedFileMeta = null;
+  attachedFiles = [];
+  attachedFileMetas = [];
   fileUpload.value = "";
   renderComposerAttachments();
 }
@@ -589,7 +690,7 @@ inputEl.addEventListener("paste", e => {
   const files = Array.from(clipboard.files || []);
   if (files.length) {
     e.preventDefault();
-    attachFile(files[0]);
+    attachFiles(files);
     return;
   }
 
@@ -602,7 +703,7 @@ inputEl.addEventListener("paste", e => {
 });
 
 fileUpload.onchange = function() {
-  attachFile(fileUpload.files[0]);
+  attachFiles(fileUpload.files);
 };
 
 inputArea.addEventListener("dragover", e => {
@@ -613,39 +714,49 @@ inputArea.addEventListener("dragleave", () => inputArea.classList.remove("drag-o
 inputArea.addEventListener("drop", e => {
   e.preventDefault();
   inputArea.classList.remove("drag-over");
-  const file = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (file) attachFile(file);
+  const files = e.dataTransfer.files;
+  if (files && files.length) attachFiles(files);
 });
 
 async function sendMessage() {
   if (isGenerating) return;
 
   const typedText = inputEl.value.trim();
-  const fileToSend = attachedFile;
+  const filesToSend = attachedFiles;
   const pastedTextToSend = pastedTextBlock ? pastedTextBlock.text : "";
   const outgoingText = [typedText, pastedTextToSend].filter(Boolean).join("\n\n").trim();
   const displayAttachments = getPendingAttachments();
 
-  if (!outgoingText && !fileToSend) return;
+  if (!outgoingText && !filesToSend.length) return;
 
   lastUserMessage = outgoingText;
   addMessage(typedText, "user", true, displayAttachments);
   resetComposer();
   setGenerating(true);
 
-  if (!fileToSend && !pastedTextToSend && isImageRequest(typedText.toLowerCase())) {
+  if (!filesToSend.length && !pastedTextToSend && isImageRequest(typedText.toLowerCase())) {
     await generateImage(extractImagePrompt(typedText));
     setGenerating(false);
     return;
   }
 
-  const thinkId = addThinking();
+  // Live thinking mode: show the model's real, streamed reasoning + answer.
+  // Only applies to plain text messages (file uploads keep the existing flow).
+  if (thinkingEnabled && !filesToSend.length) {
+    await sendMessageWithLiveThinking(outgoingText);
+    return;
+  }
+
+  const phases  = pickThinkingPhases(filesToSend.length > 0, selectedEffort);
+  const thinkId = addThinking(phases[0]);
+  const thinkTimer = startThinkingCycle(thinkId, phases);
   let reply = "";
   try {
-    if (fileToSend) {
+    if (filesToSend.length) {
       const form = new FormData();
-      form.append("file", fileToSend);
+      filesToSend.forEach(f => form.append("file", f));
       form.append("message", outgoingText);
+      form.append("effort", selectedEffort);
       const res  = await fetch("/api/upload", {method:"POST", body:form});
       const data = await res.json();
       reply = data.reply || "Could not process file.";
@@ -653,7 +764,7 @@ async function sendMessage() {
       const res = await fetch("/api/chat", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({message: outgoingText})
+        body: JSON.stringify({message: outgoingText, effort: selectedEffort})
       });
       const data = await res.json();
       reply = data.reply || "No response received.";
@@ -661,8 +772,178 @@ async function sendMessage() {
   } catch {
     reply = "⚠️ Network error. Please check your connection and try again.";
   }
+  stopThinkingCycle(thinkTimer);
   removeThinking(thinkId);
   appendAIMessage(reply);
+}
+
+/* ══════════════════════════════════════════
+   LIVE THINKING — real-time streamed reasoning + answer
+   Reads Server-Sent Events from /api/chat/stream and renders
+   the model's actual thinking as a step-by-step timeline
+   (Claude-style), then its actual answer, both live.
+══════════════════════════════════════════ */
+const THINK_SPINNER_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"/></svg>`;
+const THINK_CHECK_SVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+async function sendMessageWithLiveThinking(outgoingText) {
+  const id = ++thinkingCounter;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg-row ai";
+  wrapper.innerHTML = `
+    <div class="avatar ai-avatar">P</div>
+    <div class="msg-col">
+      <div class="think-panel streaming" id="think-panel-${id}">
+        <button type="button" class="think-panel-toggle" id="think-toggle-${id}">
+          <svg class="think-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+          <span class="think-panel-title">Thinking…</span>
+          <svg class="think-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="think-steps" id="think-steps-${id}"></div>
+      </div>
+      <div class="bubble ai-bubble" id="answer-bubble-${id}" style="display:none"><div class="msg-text" id="answer-text-${id}"></div></div>
+      <div class="msg-meta" id="answer-meta-${id}" style="display:none">
+        <span class="msg-time"></span>
+        <div class="msg-actions">
+          <button class="action-copy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button>
+          <button class="action-retry" title="Retry"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Retry</button>
+        </div>
+      </div>
+    </div>`;
+  messagesEl.appendChild(wrapper);
+  scrollToBottom(true);
+
+  const panelEl   = wrapper.querySelector(`#think-panel-${id}`);
+  const stepsEl   = wrapper.querySelector(`#think-steps-${id}`);
+  const titleEl   = wrapper.querySelector(".think-panel-title");
+  const toggleBtn = wrapper.querySelector(`#think-toggle-${id}`);
+  toggleBtn.addEventListener("click", () => panelEl.classList.toggle("collapsed"));
+
+  const answerBubble = wrapper.querySelector(`#answer-bubble-${id}`);
+  const answerTextEl = wrapper.querySelector(`#answer-text-${id}`);
+  const metaEl        = wrapper.querySelector(`#answer-meta-${id}`);
+
+  // ── step-timeline state: each completed line of reasoning becomes its
+  //    own row (spinner while streaming -> checkmark once the next line starts) ──
+  let lineBuffer   = "";
+  let activeStepEl = null;
+
+  function ensureActiveStep() {
+    if (activeStepEl) return activeStepEl;
+    const row = document.createElement("div");
+    row.className = "think-step active";
+    row.innerHTML = `<span class="think-step-icon">${THINK_SPINNER_SVG}</span><span class="think-step-text"></span>`;
+    stepsEl.appendChild(row);
+    activeStepEl = row;
+    return row;
+  }
+  function finalizeActiveStep() {
+    if (!activeStepEl) return;
+    activeStepEl.classList.remove("active");
+    activeStepEl.classList.add("done");
+    activeStepEl.querySelector(".think-step-icon").innerHTML = THINK_CHECK_SVG;
+    activeStepEl = null;
+  }
+
+  let thinkingText = "";
+  let answerText   = "";
+  let finalReply    = null;
+
+  try {
+    const res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({message: outgoingText, effort: selectedEffort})
+    });
+    if (!res.ok || !res.body) throw new Error("stream unavailable");
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        if (!part.trim()) continue;
+        let eventName = "message", dataStr = "";
+        for (const line of part.split("\n")) {
+          if (line.startsWith("event:")) eventName = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+        }
+        if (!dataStr) continue;
+
+        let payload;
+        try { payload = JSON.parse(dataStr); } catch { payload = dataStr; }
+
+        if (eventName === "thinking") {
+          thinkingText += payload;
+          lineBuffer += payload;
+          let nl;
+          while ((nl = lineBuffer.indexOf("\n")) !== -1) {
+            const line = lineBuffer.slice(0, nl).trim();
+            lineBuffer = lineBuffer.slice(nl + 1);
+            if (line) {
+              const row = ensureActiveStep();
+              row.querySelector(".think-step-text").textContent = line;
+              finalizeActiveStep();
+            }
+          }
+          if (lineBuffer.trim()) {
+            const row = ensureActiveStep();
+            row.querySelector(".think-step-text").textContent = lineBuffer.trim();
+          }
+          scrollToBottom(false);
+        } else if (eventName === "thinking_done") {
+          if (lineBuffer.trim()) finalizeActiveStep();
+          else if (activeStepEl) { activeStepEl.remove(); activeStepEl = null; }
+
+          panelEl.classList.remove("streaming");
+          const stepCount = stepsEl.children.length;
+          if (stepCount > 0) {
+            titleEl.textContent = `Thought for ${stepCount} step${stepCount === 1 ? "" : "s"}`;
+            panelEl.classList.add("collapsed");
+          } else {
+            panelEl.remove();
+          }
+        } else if (eventName === "answer") {
+          answerText += payload;
+          answerBubble.style.display = "";
+          answerTextEl.innerHTML = formatText(answerText);
+          scrollToBottom(false);
+        } else if (eventName === "done") {
+          finalReply = payload.reply;
+        }
+      }
+    }
+
+    const reply = finalReply != null ? finalReply : (answerText || "No response received.");
+    answerBubble.style.display = "";
+    answerTextEl.innerHTML = formatText(reply);
+    answerTextEl.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
+
+    metaEl.style.display = "";
+    metaEl.querySelector(".msg-time").textContent = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    metaEl.querySelector(".action-copy").addEventListener("click", function() {
+      copyToClipboard(answerTextEl.innerText, this);
+    });
+    metaEl.querySelector(".action-retry").addEventListener("click", regenerate);
+
+    currentChat.push({text: reply, type: "ai", attachments: []});
+    saveChats();
+    renderHistory();
+  } catch (e) {
+    wrapper.remove();
+    addMessage("⚠️ Network error. Please check your connection and try again.", "ai");
+  } finally {
+    setGenerating(false);
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -698,6 +979,33 @@ function addThinking(label="") {
   return id;
 }
 function removeThinking(id) { document.getElementById(`thinking-${id}`)?.remove(); }
+
+/* ── Thinking status phases — what the AI is "doing" right now,
+   shown one after another in the thinking bubble while it works ── */
+const THINKING_PHASES = {
+  base:   ["Reading your message…", "Thinking it through…", "Putting together a response…"],
+  files:  ["Reading your files…", "Cross-referencing the details…", "Putting together a response…"],
+  high:   ["Breaking down the question…", "Reasoning through it carefully…", "Double-checking the details…", "Writing the final answer…"],
+  highFiles: ["Reading your files…", "Reasoning through the details…", "Double-checking the details…", "Writing the final answer…"],
+  low:    ["Thinking…"]
+};
+
+function pickThinkingPhases(hasFiles, effort) {
+  if (effort === "high") return hasFiles ? THINKING_PHASES.highFiles : THINKING_PHASES.high;
+  if (effort === "low")  return THINKING_PHASES.low;
+  return hasFiles ? THINKING_PHASES.files : THINKING_PHASES.base;
+}
+
+function startThinkingCycle(id, phases, intervalMs=1700) {
+  if (!phases.length) return null;
+  let i = 0;
+  return setInterval(() => {
+    i = (i + 1) % phases.length;
+    const span = document.querySelector(`#thinking-${id} .thinking-text`);
+    if (span) span.textContent = phases[i];
+  }, intervalMs);
+}
+function stopThinkingCycle(timer) { if (timer) clearInterval(timer); }
 
 /* ══════════════════════════════════════════
    APPEND AI MESSAGE
@@ -1084,6 +1392,47 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 #messageInput::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
 .tool-btn{width:38px;height:38px;background:none;border:none;border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s;flex-shrink:0}
 .tool-btn:hover{background:var(--bg4);color:var(--text)}
+
+/* ── THINKING TOGGLE (separate from effort) ── */
+.thinking-toggle-btn{width:auto;padding:0 10px;gap:6px;font-size:12.5px;font-weight:600;color:var(--text3);font-family:var(--font)}
+.thinking-toggle-btn .thinking-toggle-label{white-space:nowrap}
+.thinking-toggle-btn.active{background:rgba(37,99,235,.16);color:var(--blue-h,#3b82f6)}
+
+/* ── THINKING EFFORT ── */
+.effort-control{position:relative;flex-shrink:0}
+.effort-btn{width:auto;padding:0 10px;gap:6px;font-size:12.5px;font-weight:600;color:var(--text3);font-family:var(--font)}
+.effort-btn .effort-label{white-space:nowrap}
+.effort-control.open .effort-btn,.effort-btn[aria-expanded="true"]{background:var(--bg4);color:var(--text)}
+.effort-menu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:208px;background:#131318;border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.4);padding:6px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .16s,transform .16s,visibility .16s;z-index:20}
+.effort-control.open .effort-menu{opacity:1;visibility:visible;transform:translateY(0)}
+.effort-option{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;background:none;border:none;border-radius:9px;padding:8px 10px;cursor:pointer;text-align:left;transition:background .15s}
+.effort-option:hover{background:var(--bg4)}
+.effort-option.active{background:rgba(37,99,235,.14)}
+.effort-option-title{font-size:13.5px;font-weight:600;color:var(--text)}
+.effort-option.active .effort-option-title{color:var(--blue-h,#3b82f6)}
+.effort-option-desc{font-size:11.5px;color:var(--text3)}
+
+/* ── LIVE THINKING PANEL — shows the model's real, streamed reasoning ── */
+.think-panel{background:var(--bg3,#1a1a20);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden;max-width:600px}
+.think-panel-toggle{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:10px 14px;cursor:pointer;color:var(--text3);font-size:13px;font-weight:600;text-align:left;font-family:var(--font)}
+.think-panel-toggle:hover{color:var(--text)}
+.think-panel-title{flex:1}
+.think-chevron{transition:transform .2s;flex-shrink:0}
+.think-panel.collapsed .think-chevron{transform:rotate(-90deg)}
+.think-spinner{flex-shrink:0}
+.think-panel.streaming .think-spinner{animation:spin 1.2s linear infinite}
+
+/* ── step timeline (Claude-style: each reasoning line is its own step) ── */
+.think-steps{display:flex;flex-direction:column;padding:2px 14px 12px 14px;max-height:280px;overflow-y:auto}
+.think-panel.collapsed .think-steps{display:none}
+.think-step{display:flex;align-items:flex-start;gap:10px;position:relative;padding:5px 0}
+.think-step:not(:last-child)::after{content:"";position:absolute;left:7.5px;top:24px;bottom:-5px;width:1px;background:var(--border)}
+.think-step-icon{width:15px;height:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--text3);margin-top:2px}
+.think-step.active .think-step-icon svg{animation:spin .9s linear infinite}
+.think-step.done .think-step-icon{color:var(--text3)}
+.think-step-text{font-size:13px;line-height:1.5;color:var(--text3);font-style:italic;word-break:break-word;padding-top:1px}
+.think-step.active .think-step-text{color:var(--text2)}
+
 .voice-btn.voice-active{background:rgba(239,68,68,.15);color:#ef4444;animation:pulse-voice 1s infinite}
 @keyframes pulse-voice{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3)}50%{box-shadow:0 0 0 7px rgba(239,68,68,0)}}
 #sendBtn{width:38px;height:38px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .1s;flex-shrink:0}
@@ -1139,6 +1488,9 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
   .suggestion-chips{grid-template-columns:1fr;width:min(320px,88vw);max-width:320px}
   .chip{font-size:13px;padding:7px 12px}
   .tool-btn,#sendBtn{width:36px;height:36px}
+  .effort-btn{width:36px;padding:0;justify-content:center}
+  .effort-btn .effort-label{display:none}
+  .effort-menu{left:auto;right:0}
   .message-attach-card{max-width:280px}
 }
 
