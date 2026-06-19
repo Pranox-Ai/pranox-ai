@@ -625,27 +625,88 @@ function addMessage(text, type, save=true, attachments=[]) {
 }
 
 /* ══════════════════════════════════════════
-   TYPEWRITER
+   SMOOTH WORD STREAMER — reveals text word-by-word
+   (Claude/ChatGPT-style) instead of character-by-character.
+   Re-parsing full markdown on every single character was
+   extremely expensive on long replies and slow/mobile devices,
+   which made the animation stall and then jump straight to the
+   final text instead of animating smoothly. This renders in
+   word-sized chunks (so far fewer re-parses) and paces itself
+   off how much text is still waiting to be revealed, so it
+   stays smooth no matter how fast text arrives — whether it's
+   the whole reply at once (effort off/low/medium/high) or a
+   live token-by-token stream (Thinking on).
 ══════════════════════════════════════════ */
-function typeWriter(text, element, onDone) {
-  let i = 0;
-  const speed = text.length > 1200 ? 1 : text.length > 400 ? 4 : 10;
+function createWordStreamer(element, opts = {}) {
+  const onDone   = { fn: opts.onDone || null };
+  const scrollFn = opts.scrollFn || null;
+  let target     = "";   // all text received so far
+  let shown      = 0;    // how much of it is currently rendered
+  let timer      = null;
+  let finished   = false;
+  let doneFired  = false;
+
+  function nextWordBoundary(text, pos) {
+    let i = pos;
+    while (i < text.length && !/\s/.test(text[i])) i++;
+    while (i < text.length && /\s/.test(text[i])) i++;
+    return i > pos ? i : text.length;
+  }
+
+  function pickDelay(remaining) {
+    if (remaining > 600) return 3;
+    if (remaining > 250) return 8;
+    if (remaining > 80)  return 15;
+    return 24;
+  }
+
+  function renderShown() {
+    element.innerHTML = formatText(target.slice(0, shown));
+    element.querySelectorAll("pre code:not(.hljs)").forEach(b => hljs.highlightElement(b));
+    if (scrollFn) scrollFn();
+  }
 
   function tick() {
-    if (i < text.length) {
-      element.innerHTML = formatText(text.substring(0, i + 1));
-      i++;
-      element.querySelectorAll("pre code:not(.hljs)").forEach(b => hljs.highlightElement(b));
-      scrollToBottom(false);
-      setTimeout(tick, speed);
+    if (shown < target.length) {
+      shown = nextWordBoundary(target, shown);
+      renderShown();
+      timer = setTimeout(tick, pickDelay(target.length - shown));
     } else {
-      element.innerHTML = formatText(text);
-      element.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
-      scrollToBottom(false);
-      if (onDone) onDone();
+      timer = null;
+      if (finished && !doneFired) {
+        doneFired = true;
+        renderShown();
+        element.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
+        if (onDone.fn) onDone.fn();
+      }
     }
   }
-  tick();
+
+  return {
+    push(delta) {
+      if (!delta) return;
+      target += delta;
+      if (!timer) tick();
+    },
+    finish(cb) {
+      if (cb) onDone.fn = cb;
+      finished = true;
+      if (!timer) tick();
+    },
+    stop() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    }
+  };
+}
+
+function typeWriter(text, element, onDone) {
+  const streamer = createWordStreamer(element, {
+    onDone,
+    scrollFn: () => scrollToBottom(false)
+  });
+  streamer.push(text || "");
+  streamer.finish();
 }
 
 /* ══════════════════════════════════════════
@@ -849,6 +910,17 @@ async function sendMessageWithLiveThinking(outgoingText) {
   let thinkingText = "";
   let answerText   = "";
   let finalReply    = null;
+  let answerStreamer = null;
+
+  function ensureAnswerStreamer() {
+    if (!answerStreamer) {
+      answerBubble.style.display = "";
+      answerStreamer = createWordStreamer(answerTextEl, {
+        scrollFn: () => scrollToBottom(false)
+      });
+    }
+    return answerStreamer;
+  }
 
   try {
     const res = await fetch("/api/chat/stream", {
@@ -914,9 +986,7 @@ async function sendMessageWithLiveThinking(outgoingText) {
           }
         } else if (eventName === "answer") {
           answerText += payload;
-          answerBubble.style.display = "";
-          answerTextEl.innerHTML = formatText(answerText);
-          scrollToBottom(false);
+          ensureAnswerStreamer().push(payload);
         } else if (eventName === "done") {
           finalReply = payload.reply;
         }
@@ -924,9 +994,10 @@ async function sendMessageWithLiveThinking(outgoingText) {
     }
 
     const reply = finalReply != null ? finalReply : (answerText || "No response received.");
-    answerBubble.style.display = "";
-    answerTextEl.innerHTML = formatText(reply);
-    answerTextEl.querySelectorAll("pre code").forEach(b => hljs.highlightElement(b));
+    const streamer = ensureAnswerStreamer();
+    if (reply.length > answerText.length) streamer.push(reply.slice(answerText.length));
+
+    await new Promise(resolve => streamer.finish(resolve));
 
     metaEl.style.display = "";
     metaEl.querySelector(".msg-time").textContent = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
