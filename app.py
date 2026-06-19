@@ -1005,22 +1005,38 @@ def api_chat_stream():
             ),
         }]
 
+        # Same transient-error retry policy as run_ai(), so a momentary
+        # rate-limit/timeout/5xx from Groq doesn't kill the whole stream.
+        STREAM_MAX_RETRIES = 2
+        STREAM_BASE_DELAY  = 1.5
+        STREAM_TRANSIENT   = ("rate", "timeout", "429", "500", "502", "503",
+                               "overload", "connection", "unavailable", "reset")
+
         full_thinking = ""
-        try:
-            stream = client.chat.completions.create(
-                model=MODELS[0],
-                messages=reasoning_messages,
-                temperature=0.4,
-                max_tokens=reasoning_tokens,
-                stream=True,
-            )
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content or ""
-                if delta:
-                    full_thinking += delta
-                    yield f"event: thinking\ndata: {json.dumps(delta)}\n\n"
-        except Exception as e:
-            print("THINKING STREAM ERROR:", e)
+        for attempt in range(STREAM_MAX_RETRIES + 1):
+            try:
+                stream = client.chat.completions.create(
+                    model=MODELS[0],
+                    messages=reasoning_messages,
+                    temperature=0.4,
+                    max_tokens=reasoning_tokens,
+                    stream=True,
+                )
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    if delta:
+                        full_thinking += delta
+                        yield f"event: thinking\ndata: {json.dumps(delta)}\n\n"
+                break
+            except Exception as e:
+                print(f"THINKING STREAM ERROR (attempt {attempt+1}):", e)
+                if full_thinking:
+                    break  # partial content already streamed — don't retry mid-stream
+                is_transient = any(kw in str(e).lower() for kw in STREAM_TRANSIENT)
+                if is_transient and attempt < STREAM_MAX_RETRIES:
+                    time.sleep(STREAM_BASE_DELAY * (attempt + 1))
+                    continue
+                break  # permanent error or retries exhausted — thinking is optional, move on
 
         yield f"event: thinking_done\ndata: {json.dumps({})}\n\n"
 
@@ -1038,21 +1054,33 @@ def api_chat_stream():
         }]
 
         full_reply = ""
-        try:
-            stream = client.chat.completions.create(
-                model=MODELS[cfg["model_index"]],
-                messages=final_messages,
-                temperature=0.3,
-                max_tokens=cfg["max_tokens"],
-                stream=True,
-            )
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content or ""
-                if delta:
-                    full_reply += delta
-                    yield f"event: answer\ndata: {json.dumps(delta)}\n\n"
-        except Exception as e:
-            print("ANSWER STREAM ERROR:", e)
+        for model_i in range(cfg["model_index"], len(MODELS)):
+            if full_reply:
+                break  # already got a reply from a previous model in this loop
+            for attempt in range(STREAM_MAX_RETRIES + 1):
+                try:
+                    stream = client.chat.completions.create(
+                        model=MODELS[model_i],
+                        messages=final_messages,
+                        temperature=0.3,
+                        max_tokens=cfg["max_tokens"],
+                        stream=True,
+                    )
+                    for chunk in stream:
+                        delta = chunk.choices[0].delta.content or ""
+                        if delta:
+                            full_reply += delta
+                            yield f"event: answer\ndata: {json.dumps(delta)}\n\n"
+                    break
+                except Exception as e:
+                    print(f"ANSWER STREAM ERROR (model {MODELS[model_i]}, attempt {attempt+1}):", e)
+                    if full_reply:
+                        break  # partial content already streamed — don't retry mid-stream
+                    is_transient = any(kw in str(e).lower() for kw in STREAM_TRANSIENT)
+                    if is_transient and attempt < STREAM_MAX_RETRIES:
+                        time.sleep(STREAM_BASE_DELAY * (attempt + 1))
+                        continue
+                    break  # permanent error or retries exhausted on this model -> roll to next model
 
         if not full_reply.strip():
             full_reply = "I ran into an issue generating a response. Please try again."
