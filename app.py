@@ -320,7 +320,13 @@ def normalize_effort(value):
 
 def run_ai_with_effort(messages, effort="off"):
     cfg = EFFORT_CONFIG.get(effort, EFFORT_CONFIG["off"])
-    return run_ai(messages, model_index=cfg["model_index"], max_tokens=cfg["max_tokens"])
+    depth_note = EFFORT_DEPTH_INSTRUCTIONS.get(effort, EFFORT_DEPTH_INSTRUCTIONS["off"])
+    last = messages[-1]
+    tuned_messages = messages[:-1] + [{
+        "role": "user",
+        "content": f"{last['content']}\n\n{depth_note}",
+    }]
+    return run_ai(tuned_messages, model_index=cfg["model_index"], max_tokens=cfg["max_tokens"])
 
 def is_bad_response(reply):
     if not reply:
