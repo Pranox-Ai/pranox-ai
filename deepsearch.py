@@ -63,7 +63,9 @@ import json
 import os
 import re
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from urllib.parse import urlparse
 
 import requests
@@ -588,12 +590,32 @@ def search_parallel(queries: list[str]) -> dict[str, list[dict]]:
             f = executor.submit(_serper_call, "news", q, 5)
             tasks[f] = q
 
-        for future in as_completed(tasks, timeout=30):
-            q = tasks[future]
-            try:
-                all_results[q].extend(future.result())
-            except Exception as e:
-                print(f"[SEARCH PARALLEL] '{q[:40]}': {e}")
+        done_futures = set()
+        try:
+            for future in as_completed(tasks, timeout=30):
+                done_futures.add(future)
+                q = tasks[future]
+                try:
+                    all_results[q].extend(future.result())
+                except Exception as e:
+                    print(f"[SEARCH PARALLEL] '{q[:40]}': {e}")
+        except FuturesTimeoutError:
+            # On slower hosts (e.g. Render free tier) not every search call
+            # finishes inside the 30s budget. Don't let this crash the whole
+            # pipeline — log it and continue with whatever came back in time.
+            pending = len(tasks) - len(done_futures)
+            print(f"[SEARCH PARALLEL] timed out waiting on {pending} of {len(tasks)} query call(s) after 30s — continuing with partial results")
+
+        # The `with` block below blocks until every submitted future is done
+        # regardless of the timeout above, so by the time we get past it any
+        # late finishers are available too — backfill them instead of
+        # discarding that work.
+        for future, q in tasks.items():
+            if future not in done_futures:
+                try:
+                    all_results[q].extend(future.result())
+                except Exception as e:
+                    print(f"[SEARCH PARALLEL] '{q[:40]}' (late): {e}")
 
     return all_results
 
@@ -678,12 +700,32 @@ def scrape_batch(url_pairs: list[tuple[str, str]]) -> dict[str, str]:
             for url, _ in url_pairs
             if url
         }
-        for future in as_completed(future_to_url, timeout=35):
-            url = future_to_url[future]
-            try:
-                results[url] = future.result() or ""
-            except Exception:
-                results[url] = ""
+        done_futures = set()
+        try:
+            for future in as_completed(future_to_url, timeout=35):
+                done_futures.add(future)
+                url = future_to_url[future]
+                try:
+                    results[url] = future.result() or ""
+                except Exception:
+                    results[url] = ""
+        except FuturesTimeoutError:
+            # On slower hosts (e.g. Render free tier) not every page finishes
+            # scraping inside the 35s budget. Don't let this crash the whole
+            # pipeline — log it and continue with whatever came back in time.
+            pending = len(future_to_url) - len(done_futures)
+            print(f"[SCRAPE BATCH] timed out waiting on {pending} of {len(future_to_url)} URL(s) after 35s — continuing with partial results")
+
+        # The `with` block below blocks until every submitted future is done
+        # regardless of the timeout above, so by the time we get past it any
+        # late finishers are available too — backfill them instead of
+        # discarding that work.
+        for future, url in future_to_url.items():
+            if future not in done_futures:
+                try:
+                    results[url] = future.result() or ""
+                except Exception:
+                    results[url] = ""
 
     return results
 
@@ -1252,8 +1294,10 @@ def run_deepsearch(question: str, file_context: str = ""):
     except RuntimeError as e:
         # Config errors (missing API keys etc.)
         print(f"[DEEPSEARCH CONFIG] {e}")
+        traceback.print_exc()
         yield sse_event("error", message=str(e))
 
     except Exception as e:
         print(f"[DEEPSEARCH FATAL] {e}")
+        traceback.print_exc()
         yield sse_event("error", message="An unexpected error occurred. Please try again.")
