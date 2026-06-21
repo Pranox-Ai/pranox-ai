@@ -1551,13 +1551,50 @@ def deepsearch_page():
 
 @app.route("/api/deepsearch", methods=["POST"])
 def api_deepsearch():
-    data = request.get_json(force=True)
-    question = data.get("question", "").strip()
+    # Supports both:
+    #  - JSON body {"question": "..."}                         (no files, legacy)
+    #  - multipart/form-data: question field + files[] field    (with attachments)
+    files = []
+    if request.content_type and "multipart/form-data" in request.content_type:
+        question = request.form.get("question", "").strip()
+        files = request.files.getlist("files") or request.files.getlist("file")
+        files = [f for f in files if f and f.filename]
+    else:
+        data = request.get_json(silent=True) or {}
+        question = (data.get("question") or "").strip()
+
     if not question:
         return jsonify({"error": "Please provide a research question."}), 400
 
+    if len(files) > MAX_UPLOAD_FILES:
+        files = files[:MAX_UPLOAD_FILES]
+
+    # ── Extract text/image content from any attached files ─────────────────
+    file_sections = []
+    for file in files:
+        filename = file.filename
+        _, ext   = os.path.splitext(filename.lower())
+
+        try:
+            file_bytes = file.read()
+        except Exception as e:
+            print(f"DEEPSEARCH FILE READ ERROR [{filename}]:", e)
+            continue
+
+        if ext in IMAGE_EXTENSIONS:
+            description = analyse_image(file_bytes, ext, question)
+            if description:
+                file_sections.append(f"[Image: {filename}]\n{description}")
+        else:
+            text = extract_text(file_bytes, ext)
+            if text:
+                text = safe_trim(clean_text(text), MAX_CHARS_PER_FILE)
+                file_sections.append(f"[File: {filename}]\n{text}")
+
+    file_context = safe_trim("\n\n".join(file_sections), MAX_TOTAL_FILE_CHARS) if file_sections else ""
+
     def generate():
-        for chunk in run_deepsearch(question):
+        for chunk in run_deepsearch(question, file_context=file_context):
             yield chunk
 
     return Response(

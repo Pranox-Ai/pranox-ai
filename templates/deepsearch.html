@@ -71,6 +71,7 @@
 
     <div class="dr-input-wrapper">
       <div class="dr-input-area" id="drInputArea">
+        <div class="dr-file-chips" id="drFileChips"></div>
         <div class="dr-input-row">
           <button class="dr-tool-btn" onclick="focusResearchInput()" title="Deep research" aria-label="Deep research">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -78,6 +79,14 @@
               <path d="m21 21-4.35-4.35"/>
             </svg>
           </button>
+
+          <button class="dr-tool-btn" onclick="document.getElementById('drFileInput').click()" title="Attach files" aria-label="Attach files">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <input type="file" id="drFileInput" multiple hidden
+                 onchange="handleDrFileSelect(event)">
 
           <textarea id="drInput" placeholder="Ask Pranox Deep Research…" rows="1" autocomplete="off" spellcheck="true"></textarea>
 
@@ -90,7 +99,7 @@
           </button>
         </div>
       </div>
-      <p class="dr-disclaimer">Deep Research reads live web sources. Verify important facts before using them.</p>
+      <p class="dr-disclaimer">Deep Research reads live web sources and any files you attach. Verify important facts before using them.</p>
     </div>
   </main>
 </div>
@@ -340,7 +349,9 @@ let activeProgressId = null;
 let activeSources = [];
 let activeRecommendations = [];
 let activeReportText = "";
+let activeEngine = "";
 let activePlan = [];
+let attachedDrFiles = [];   // {id, file} — files staged for the next research request
 
 try { researchHistory = JSON.parse(localStorage.getItem("pranoxDeepResearchChats") || "[]"); } catch(e) { researchHistory = []; }
 
@@ -506,6 +517,50 @@ function closeDrSidebar() {
 function showResearchWelcome() { document.getElementById("drWelcomeScreen").style.display = "flex"; }
 function hideResearchWelcome() { document.getElementById("drWelcomeScreen").style.display = "none"; }
 function focusResearchInput() { drInputEl.focus(); }
+
+const MAX_DR_FILES = 10;
+
+function handleDrFileSelect(event) {
+  const picked = Array.from(event.target.files || []);
+  event.target.value = ""; // allow re-picking the same file later
+
+  if (!picked.length) return;
+
+  const room = MAX_DR_FILES - attachedDrFiles.length;
+  if (room <= 0) {
+    addResearchErrorMessage(`You can attach up to ${MAX_DR_FILES} files per research request.`);
+    return;
+  }
+
+  picked.slice(0, room).forEach(file => {
+    attachedDrFiles.push({ id: "f_" + Date.now() + "_" + Math.random().toString(16).slice(2), file });
+  });
+
+  renderDrFileChips();
+  drInputEl.focus();
+}
+
+function removeDrFile(id) {
+  attachedDrFiles = attachedDrFiles.filter(f => f.id !== id);
+  renderDrFileChips();
+}
+
+function renderDrFileChips() {
+  const wrap = document.getElementById("drFileChips");
+  if (!wrap) return;
+
+  wrap.innerHTML = attachedDrFiles.map(f => `
+    <div class="dr-file-chip" title="${escapeHtml(f.file.name)}">
+      <span class="dr-file-chip-name">${escapeHtml(f.file.name)}</span>
+      <button class="dr-file-chip-remove" type="button" onclick="removeDrFile('${f.id}')" aria-label="Remove file">✕</button>
+    </div>
+  `).join("");
+}
+
+function clearDrFiles() {
+  attachedDrFiles = [];
+  renderDrFileChips();
+}
 
 drInputEl.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -722,10 +777,17 @@ function attachRecommendationHandlers(scope) {
   });
 }
 
-function addResearchReportMessage(report, sources=[], recommendations=[], sourceCount=0, save=true) {
+function addResearchReportMessage(report, sources=[], recommendations=[], sourceCount=0, save=true, engine="") {
   const time = formatTime();
   const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
   const RETRY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`;
+
+  const isGemini = engine && engine.toLowerCase().includes("gemini");
+  const engineBadge = engine ? `
+    <span class="dr-engine-badge ${isGemini ? "gemini" : "groq"}">
+      <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor" opacity=".7"/></svg>
+      ${escapeHtml(engine)}
+    </span>` : "";
 
   const shownRecommendations = normalizeRecommendations(recommendations, lastResearchQuestion);
 
@@ -737,7 +799,10 @@ function addResearchReportMessage(report, sources=[], recommendations=[], source
       <div class="dr-bubble ai-bubble dr-report-bubble">
         <div class="dr-report-topline">
           <span class="dr-report-pill">Deep Research Report</span>
-          <span class="dr-report-count">${Number(sourceCount || sources.length || 0)} sources</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${engineBadge}
+            <span class="dr-report-count">${Number(sourceCount || sources.length || 0)} sources</span>
+          </div>
         </div>
         ${renderSources(sources, sourceCount)}
         <div class="dr-msg-text dr-report-text">${formatText(stripRelatedQuestionsSection(report || ""))}</div>
@@ -799,6 +864,8 @@ async function startDeepResearch(forcedQuestion="") {
     return;
   }
 
+  const filesToSend = attachedDrFiles.map(f => f.file);
+
   // If current chat already has content, start a fresh research thread automatically.
   if (currentChat.messages.length) {
     persistCurrentChat();
@@ -813,28 +880,47 @@ async function startDeepResearch(forcedQuestion="") {
   activeSources = [];
   activeRecommendations = [];
   activeReportText = "";
+  activeEngine = "";
   activePlan = [];
 
   drSendBtn.disabled = true;
   drSendBtn.style.opacity = "0.55";
   drInputEl.disabled = true;
 
+  const displayQuestion = filesToSend.length
+    ? `${question}\n\n📎 ${filesToSend.map(f => f.name).join(", ")}`
+    : question;
+
   currentChat.title = compactText(question, 54);
-  currentChat.messages.push({type:"user", text:question});
-  addResearchMessage(question, "user", false);
+  currentChat.messages.push({type:"user", text:displayQuestion});
+  addResearchMessage(displayQuestion, "user", false);
 
   drInputEl.value = "";
   drInputEl.style.height = "auto";
+  clearDrFiles();
 
   activeProgressId = addResearchProgressPanel();
-  addProgressStep("Starting Deep Research...");
+  addProgressStep(filesToSend.length ? "Reading your files and starting Deep Research..." : "Starting Deep Research...");
 
   try {
-    const response = await fetch("/api/deepsearch", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question})
-    });
+    let response;
+
+    if (filesToSend.length) {
+      const formData = new FormData();
+      formData.append("question", question);
+      filesToSend.forEach(file => formData.append("files", file));
+
+      response = await fetch("/api/deepsearch", {
+        method: "POST",
+        body: formData
+      });
+    } else {
+      response = await fetch("/api/deepsearch", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question})
+      });
+    }
 
     if (!response.ok || !response.body) {
       throw new Error("Research request failed.");
@@ -871,6 +957,11 @@ async function startDeepResearch(forcedQuestion="") {
 
 function handleResearchEvent(data) {
   if (!data || !data.type) return;
+
+  if (data.type === "engine") {
+    activeEngine = data.name || "";
+    return;
+  }
 
   if (data.type === "progress") {
     addProgressStep(data.message || "Working...");
@@ -914,7 +1005,8 @@ function handleResearchEvent(data) {
         activeSources,
         activeRecommendations,
         data.source_count || activeSources.length,
-        true
+        true,
+        activeEngine
       );
     }, 250);
     return;
@@ -1127,6 +1219,10 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 .dr-report-bubble{padding:0;overflow:hidden;background:var(--dr-bg2)}
 .dr-report-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dr-border);background:var(--dr-bg3)}
 .dr-report-pill{font-size:12.5px;font-weight:700;color:#bfdbfe;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.22);padding:4px 10px;border-radius:100px}
+.dr-engine-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:100px}
+.dr-engine-badge.gemini{color:#a3e635;background:rgba(163,230,53,.1);border:1px solid rgba(163,230,53,.22)}
+.dr-engine-badge.groq{color:#fb923c;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.22)}
+.dr-engine-badge svg{flex-shrink:0}
 .dr-report-count{font-size:12px;color:var(--dr-text3)}
 .dr-report-text{padding:20px 22px 22px}
 
@@ -1184,6 +1280,12 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 .dr-input-area{max-width:800px;margin:0 auto;background:var(--dr-bg2);border:1px solid var(--dr-border);border-radius:var(--dr-radius-lg);padding:6px 8px;transition:border-color .2s,box-shadow .2s}
 .dr-input-area:focus-within{border-color:rgba(37,99,235,.5);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .dr-input-row{display:flex;align-items:flex-end;gap:6px}
+.dr-file-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 8px}
+.dr-file-chips:empty{display:none}
+.dr-file-chip{display:flex;align-items:center;gap:6px;max-width:200px;background:var(--dr-bg3);border:1px solid var(--dr-border);border-radius:999px;padding:5px 8px 5px 10px;font-size:12px;color:var(--dr-text2)}
+.dr-file-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-file-chip-remove{flex-shrink:0;width:16px;height:16px;border:none;background:var(--dr-bg4);color:var(--dr-text2);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;padding:0}
+.dr-file-chip-remove:hover{background:var(--dr-red);color:#fff}
 #drInput{flex:1;background:transparent;border:none;outline:none;color:var(--dr-text);font-size:15px;font-family:var(--dr-font);padding:9px 6px;resize:none;max-height:150px;overflow-y:auto;line-height:1.55;min-height:38px}
 #drInput::placeholder{color:var(--dr-text3)}
 #drInput::-webkit-scrollbar{width:3px}

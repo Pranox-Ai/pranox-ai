@@ -1,42 +1,56 @@
 """
-Pranox Deep Research — v2.0 Production Engine
+Pranox Deep Research — v3.0 Production Engine
 ==============================================
 Agentic pipeline that mirrors how Perplexity & Gemini Deep Research work:
 
   Plan → Parallel Search (organic + news) → Parallel Scrape →
   Relevance Filter → Gap Check → Streaming Synthesis → Recommendations
 
-What's new in v2 vs v1:
+What's new in v3 vs v2:
+  ✦ File-grounded research — uploaded documents/images are merged in as
+    primary evidence alongside live web sources (file_context param)
+  ✦ Gemini synthesis        — final report is written by Gemini 2.5 Flash
+    (1M-token context, free tier) for longer, more detailed reports, with
+    automatic fallback to Groq if Gemini is unavailable/unset/rate-limited
+  ✦ Detail scaling          — longer minimum word count when files are attached
+
+What's in v2 (still here):
   ✦ Parallel search  — all queries fire simultaneously (ThreadPoolExecutor)
   ✦ Parallel scrape  — 8 concurrent page reads (3-5× speed improvement)
   ✦ Dual search      — Serper organic + Serper news in the same round
-  ✦ Live synthesis   — Groq streams tokens to the frontend in real time
   ✦ Smart passages   — extracts most relevant paragraphs, not blind first-N chars
   ✦ Token budgeting  — high-trust sources get more context allocation
   ✦ Redis caching    — search + scrape results cached (graceful fallback)
   ✦ Content dedup    — URL + content fingerprint deduplication
   ✦ Relevance filter — low-signal sources excluded before synthesis
-  ✦ Longer reports   — 3 000-token synthesis budget, 700-word minimum
 
 Env vars:
-  GROQ_API_KEY                   required
+  GROQ_API_KEY                   required   (planner, gap-checker, recommendations, synthesis fallback)
   SERPER_API_KEY                 required
-  REDIS_URL                      optional  (default: redis://localhost:6379/0)
-  DEEPSEARCH_PRIMARY_MODEL       optional  (default: openai/gpt-oss-120b)
-  DEEPSEARCH_FALLBACK_MODEL      optional  (default: openai/gpt-oss-20b)
-  DEEPSEARCH_MAX_ROUNDS          optional  (default: 3)
-  DEEPSEARCH_RESULTS_PER_QUERY   optional  (default: 8)
-  DEEPSEARCH_READ_PER_QUERY      optional  (default: 4)
-  DEEPSEARCH_MAX_TOTAL_SOURCES   optional  (default: 25)
-  DEEPSEARCH_MAX_SYNTH_SOURCES   optional  (default: 14)
-  SERPER_GL                      optional  (default: in)
-  SERPER_HL                      optional  (default: en)
+  GEMINI_API_KEY                 optional   (enables long-context/file-grounded synthesis — strongly recommended)
+  GEMINI_MODEL                   optional   (default: gemini-2.5-flash)
+  REDIS_URL                      optional   (default: redis://localhost:6379/0)
+  DEEPSEARCH_PRIMARY_MODEL       optional   (default: openai/gpt-oss-120b)
+  DEEPSEARCH_FALLBACK_MODEL      optional   (default: openai/gpt-oss-20b)
+  DEEPSEARCH_MAX_ROUNDS          optional   (default: 3)
+  DEEPSEARCH_RESULTS_PER_QUERY   optional   (default: 8)
+  DEEPSEARCH_READ_PER_QUERY      optional   (default: 4)
+  DEEPSEARCH_MAX_TOTAL_SOURCES   optional   (default: 25)
+  DEEPSEARCH_MAX_SYNTH_SOURCES   optional   (default: 14)
+  SERPER_GL                      optional   (default: in)
+  SERPER_HL                      optional   (default: en)
+
+run_deepsearch(question, file_context="") — file_context is the already-
+extracted plain-text content of any files the user uploaded (built by
+app.py using its existing extract_text()/analyse_image() helpers). Pass
+"" or omit it when there are no attached files — behaviour is identical
+to v2 in that case.
 
 SSE event types yielded by run_deepsearch():
   progress    {message}                   — status updates
   plan        {questions}                 — research angles list
   source      {title, url, domain}        — each discovered source
-  stream      {chunk}                     — live synthesis tokens  ← NEW
+  stream      {chunk}                     — live synthesis tokens
   result      {content, source_count, sources, recommendations}
   suggestions {questions}                 — follow-up question list
   error       {message}
@@ -70,11 +84,11 @@ SERPER_GL      = os.getenv("SERPER_GL", "in")
 SERPER_HL      = os.getenv("SERPER_HL", "en")
 REDIS_URL      = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-MAX_ROUNDS          = int(os.getenv("DEEPSEARCH_MAX_ROUNDS",          "3"))
-RESULTS_PER_QUERY   = int(os.getenv("DEEPSEARCH_RESULTS_PER_QUERY",   "8"))
-READ_PER_QUERY      = int(os.getenv("DEEPSEARCH_READ_PER_QUERY",      "4"))
-MAX_TOTAL_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_TOTAL_SOURCES",   "25"))
-MAX_SYNTH_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_SYNTH_SOURCES",   "14"))
+MAX_ROUNDS          = int(os.getenv("DEEPSEARCH_MAX_ROUNDS",          "4"))
+RESULTS_PER_QUERY   = int(os.getenv("DEEPSEARCH_RESULTS_PER_QUERY",   "10"))
+READ_PER_QUERY      = int(os.getenv("DEEPSEARCH_READ_PER_QUERY",      "6"))
+MAX_TOTAL_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_TOTAL_SOURCES",   "80"))
+MAX_SYNTH_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_SYNTH_SOURCES",   "30"))
 
 SCRAPE_WORKERS      = 8      # concurrent page fetches
 SEARCH_WORKERS      = 5      # concurrent Serper requests
@@ -83,8 +97,10 @@ SERPER_TIMEOUT      = 10     # seconds per search call
 CACHE_SEARCH_TTL    = 3_600  # 1 hour
 CACHE_SCRAPE_TTL    = 86_400 # 24 hours
 RELEVANCE_THRESHOLD = 0.07   # min keyword overlap to include a source
-SYNTH_CONTEXT_CHARS = 13_000 # total char budget fed to synthesizer
-SYNTH_MAX_TOKENS    = 3_000  # Groq max_tokens for synthesis
+SYNTH_CONTEXT_CHARS = 40_000 # total char budget fed to synthesizer (web evidence)
+SYNTH_MAX_TOKENS    = 4_000  # Groq max_tokens for synthesis (fallback path)
+GEMINI_MAX_TOKENS   = int(os.getenv("GEMINI_MAX_TOKENS", "16000"))  # Gemini output budget (primary path)
+FILE_CONTEXT_BUDGET = 50_000 # char budget for uploaded-file content in the synthesis prompt
 
 REQUEST_HEADERS = {
     "User-Agent": (
@@ -184,6 +200,70 @@ def _get_groq():
             raise RuntimeError("GROQ_API_KEY is not set.")
         _groq_client = Groq(api_key=api_key)
     return _groq_client
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  GEMINI CLIENT  (raw REST — no SDK dependency needed, uses `requests`
+#  which is already a project dependency)
+# ═══════════════════════════════════════════════════════════════════════════
+
+GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL    = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_TIMEOUT  = 110  # seconds — long-context synthesis can take a while
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def _gemini_stream(prompt: str, max_tokens: int = 8192, temperature: float = 0.25):
+    """
+    Streams text deltas from Gemini's REST API (alt=sse).
+    Generator that yields plain-text chunks as they arrive.
+    Raises RuntimeError on any hard failure so the caller can fall back to Groq.
+    """
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not set.")
+
+    url = f"{GEMINI_BASE_URL}/{GEMINI_MODEL}:streamGenerateContent"
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+
+    resp = requests.post(
+        url,
+        params={"alt": "sse", "key": GEMINI_API_KEY},
+        json=payload,
+        stream=True,
+        timeout=GEMINI_TIMEOUT,
+    )
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"Gemini HTTP {resp.status_code}: {safe_trim(resp.text, 300)}")
+
+    got_any = False
+    for raw_line in resp.iter_lines(decode_unicode=True):
+        if not raw_line or not raw_line.startswith("data: "):
+            continue
+        chunk_str = raw_line[6:].strip()
+        if not chunk_str or chunk_str == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(chunk_str)
+        except Exception:
+            continue
+        try:
+            for part in chunk["candidates"][0]["content"]["parts"]:
+                text = part.get("text", "")
+                if text:
+                    got_any = True
+                    yield text
+        except (KeyError, IndexError, TypeError):
+            continue
+
+    if not got_any:
+        raise RuntimeError("Gemini returned no content.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -329,14 +409,25 @@ def run_llm(
 #  STEP 1 — RESEARCH PLANNER
 # ═══════════════════════════════════════════════════════════════════════════
 
-def planner(question: str) -> list[str]:
+def planner(question: str, file_context: str = "") -> list[str]:
     """
     Break the research question into 6 diverse, targeted search queries —
     each covering a different angle so we get maximum coverage.
+    If the user attached file(s), a short excerpt is given as extra context
+    so the generated queries are sharper / more specific to their material.
     """
+    file_hint = ""
+    if file_context:
+        file_hint = (
+            "\n\nThe user also attached document(s)/image(s). Relevant excerpt:\n"
+            f"{safe_trim(file_context, 1_500)}\n"
+            "Use this to make the queries more specific to their material, "
+            "but still write real, standalone web search queries."
+        )
+
     prompt = f"""You are an expert research planner for Pranox DeepSearch (like Perplexity AI).
 
-User's research question: "{question}"
+User's research question: "{question}"{file_hint}
 
 Generate 6 highly specific, diverse Google search queries for complete topic coverage.
 
@@ -750,54 +841,94 @@ def _build_synthesis_prompt(
     context: str,
     sources_list: str,
     source_count: int,
+    file_context: str = "",
 ) -> str:
+    has_files = bool(file_context)
+
+    file_section = ""
+    if has_files:
+        file_section = f"""═══ USER-UPLOADED DOCUMENTS (primary, high-trust evidence) ═══
+{file_context}
+
+"""
+
+    if has_files and source_count > 0:
+        intro = f'You have user-uploaded document(s) AND evidence read from {source_count} real web sources.'
+    elif has_files:
+        intro = 'You have user-uploaded document(s) to research from (live web search returned no usable evidence this time).'
+    else:
+        intro = f'You have gathered and read evidence from {source_count} real web sources.'
+
+    file_rules = (
+        """• Treat the uploaded documents as primary evidence — ground the report in them first
+• Use the web evidence to add context, verification, comparisons, or up-to-date information around the uploaded material
+• When citing the uploaded documents, write [Uploaded: filename] instead of a numbered citation
+• Explicitly call out anything in the uploaded documents that the web evidence confirms, updates, or contradicts
+"""
+        if has_files else ""
+    )
+
+    min_words = "3,000" if has_files else "2,500"
+
     return f"""You are Pranox DeepSearch — a world-class AI research engine rivalling Perplexity and Gemini Deep Research.
 
 Research question: "{question}"
 
-You have gathered and read evidence from {source_count} real web sources. Write a premium, insightful research report.
+{intro} Write a comprehensive, publication-quality deep research report. This must be exhaustive and detailed — the user expects the depth of a Gemini Deep Research report.
 
-═══ EVIDENCE FROM THE WEB ═══
+{file_section}═══ EVIDENCE FROM THE WEB ═══
 {context}
 
 ═══ SOURCE REFERENCE LIST ═══
 {sources_list}
 
 ═══ REPORT REQUIREMENTS ═══
-• Minimum 700 words — this is a DEEP research report, not a quick summary
-• Open with 2–3 sentences that directly answer the question
-• Use ## markdown headings for every section
+• Minimum {min_words} words — this is a DEEP research report, not a summary. More depth is always better.
+• Open with a strong executive summary that directly answers the question in 3–4 sentences
+• Use ## markdown headings and ### sub-headings for every section
 • After every factual claim add an inline citation [1], [2] etc. — cite ONLY numbered sources above
-• Cross-reference multiple sources; explicitly note agreements AND conflicts
-• Include specific numbers, dates, names, statistics wherever the evidence provides them
-• Be analytical and insightful — draw connections, not just descriptions
+{file_rules}• Cross-reference multiple sources; explicitly call out agreements AND conflicts between sources
+• Include specific numbers, dates, names, statistics, percentages wherever the evidence provides them
+• Every major section must have at least 3–4 substantive paragraphs — no thin sections
+• Be analytical and insightful — synthesize across sources, draw non-obvious connections
+• Compare and contrast different perspectives, approaches, or schools of thought
+• Where relevant, include historical context AND future outlook in the same section
 • Never write "based on my research", "I searched", or "according to the sources" — be authoritative
-• If evidence is thin on a sub-topic, say so honestly
+• If evidence is thin on a sub-topic, say so honestly and explain what is known vs unknown
 
 ═══ REQUIRED STRUCTURE ═══
 
-## Overview
-[2–3 sentence direct answer + essential context]
+## Executive Summary
+[3–4 sentence direct answer + essential context + key takeaway]
+
+## Background & Context
+[Historical background, why this topic matters, how it evolved to its current state — 3+ paragraphs]
 
 ## Key Findings
-[5–7 bullet points of the most important facts, each with at least one citation]
+[8–12 bullet points of the most important facts, data points, and insights, each with at least one citation]
 
 ## Detailed Analysis
-[3–4 paragraphs of in-depth analysis comparing and contrasting sources, all claims cited]
+[5–6 paragraphs of deep in-depth analysis. Compare and contrast sources, examine causes and effects, evaluate evidence quality, highlight what is well-established vs disputed]
 
 ## Current State & Recent Developments
-[Latest news, trends, data points — what's true as of 2024-2025]
+[Latest news, trends, data points, statistics — what is true as of 2024–2025, with dates where possible]
+
+## Different Perspectives & Debates
+[Where experts, studies, or stakeholders disagree — present multiple sides with citations, evaluate the strength of each position]
 
 ## Challenges & Limitations
-[Counterpoints, risks, unsolved problems, conflicting evidence, criticism]
+[Counterpoints, risks, unsolved problems, conflicting evidence, criticism, practical constraints]
 
 ## Outlook & Implications
-[Where this is headed, what it means, why it matters — forward-looking with citations]
+[Where this is headed, what it means for practitioners/researchers/society, why it matters — forward-looking with citations, at least 3 paragraphs]
+
+## Conclusion
+[2–3 paragraph synthesis that ties all threads together and answers the original question definitively]
 
 ## Sources
 [List every source exactly as numbered in the SOURCE REFERENCE LIST above]
 
-Write the full report now. Be thorough, specific, and analytical."""
+Write the full report now. Be exhaustive, specific, and deeply analytical. Length is a feature — do not truncate."""
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -843,18 +974,24 @@ Rules:
 #  MAIN AGENTIC LOOP
 # ═══════════════════════════════════════════════════════════════════════════
 
-def run_deepsearch(question: str):
+def run_deepsearch(question: str, file_context: str = ""):
     """
     Flask SSE generator — yields SSE-formatted strings for live frontend updates.
+
+    file_context: optional plain-text extracted from any files the user
+    uploaded alongside the question (built by app.py's extract_text() /
+    analyse_image() helpers and joined together). Pass "" if there are
+    no attached files.
 
     Usage in app.py:
         from deepsearch import run_deepsearch
         return Response(
-            stream_with_context(run_deepsearch(q)),
+            stream_with_context(run_deepsearch(q, file_context=fc)),
             mimetype="text/event-stream"
         )
     """
-    question = clean_text(question)
+    question     = clean_text(question)
+    file_context = safe_trim(clean_text(file_context), FILE_CONTEXT_BUDGET) if file_context else ""
 
     # ── Pre-flight checks ──────────────────────────────────────────────────
     if not question:
@@ -872,7 +1009,9 @@ def run_deepsearch(question: str):
         #  PHASE 1 — PLAN
         # ══════════════════════════════════════════════════════════════════
         yield sse_event("progress", message="Analyzing your research question...")
-        sub_questions = planner(question)
+        if file_context:
+            yield sse_event("progress", message="Reading your uploaded files into the research...")
+        sub_questions = planner(question, file_context)
 
         yield sse_event("plan", questions=sub_questions)
         yield sse_event(
@@ -994,7 +1133,7 @@ def run_deepsearch(question: str):
                 )
 
         # ── Sanity check ──────────────────────────────────────────────────
-        if not knowledge_base:
+        if not knowledge_base and not file_context:
             yield sse_event(
                 "error",
                 message="Could not collect enough web evidence. Try rephrasing your question.",
@@ -1003,49 +1142,76 @@ def run_deepsearch(question: str):
 
         yield sse_event(
             "progress",
-            message=f"Building report from {len(knowledge_base)} sources...",
+            message=f"Building report from {len(knowledge_base)} sources"
+                    + (" + your uploaded files..." if file_context else "..."),
         )
 
         # ══════════════════════════════════════════════════════════════════
         #  PHASE 3 — STREAMING SYNTHESIS
-        #  (tokens stream live to the frontend as Groq generates them)
+        #  Gemini (long-context, file-grounded, more detailed) is tried first;
+        #  if it's not configured or fails, falls back to Groq automatically.
         # ══════════════════════════════════════════════════════════════════
         ranked           = rank_sources(knowledge_base)[:MAX_SYNTH_SOURCES]
         context, src_lst = build_context(ranked)
-        synth_prompt     = _build_synthesis_prompt(question, context, src_lst, len(ranked))
+        synth_prompt     = _build_synthesis_prompt(question, context, src_lst, len(ranked), file_context)
 
-        client       = _get_groq()
-        report_parts: list[str] = []
-        stream_started = False
+        report_parts:   list[str] = []
+        stream_started             = False
+        synth_succeeded             = False
 
-        for model in MODELS:
+        # ── Try Gemini first ────────────────────────────────────────────
+        if GEMINI_API_KEY:
             try:
-                completion = client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": synth_prompt}],
-                    temperature=0.2,
-                    max_tokens=SYNTH_MAX_TOKENS,
-                    stream=True,
-                )
+                for delta in _gemini_stream(synth_prompt, max_tokens=GEMINI_MAX_TOKENS, temperature=0.25):
+                    if not stream_started:
+                        yield sse_event("progress", message="Writing detailed report...")
+                        yield sse_event("engine", name="Gemini 2.5 Flash")
+                        stream_started = True
+                    report_parts.append(delta)
+                    yield sse_event("stream", chunk=delta)   # live token stream
 
-                for chunk in completion:
-                    if not chunk.choices:
-                        continue  # some providers send a final usage-only chunk with no choices
-                    delta = chunk.choices[0].delta.content or ""
-                    if delta:
-                        if not stream_started:
-                            yield sse_event("progress", message="Writing report...")
-                            stream_started = True
-                        report_parts.append(delta)
-                        yield sse_event("stream", chunk=delta)   # live token stream
-
-                break  # success — skip fallback
-
+                if report_parts:
+                    synth_succeeded = True
             except Exception as e:
-                print(f"[SYNTH STREAM] {model} failed: {e}")
+                print(f"[SYNTH GEMINI] failed: {e}")
                 report_parts = []
                 stream_started = False
-                time.sleep(0.5)
+
+        # ── Fallback: Groq ──────────────────────────────────────────────
+        if not synth_succeeded:
+            client = _get_groq()
+
+            for model in MODELS:
+                try:
+                    completion = client.chat.completions.create(
+                        model=model,
+                        messages=[{"role": "user", "content": synth_prompt}],
+                        temperature=0.2,
+                        max_tokens=SYNTH_MAX_TOKENS,
+                        stream=True,
+                    )
+
+                    for chunk in completion:
+                        if not chunk.choices:
+                            continue  # some providers send a final usage-only chunk with no choices
+                        delta = chunk.choices[0].delta.content or ""
+                        if delta:
+                            if not stream_started:
+                                yield sse_event("progress", message="Writing report...")
+                                yield sse_event("engine", name="Groq")
+                                stream_started = True
+                            report_parts.append(delta)
+                            yield sse_event("stream", chunk=delta)   # live token stream
+
+                    if report_parts:
+                        synth_succeeded = True
+                    break  # success — skip remaining fallback models
+
+                except Exception as e:
+                    print(f"[SYNTH STREAM] {model} failed: {e}")
+                    report_parts = []
+                    stream_started = False
+                    time.sleep(0.5)
 
         report = "".join(report_parts)
 
