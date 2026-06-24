@@ -4,6 +4,8 @@
 
 ### Powerful All-in-One Intelligent Assistant for Coding, Content Creation, Deep Research, and Automation
 
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&duration=3000&pause=1000&color=2EA44F&center=true&vCenter=true&multiline=false&width=700&lines=AI+Chat+%C2%B7+Deep+Research+%C2%B7+Code+Generation;Powered+by+Gemini+API+%2B+Groq+LLaMA;Real-Time+SSE+Streaming+%C2%B7+Parallel+Research;Built+for+Students%2C+Developers+%26+Creators" alt="Typing Animation" />
+
 <p>
   <b>Built for students, developers, creators, and productivity-focused users.</b>
 </p>
@@ -29,6 +31,8 @@
   ·
   <a href="https://razorpay.me/@pranoxai"><b>Support</b></a>
 </p>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=2ea44f&height=80&section=header&fontSize=0" />
 
 </div>
 
@@ -212,6 +216,14 @@ AI-decided web search (not keyword-based) for research-style queries.
 
 ## ⚙️ Tech Stack
 
+<div align="center">
+
+<img src="https://skillicons.dev/icons?i=python,flask,sqlite,html,css,js,github,cloudflare&theme=dark&perline=8" />
+
+</div>
+
+<br>
+
 | Category | Technology |
 |---|---|
 | **Backend** | Flask (Python) |
@@ -297,6 +309,8 @@ AI-decided web search (not keyword-based) for research-style queries.
 **Founder of Pranox AI** · 2nd Year CSE · BIET Davanagere, Karnataka
 
 > Building intelligent AI systems to simplify coding, content creation, deep research, and productivity — accessible to everyone.
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=14&duration=4000&pause=1000&color=6F42C1&center=true&vCenter=true&width=500&lines=Founder+%40+Pranox+AI;Full-Stack+AI+Engineer;Building+the+future+of+accessible+AI" alt="Founder Typing" />
 
 </div>
 
@@ -388,6 +402,8 @@ More powerful features and improvements are coming soon.
 <div align="center">
 
 ### Stay tuned 🚀
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=2ea44f&height=80&section=footer&fontSize=0" />
 
 </div>
 
