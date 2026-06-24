@@ -2,7 +2,7 @@
 
 # 🚀 Pranox AI
 
-### Powerful All-in-One Intelligent Assistant for Coding, Content Creation, Productivity, and Automation
+### Powerful All-in-One Intelligent Assistant for Coding, Content Creation, Deep Research, and Automation
 
 <p>
   <b>Built for students, developers, creators, and productivity-focused users.</b>
@@ -15,8 +15,9 @@
   <img src="https://img.shields.io/badge/Backend-Flask-0052CC?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Database-SQLite-07405E?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Frontend-HTML%20%7C%20CSS%20%7C%20JavaScript-F7DF1E?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/AI-LLaMA%20Models-6f42c1?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Deep%20Research-Live%20Web%20Sources-2563eb?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AI-LLaMA%20%7C%20Gemini-6f42c1?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Deep%20Research-Parallel%20%7C%20Live%20Web-2563eb?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Streaming-SSE%20Real--Time-orange?style=for-the-badge" />
 </p>
 
 <p>
@@ -39,13 +40,14 @@
 
 Built with a focus on **speed**, **accuracy**, and **simplicity**, Pranox AI combines advanced AI capabilities into a single platform for **students**, **developers**, and **creators**.
 
-The platform is designed to provide a clean and useful AI experience where users can ask questions, generate content, work with code, analyze documents, create images, complete productivity tasks faster, and perform **Deep Research** using live web sources.
+The platform provides a clean and powerful AI experience where users can ask questions, generate content, work with code, analyze documents, create images, and perform **Deep Research** using live web sources — all powered by a dual-engine AI stack: **Google Gemini API** (primary) with **Groq LLaMA** (fallback).
 
 ---
 
 ## 📖 Table of Contents
 
 - [Overview](#-overview)
+- [What's New](#-whats-new)
 - [Project Highlights](#-project-highlights)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
@@ -62,20 +64,37 @@ The platform is designed to provide a clean and useful AI experience where users
 
 ---
 
+## 🆕 What's New
+
+> **Latest Updates — June 2026**
+
+| Update | Details |
+|---|---|
+| 🧠 **Google Gemini API Integration** | Gemini is now the primary synthesis engine for Deep Research, delivering higher quality and more structured reports |
+| ⚡ **Groq Fallback Engine** | Groq (LLaMA) automatically takes over if Gemini is unavailable — zero downtime |
+| 📂 **Multi-File Upload** | Upload and analyze up to **10 files simultaneously** across PDF, images, and text formats |
+| 🎚️ **Thinking Effort Selector** | Choose AI depth: **Off / Low / Medium / High** — balance speed vs. quality per query |
+| 🌊 **SSE Real-Time Streaming** | Deep Research results stream token-by-token via Server-Sent Events — no more waiting for full responses |
+| 🔀 **Parallel Deep Research** | Multi-source research now runs in **parallel threads** using `ThreadPoolExecutor` — significantly faster |
+| 🔍 **LLM-Driven Search Trigger** | Replaced keyword-based search logic with an **AI-decided** `search_decision()` function — mirrors how ChatGPT/Perplexity handle search intent |
+| 💬 **Emotion Detection** | Chat responses adapt tone based on detected user emotion for a more natural conversation experience |
+
+---
+
 ## ✨ Project Highlights
 
 <table>
 <tr>
 <td align="center"><b>⚡ Fast</b></td>
 <td align="center"><b>🎯 Accurate</b></td>
-<td align="center"><b>🧠 Intelligent</b></td>
+<td align="center"><b>🧠 Dual-Engine AI</b></td>
 <td align="center"><b>🧩 All-in-One</b></td>
 </tr>
 <tr>
-<td align="center">Quick responses for daily tasks</td>
-<td align="center">Clear and useful answers</td>
-<td align="center">Context-aware conversations</td>
-<td align="center">Multiple AI tools in one platform</td>
+<td align="center">Parallel research + SSE streaming</td>
+<td align="center">Gemini synthesis + live web sources</td>
+<td align="center">Gemini primary, Groq fallback</td>
+<td align="center">Chat, Research, Code, Images & more</td>
 </tr>
 </table>
 
@@ -89,24 +108,26 @@ The platform is designed to provide a clean and useful AI experience where users
 
 ### 🤖 AI Chat Assistant
 
-Pranox AI provides a clean and intelligent chat experience for users who need useful answers quickly.
+Intelligent, context-aware chat with emotion detection for tone-adaptive responses.
 
-- Answer questions with high accuracy
-- Context-aware conversations
+- LLM-driven search trigger (decides when to use web — no keyword guessing)
+- Emotion-aware tone adaptation
+- Context-aware multi-turn conversations
 - Clean and structured responses
 
 </td>
 <td width="50%">
 
-### 🔎 Deep Research
+### 🔎 Deep Research Engine
 
-Pranox AI includes a dedicated Deep Research mode for users who need detailed answers from multiple web sources.
+Production-grade parallel research powered by **Google Gemini API** with live web synthesis.
 
-- Searches live web sources
-- Reads and analyzes multiple pages
-- Creates structured research reports
-- Provides source-based answers
-- Useful for complex topics, comparisons, current updates, and detailed study
+- **Parallel multi-source search** via `ThreadPoolExecutor`
+- **Gemini API** for primary synthesis — higher quality reports
+- **Groq fallback** for 100% uptime
+- **SSE streaming** — results appear in real-time
+- Structured research reports with source citations
+- Supports complex topics, comparisons, and current updates
 
 </td>
 </tr>
@@ -116,7 +137,7 @@ Pranox AI includes a dedicated Deep Research mode for users who need detailed an
 
 ### 💻 Code Generation & Explanation
 
-Pranox AI helps students and developers write, understand, debug, and improve code.
+Helps students and developers write, understand, debug, and improve code.
 
 - Generate code in multiple languages
 - Debug and improve existing code
@@ -127,7 +148,7 @@ Pranox AI helps students and developers write, understand, debug, and improve co
 
 ### 📝 Content Creation
 
-Pranox AI supports users in creating professional and useful written content.
+Supports users in creating professional and useful written content.
 
 - Professional email writing
 - Resume generation
@@ -139,23 +160,24 @@ Pranox AI supports users in creating professional and useful written content.
 <tr>
 <td width="50%">
 
-### 📄 Document Analysis
+### 📄 Document Analysis (Multi-File)
 
-Pranox AI can analyze documents and extract meaningful information from different file types.
+Analyze up to **10 files simultaneously** across different formats.
 
 - Supports PDF, images, and text files
-- Extracts and summarizes key information
-- Provides structured insights
+- Parallel processing of multiple documents
+- Extracts and synthesizes key information across files
 
 </td>
 <td width="50%">
 
 ### 🖼️ AI Image Generation
 
-Pranox AI includes image generation features for creative and visual tasks.
+Image generation for creative and visual tasks via Cloudflare Workers AI.
 
 - Generate high-quality images from prompts
 - Fast and visually detailed outputs
+- Serverless — no compute cost
 
 </td>
 </tr>
@@ -163,23 +185,24 @@ Pranox AI includes image generation features for creative and visual tasks.
 <tr>
 <td width="50%">
 
-### 🧠 Smart Memory
+### 🎚️ Thinking Effort Control
 
-Pranox AI is designed to provide a more personalized assistant experience.
+A unique control that gives users direct power over AI behavior.
 
-- Remembers user preferences
-- Personalized responses
+- **Off** — instant responses, minimal processing
+- **Low / Medium / High** — progressively deeper reasoning
+- Balances speed vs. depth per query
 
 </td>
 <td width="50%">
 
 ### 🌐 Live Web Research
 
-Pranox AI can support research-style queries by collecting information from web sources and generating useful summaries.
+AI-decided web search (not keyword-based) for research-style queries.
 
-- Helps with current information
-- Supports deeper topic exploration
-- Improves answers for research-based questions
+- LLM autonomously decides when live data is needed
+- Real-time Google search via Serper API
+- Improves accuracy for current events and fast-changing topics
 
 </td>
 </tr>
@@ -191,11 +214,15 @@ Pranox AI can support research-style queries by collecting information from web 
 
 | Category | Technology |
 |---|---|
-| **Backend** | Flask `Python` |
+| **Backend** | Flask (Python) |
 | **Database** | SQLite |
-| **AI Engine** | API `LLaMA Models` |
-| **Deep Research** | Live Web Search, Source Reading, AI Synthesis |
-| **Image Generation** | API Used |
+| **Primary AI Engine** | Google Gemini API |
+| **Fallback AI Engine** | Groq API — LLaMA Models |
+| **Web Search** | Serper API (Google Search) |
+| **Image Generation** | Cloudflare Workers AI |
+| **Streaming** | Server-Sent Events (SSE) |
+| **Parallel Processing** | Python `ThreadPoolExecutor` |
+| **Auth** | Google OAuth 2.0 |
 | **Frontend** | HTML, CSS, JavaScript |
 | **Hosting** | Render |
 
@@ -209,22 +236,22 @@ Pranox AI can support research-style queries by collecting information from web 
 
 ### 🎓 For Students
 
+- Deep Research for assignments and projects
 - Learn concepts faster
-- Understand code easily
-- Generate notes and content
-- Analyze documents
-- Research complex topics deeply
+- Understand and write code easily
+- Analyze multiple documents at once
+- Generate notes and summaries
 
 </td>
 <td width="33%">
 
 ### 👨‍💻 For Developers
 
-- Generate code
-- Debug errors
-- Improve existing code
+- Generate and debug code
+- Research technologies with live web data
 - Understand programming concepts
-- Research technologies and tools
+- Use thinking effort control for complex problems
+- Analyze codebases via document upload
 
 </td>
 <td width="33%">
@@ -232,10 +259,10 @@ Pranox AI can support research-style queries by collecting information from web 
 ### 🎨 For Creators
 
 - Generate content ideas
-- Write articles and text
-- Create image prompts
-- Improve productivity
-- Explore topics with Deep Research
+- Write articles, emails, and resumes
+- Create image prompts and generate visuals
+- Deep Research for content accuracy
+- Emotion-aware writing assistance
 
 </td>
 </tr>
@@ -267,9 +294,9 @@ Pranox AI can support research-style queries by collecting information from web 
 
 ### Chetansaipranav R
 
-**Founder of Pranox AI**
+**Founder of Pranox AI** · 2nd Year CSE · BIET Davanagere, Karnataka
 
-> Building intelligent AI systems to simplify coding, content creation, and productivity.
+> Building intelligent AI systems to simplify coding, content creation, deep research, and productivity — accessible to everyone.
 
 </div>
 
@@ -279,16 +306,16 @@ Pranox AI can support research-style queries by collecting information from web 
 
 | Platform | Link |
 |---|---|
-| 🔗 **LinkedIn** | https://www.linkedin.com/in/chetansaipranav-r-a6b18333b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app |
+| 🔗 **LinkedIn** | https://www.linkedin.com/in/chetansaipranav-r-a6b18333b |
 | 🐦 **Twitter / X** | https://x.com/Pranoxgroups |
 | 🌍 **Website** | https://pranox-ai.onrender.com |
-| 📸 **Instagram** | https://www.instagram.com/pranoxgroups?igsh=a2EzOXUzdDV2MzVq |
+| 📸 **Instagram** | https://www.instagram.com/pranoxgroups |
 
 ---
 
 ## 🎯 Vision
 
-**Pranox AI** aims to become a next-generation AI assistant that integrates multiple capabilities into a single, seamless experience.
+**Pranox AI** aims to become a next-generation AI assistant that integrates multiple capabilities into a single, seamless experience — purpose-built for students and professionals in emerging markets.
 
 The goal is to make AI:
 
@@ -301,20 +328,21 @@ The goal is to make AI:
 </tr>
 </table>
 
-Pranox AI focuses on making advanced AI tools easier to use for daily productivity, learning, development, creative work, and deep research.
-
 ---
 
 ## 🔮 Future Plans
 
-Pranox AI is continuously improving with more powerful features and performance upgrades planned for future updates.
-
-- Advanced memory system
-- Voice assistant integration
-- Mobile app version
-- More AI models and tools
-- Deep Research improvements with better source ranking and citations
-- Performance optimization
+| Feature | Status |
+|---|---|
+| 🤖 Autonomous Agent Orchestrator | 🔧 In Development |
+| 📅 Google Calendar Integration (OAuth) | 🔧 In Development |
+| 📁 Google Drive Integration (OAuth) | 🔧 In Development |
+| 📹 Zoom Integration | 🔧 Planned |
+| 🌐 Browser Automation Agent | 🔧 Planned |
+| 🎙️ Voice Assistant Integration | 📋 Planned |
+| 📱 Mobile App Version | 📋 Planned |
+| 🏆 Advanced Memory System | 📋 Planned |
+| 🔍 Better Deep Research — Source Ranking & Citations | 📋 Planned |
 
 ---
 
@@ -337,8 +365,6 @@ Your ideas, feedback, and improvements can help make Pranox AI better.
 
 If you like this project, consider giving it a ⭐ on GitHub — it really helps support the project.
 
-You can also support us here:
-
 <div align="center">
 
 <a href="https://razorpay.me/@pranoxai">
@@ -355,7 +381,7 @@ You can also support us here:
 
 ## 💡 Final Note
 
-**Pranox AI** is continuously evolving.
+**Pranox AI** is continuously evolving — from a 4-tool student project in January 2026 to a production AI platform with parallel research, dual-engine synthesis, real-time streaming, and an autonomous agent layer in development.
 
 More powerful features and improvements are coming soon.
 
@@ -370,6 +396,7 @@ More powerful features and improvements are coming soon.
 ## 📄 Rights
 
 <div align="center">
-**All Rights Reserved**
+
+**All Rights Reserved © 2026 Pranox AI**
 
 </div>
