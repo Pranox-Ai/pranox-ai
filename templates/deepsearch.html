@@ -1171,16 +1171,16 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 .dr-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;margin-top:2px}
 .ai-avatar{background:linear-gradient(135deg,var(--dr-blue),var(--dr-purple));color:#fff}
 .user-avatar{background:var(--dr-bg4);color:var(--dr-text2)}
-.dr-msg-col{display:flex;flex-direction:column;max-width:min(76%,780px);gap:5px}
+.dr-msg-col{display:flex;flex-direction:column;max-width:min(76%,780px);gap:5px;min-width:0}
 .dr-msg-row.user .dr-msg-col{align-items:flex-end}
 .dr-msg-row.ai .dr-msg-col{align-items:flex-start}
-.dr-bubble{padding:13px 17px;border-radius:var(--dr-radius-lg);line-height:1.65;word-wrap:break-word;overflow-wrap:break-word}
+.dr-bubble{padding:13px 17px;border-radius:var(--dr-radius-lg);line-height:1.65;word-wrap:break-word;overflow-wrap:break-word;width:100%}
 .user-bubble{background:var(--dr-blue);color:#fff;border-radius:var(--dr-radius-lg) var(--dr-radius-lg) 4px var(--dr-radius-lg);font-size:15px}
 .ai-bubble{background:var(--dr-bg3);color:var(--dr-text);border:1px solid var(--dr-border);border-radius:var(--dr-radius-lg) var(--dr-radius-lg) var(--dr-radius-lg) 4px;font-size:15px}
 
 /* ── PROGRESS ── */
-.dr-progress-col{max-width:min(82%,840px)}
-.dr-progress-bubble{min-width:min(660px,80vw);padding:16px}
+.dr-progress-col{max-width:min(82%,840px);min-width:0}
+.dr-progress-bubble{min-width:0;width:min(660px,80vw);max-width:100%;padding:16px}
 .dr-progress-head{display:flex;align-items:center;gap:12px;margin-bottom:13px}
 .dr-progress-head strong{display:block;font-size:14px;color:#fff;font-weight:650}
 .dr-progress-head small{display:block;font-size:12.5px;color:var(--dr-text3);margin-top:2px}
@@ -1215,8 +1215,8 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 @keyframes dr-cursor-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 
 /* ── REPORT ── */
-.dr-report-col{max-width:min(86%,940px)}
-.dr-report-bubble{padding:0;overflow:hidden;background:var(--dr-bg2)}
+.dr-report-col{max-width:min(86%,940px);min-width:0}
+.dr-report-bubble{padding:0;overflow:hidden;background:var(--dr-bg2);width:100%}
 .dr-report-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dr-border);background:var(--dr-bg3)}
 .dr-report-pill{font-size:12.5px;font-weight:700;color:#bfdbfe;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.22);padding:4px 10px;border-radius:100px}
 .dr-engine-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:100px}
@@ -1252,11 +1252,11 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 .dr-msg-text li{margin-bottom:6px}
 .dr-msg-text h1,.dr-msg-text h2,.dr-msg-text h3{font-size:17px;font-weight:650;margin:16px 0 8px;color:#fff}
 .dr-msg-text h2{font-size:18px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06)}
-.dr-msg-text a{color:#60a5fa;text-decoration:none}
+.dr-msg-text a{color:#60a5fa;text-decoration:none;word-break:break-word}
 .dr-msg-text a:hover{text-decoration:underline}
 .dr-msg-text strong{font-weight:650;color:inherit}
 .dr-msg-text em{font-style:italic;color:var(--dr-text2)}
-.dr-msg-text code{background:rgba(255,255,255,.09);padding:2px 6px;border-radius:5px;font-family:var(--dr-mono);font-size:14px;color:#38bdf8}
+.dr-msg-text code{background:rgba(255,255,255,.09);padding:2px 6px;border-radius:5px;font-family:var(--dr-mono);font-size:14px;color:#38bdf8;word-break:break-word}
 .dr-msg-text pre{background:#0c0c0e;border:1px solid var(--dr-border);border-radius:12px;padding:14px;overflow-x:auto;margin:10px 0}
 .dr-msg-text pre code{background:none;padding:0;color:inherit}
 .dr-msg-text table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;display:block;overflow-x:auto}
@@ -1306,7 +1306,7 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 @media(min-width:769px) and (max-width:1024px){
   :root{--dr-sidebar-w:230px}
   .dr-msg-col{max-width:82%}
-  .dr-progress-bubble{min-width:min(560px,78vw)}
+  .dr-progress-bubble{width:min(560px,78vw)}
 }
 
 @media(max-width:768px){
@@ -1315,7 +1315,7 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
   #drMessages{padding:16px 12px 12px}
   .dr-msg-col{max-width:90%}
   .dr-report-col,.dr-progress-col{max-width:92%}
-  .dr-progress-bubble{min-width:auto;width:100%}
+  .dr-progress-bubble{width:100%}
   .dr-bubble{padding:11px 14px}
   .user-bubble,.ai-bubble{font-size:15px}
   .dr-msg-text{font-size:15px}
