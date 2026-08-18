@@ -125,7 +125,7 @@ QUERY: the best Google search query if YES, or NONE if NO"""
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
             max_tokens=80,
@@ -239,7 +239,7 @@ def clean_text(text):
     text = re.sub(r"[ \t]+", " ", text)
     return text.strip()
 
-MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 
 def run_ai(messages, model_index=0, max_tokens=1200):
     # ── ROLLBACK / RETRY LOGIC ────────────────────────────
@@ -1099,8 +1099,7 @@ IMAGE_MIME = {
     ".bmp": "image/png", ".tiff": "image/png", ".tif": "image/png",
 }
 VISION_MODELS = [
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "qwen/qwen3.6-27b",
 ]
 
 def analyse_image(image_bytes, ext, user_question=""):
