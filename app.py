@@ -46,7 +46,8 @@ CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 # ═══════════════════════════════════════════════════════
 
 def get_db():
-    conn = sqlite3.connect("pranox.db", check_same_thread=False)
+    DB_PATH = os.path.join(os.path.dirname(__file__), "pranox.db")
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
