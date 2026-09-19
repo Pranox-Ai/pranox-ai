@@ -16,6 +16,8 @@ from reportlab.lib.pagesizes import A4
 import pdfplumber
 from PIL import Image
 from deepsearch import run_deepsearch
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 load_dotenv()
 
@@ -26,7 +28,16 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.getenv("FLASK_ENV") == "production",
     SESSION_COOKIE_HTTPONLY=True,
 )
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-me")
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY is required")
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "60 per hour"],
+    storage_uri="memory://"
+)
 
 oauth = OAuth(app)
 oauth.register(
@@ -730,6 +741,7 @@ def resume():
 # ═══════════════════════════════════════════════════════
 
 @app.route("/api/chat", methods=["POST"])
+@limiter.limit("30 per minute")
 def api_chat():
     data         = request.get_json(force=True)
     user_message = safe_trim(data.get("message", "").strip())
@@ -750,7 +762,7 @@ def api_chat():
         # Load memory
         memory = get_memory(user_email)
 
-        # Auto-save name from message
+                # Auto-save name from message
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
@@ -760,6 +772,38 @@ def api_chat():
         age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
         if age_match:
             save_memory(user_email, "age", age_match.group(1))
+            memory = get_memory(user_email)
+
+        # Auto-save profession
+        prof_match = re.search(
+            r"i(?:'m| am) a(?:n)? ([a-zA-Z ]+(?:engineer|developer|designer|student|teacher|doctor|manager|analyst|writer|founder|researcher|scientist|architect|lawyer|nurse|artist|photographer|consultant|professor|intern))",
+            user_message, re.IGNORECASE)
+        if prof_match:
+            save_memory(user_email, "profession", prof_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save college/university
+        college_match = re.search(
+            r"(?:i(?:'m| am) (?:a student )?at|i study at|my college is|my university is) ([a-zA-Z0-9 ,]+)",
+            user_message, re.IGNORECASE)
+        if college_match:
+            save_memory(user_email, "college", college_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save location
+        location_match = re.search(
+            r"i(?:'m| am) (?:from|based in|living in|located in) ([a-zA-Z ,]+)",
+            user_message, re.IGNORECASE)
+        if location_match:
+            save_memory(user_email, "location", location_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save interests
+        interest_match = re.search(
+            r"i(?:'m| am) (?:interested in|learning|studying|working on) ([a-zA-Z ]+)",
+            user_message, re.IGNORECASE)
+        if interest_match:
+            save_memory(user_email, "interest", interest_match.group(1).strip().lower())
             memory = get_memory(user_email)
 
         # Fetch recent conversation history (DESC = newest first, index 0 = current message)
@@ -898,14 +942,48 @@ def _build_chat_context(user_message):
 
         memory = get_memory(user_email)
 
+                # Auto-save name from message
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
             memory = get_memory(user_email)
 
+        # Auto-save age from message
         age_match = re.search(r"i(?:'m| am) (\d+) years? old", user_message, re.IGNORECASE)
         if age_match:
             save_memory(user_email, "age", age_match.group(1))
+            memory = get_memory(user_email)
+
+        # Auto-save profession
+        prof_match = re.search(
+            r"i(?:'m| am) a(?:n)? ([a-zA-Z ]+(?:engineer|developer|designer|student|teacher|doctor|manager|analyst|writer|founder|researcher|scientist|architect|lawyer|nurse|artist|photographer|consultant|professor|intern))",
+            user_message, re.IGNORECASE)
+        if prof_match:
+            save_memory(user_email, "profession", prof_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save college/university
+        college_match = re.search(
+            r"(?:i(?:'m| am) (?:a student )?at|i study at|my college is|my university is) ([a-zA-Z0-9 ,]+)",
+            user_message, re.IGNORECASE)
+        if college_match:
+            save_memory(user_email, "college", college_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save location
+        location_match = re.search(
+            r"i(?:'m| am) (?:from|based in|living in|located in) ([a-zA-Z ,]+)",
+            user_message, re.IGNORECASE)
+        if location_match:
+            save_memory(user_email, "location", location_match.group(1).strip().title())
+            memory = get_memory(user_email)
+
+        # Auto-save interests
+        interest_match = re.search(
+            r"i(?:'m| am) (?:interested in|learning|studying|working on) ([a-zA-Z ]+)",
+            user_message, re.IGNORECASE)
+        if interest_match:
+            save_memory(user_email, "interest", interest_match.group(1).strip().lower())
             memory = get_memory(user_email)
 
         history = db.execute(
@@ -947,6 +1025,7 @@ def _build_chat_context(user_message):
 
 
 @app.route("/api/chat/stream", methods=["POST"])
+@limiter.limit("30 per minute")
 def api_chat_stream():
     data         = request.get_json(force=True)
     user_message = safe_trim(data.get("message", "").strip())
@@ -1480,6 +1559,7 @@ def download_resume():
 # ═══════════════════════════════════════════════════════
 
 @app.route("/api/image", methods=["POST"])
+@limiter.limit("5 per minute")
 def generate_image():
     data   = request.get_json(force=True)
     prompt = data.get("prompt", "").strip()
@@ -1550,6 +1630,7 @@ def deepsearch_page():
 
 
 @app.route("/api/deepsearch", methods=["POST"])
+@limiter.limit("10 per minute")
 def api_deepsearch():
     # Supports both:
     #  - JSON body {"question": "..."}                         (no files, legacy)
@@ -1605,7 +1686,6 @@ def api_deepsearch():
             "X-Accel-Buffering": "no",
         }
     )
-
 
 # ═══════════════════════════════════════════════════════
 #  STATIC PAGES
