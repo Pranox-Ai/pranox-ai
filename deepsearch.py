@@ -86,20 +86,20 @@ SERPER_GL      = os.getenv("SERPER_GL", "in")
 SERPER_HL      = os.getenv("SERPER_HL", "en")
 REDIS_URL      = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-MAX_ROUNDS          = int(os.getenv("DEEPSEARCH_MAX_ROUNDS",          "4"))
-RESULTS_PER_QUERY   = int(os.getenv("DEEPSEARCH_RESULTS_PER_QUERY",   "10"))
-READ_PER_QUERY      = int(os.getenv("DEEPSEARCH_READ_PER_QUERY",      "6"))
-MAX_TOTAL_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_TOTAL_SOURCES",   "80"))
-MAX_SYNTH_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_SYNTH_SOURCES",   "30"))
+MAX_ROUNDS          = int(os.getenv("DEEPSEARCH_MAX_ROUNDS",          "2"))
+RESULTS_PER_QUERY   = int(os.getenv("DEEPSEARCH_RESULTS_PER_QUERY",   "8"))
+READ_PER_QUERY      = int(os.getenv("DEEPSEARCH_READ_PER_QUERY",      "4"))
+MAX_TOTAL_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_TOTAL_SOURCES",   "30"))
+MAX_SYNTH_SOURCES   = int(os.getenv("DEEPSEARCH_MAX_SYNTH_SOURCES",   "12"))
 
-SCRAPE_WORKERS      = 8      # concurrent page fetches
+SCRAPE_WORKERS      = 4      # concurrent page fetches
 SEARCH_WORKERS      = 5      # concurrent Serper requests
 SCRAPE_TIMEOUT      = 12     # seconds per page
 SERPER_TIMEOUT      = 10     # seconds per search call
 CACHE_SEARCH_TTL    = 3_600  # 1 hour
 CACHE_SCRAPE_TTL    = 86_400 # 24 hours
 RELEVANCE_THRESHOLD = 0.07   # min keyword overlap to include a source
-SYNTH_CONTEXT_CHARS = 40_000 # total char budget fed to synthesizer (web evidence)
+SYNTH_CONTEXT_CHARS = 25_000 # total char budget fed to synthesizer (web evidence)
 SYNTH_MAX_TOKENS    = 4_000  # Groq max_tokens for synthesis (fallback path)
 GEMINI_MAX_TOKENS   = int(os.getenv("GEMINI_MAX_TOKENS", "16000"))  # Gemini output budget (primary path)
 FILE_CONTEXT_BUDGET = 50_000 # char budget for uploaded-file content in the synthesis prompt
