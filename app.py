@@ -4,9 +4,9 @@ import base64
 import re
 import json
 import tempfile
-import sqlite3
 import time
 import requests
+from db import get_db, init_db
 from io import BytesIO
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
@@ -51,42 +51,28 @@ oauth.register(
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 CLOUDFLARE_API_TOKEN  = os.getenv("CLOUDFLARE_API_TOKEN", "")
 CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
-
+init_db() 
 # ═══════════════════════════════════════════════════════
 #  DATABASE
 # ═══════════════════════════════════════════════════════
 
-def get_db():
-    DB_PATH = os.path.join(os.path.dirname(__file__), "pranox.db")
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    db = get_db()
-    db.execute("""CREATE TABLE IF NOT EXISTS chats(
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_email TEXT, role TEXT,
-        message TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)""")
-    db.execute("""CREATE TABLE IF NOT EXISTS user_memory(
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_email TEXT, key TEXT, value TEXT)""")
-    db.commit()
-    db.close()
-
-init_db()
-
 def save_memory(user_email, key, value):
     db = get_db()
-    db.execute("DELETE FROM user_memory WHERE user_email=? AND key=?", (user_email, key))
-    db.execute("INSERT INTO user_memory(user_email,key,value) VALUES (?,?,?)", (user_email, key, value))
+    cur = db.cursor()
+    cur.execute("DELETE FROM user_memory WHERE user_email=%s AND key=%s", (user_email, key))
+    cur.execute("INSERT INTO user_memory(user_email,key,value) VALUES (%s,%s,%s)", (user_email, key, value))
     db.commit()
+    cur.close()
     db.close()
 
 def get_memory(user_email):
     db = get_db()
-    rows = db.execute("SELECT key,value FROM user_memory WHERE user_email=?", (user_email,)).fetchall()
+    cur = db.cursor()
+    cur.execute("SELECT key,value FROM user_memory WHERE user_email=%s", (user_email,))
+    rows = cur.fetchall()
+    cur.close()
     db.close()
     return "\n".join([f"{r['key']}: {r['value']}" for r in rows])
-
 
 # ═══════════════════════════════════════════════════════
 #  AI-DRIVEN SEARCH DECISION
@@ -753,11 +739,13 @@ def api_chat():
     db = get_db()
     try:
         # Save user message to DB
-        db.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email, "user", user_message)
+        cur = db.cursor()
+        cur.execute(
+                "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
+                (user_email, "user", user_message)
         )
         db.commit()
+        cur.close()
 
         # Load memory
         memory = get_memory(user_email)
@@ -807,10 +795,13 @@ def api_chat():
             memory = get_memory(user_email)
 
         # Fetch recent conversation history (DESC = newest first, index 0 = current message)
-        history = db.execute(
-            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+        cur = db.cursor()
+        cur.execute(
+            "SELECT role,message FROM chats WHERE user_email=%s ORDER BY id DESC LIMIT 20",
             (user_email,)
-        ).fetchall()
+        )
+        history = cur.fetchall()
+        cur.close()
         history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
 
         # ── AI-DRIVEN SEARCH DECISION ─────────────────────────
@@ -905,12 +896,13 @@ def api_chat():
             session["login_nudge"] = True
 
         # Save assistant reply to DB
-        if "couldn't fully process" not in reply.lower():
-            db.execute(
-                "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-                (user_email, "assistant", reply)
-            )
-            db.commit()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
+            (user_email, "assistant", reply)
+        )
+        db.commit()
+        cur.close()
 
         return jsonify({"reply": reply})
 
@@ -934,12 +926,13 @@ def _build_chat_context(user_message):
     user_email = session["user"]["email"] if "user" in session else "guest"
     db = get_db()
     try:
-        db.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
             (user_email, "user", user_message)
         )
         db.commit()
-
+        cur.close()
         memory = get_memory(user_email)
 
                 # Auto-save name from message
@@ -986,10 +979,14 @@ def _build_chat_context(user_message):
             save_memory(user_email, "interest", interest_match.group(1).strip().lower())
             memory = get_memory(user_email)
 
-        history = db.execute(
-            "SELECT role,message FROM chats WHERE user_email=? ORDER BY id DESC LIMIT 20",
+        cur = db.cursor()
+        cur.execute(
+            "SELECT role,message FROM chats WHERE user_email=%s ORDER BY id DESC LIMIT 20",
             (user_email,)
-        ).fetchall()
+        )
+        history = cur.fetchall()
+        cur.close()
+
         history = [h for h in history if "couldn't fully process" not in h["message"].lower()]
     finally:
         db.close()
@@ -1151,11 +1148,13 @@ def api_chat_stream():
         db2 = get_db()
         try:
             if "couldn't fully process" not in full_reply.lower():
-                db2.execute(
-                    "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
+                cur = db2.cursor()
+                cur.execute(
+                    "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
                     (user_email, "assistant", full_reply)
                 )
                 db2.commit()
+                cur.close()
         finally:
             db2.close()
 
