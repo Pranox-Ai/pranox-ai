@@ -25,6 +25,18 @@ def init_db():
         )
     """)
     
+        # Chat sessions table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id SERIAL PRIMARY KEY,
+            user_email TEXT NOT NULL,
+            session_id TEXT UNIQUE NOT NULL,
+            title TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Chats table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS chats (

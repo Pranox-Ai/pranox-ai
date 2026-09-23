@@ -739,10 +739,20 @@ def api_chat():
     db = get_db()
     try:
         # Save user message to DB
+        # Get or create session
+        chat_session_id = request.json.get("session_id") or str(__import__("uuid").uuid4())
+
         cur = db.cursor()
+        # Save session
+        cur.execute("""
+            INSERT INTO chat_sessions(user_email, session_id, title, updated_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (session_id) DO UPDATE SET updated_at=NOW()
+        """, (user_email, chat_session_id, user_message[:60]))
+        # Save message
         cur.execute(
-                "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
-                (user_email, "user", user_message)
+            "INSERT INTO chats(user_email,session_id,role,message) VALUES (%s,%s,%s,%s)",
+            (user_email, chat_session_id, "user", user_message)
         )
         db.commit()
         cur.close()
@@ -750,7 +760,7 @@ def api_chat():
         # Load memory
         memory = get_memory(user_email)
 
-                # Auto-save name from message
+        # Auto-save name from message
         name_match = re.search(r"my name is ([a-zA-Z ]+)", user_message, re.IGNORECASE)
         if name_match:
             save_memory(user_email, "name", name_match.group(1).strip().title())
@@ -898,8 +908,8 @@ def api_chat():
         # Save assistant reply to DB
         cur = db.cursor()
         cur.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (%s,%s,%s)",
-            (user_email, "assistant", reply)
+            "INSERT INTO chats(user_email,session_id,role,message) VALUES (%s,%s,%s,%s)",
+            (user_email, chat_session_id, "assistant", reply)
         )
         db.commit()
         cur.close()
@@ -1503,15 +1513,17 @@ def upload():
     db = get_db()
     try:
         file_label = ", ".join(processed_names) if processed_names else ", ".join(failed_names)
-        db.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email, "user", f"[Files: {file_label}] {user_question}")
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO chats(user_email,session_id,role,message) VALUES (%s,%s,%s,%s)",
+            (user_email, None, "user", f"[Files: {file_label}] {user_question}")
         )
-        db.execute(
-            "INSERT INTO chats(user_email,role,message) VALUES (?,?,?)",
-            (user_email, "assistant", reply)
+        cur.execute(
+            "INSERT INTO chats(user_email,session_id,role,message) VALUES (%s,%s,%s,%s)",
+            (user_email, None, "assistant", reply)
         )
         db.commit()
+        cur.close()
     finally:
         db.close()
 
@@ -1617,7 +1629,85 @@ def debug_search():
         "results_preview":   results[:600] if results else "NO RESULTS",
     })
 
+# ═══════════════════════════════════════════════════════
+#  CHAT SESSION ROUTES
+# ═══════════════════════════════════════════════════════
 
+@app.route("/api/sessions")
+def get_sessions():
+    if "user" not in session:
+        return jsonify({"sessions": []})
+    user_email = session["user"]["email"]
+    limit = request.args.get("limit", 20, type=int)
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("""
+            SELECT session_id, title, updated_at
+            FROM chat_sessions
+            WHERE user_email=%s
+            ORDER BY updated_at DESC
+            LIMIT %s
+        """, (user_email, limit))
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify({"sessions": [dict(r) for r in rows]})
+    finally:
+        db.close()
+
+@app.route("/api/sessions/<session_id>")
+def get_session_messages(session_id):
+    if "user" not in session:
+        return jsonify({"messages": []})
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("""
+            SELECT role, message, created_at
+            FROM chats
+            WHERE user_email=%s AND session_id=%s
+            ORDER BY id ASC
+        """, (user_email, session_id))
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify({"messages": [dict(r) for r in rows]})
+    finally:
+        db.close()
+
+@app.route("/api/sessions/<session_id>", methods=["DELETE"])
+def delete_session(session_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM chats WHERE user_email=%s AND session_id=%s",
+                    (user_email, session_id))
+        cur.execute("DELETE FROM chat_sessions WHERE user_email=%s AND session_id=%s",
+                    (user_email, session_id))
+        db.commit()
+        cur.close()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+@app.route("/api/sessions/all", methods=["DELETE"])
+def delete_all_sessions():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM chats WHERE user_email=%s", (user_email,))
+        cur.execute("DELETE FROM chat_sessions WHERE user_email=%s", (user_email,))
+        db.commit()
+        cur.close()
+        return jsonify({"success": True})
+    finally:
+        db.close()
 
 # ═══════════════════════════════════════════════════════
 #  DEEPSEARCH ROUTES
