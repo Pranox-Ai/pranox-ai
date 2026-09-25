@@ -25,7 +25,7 @@ def init_db():
         )
     """)
     
-        # Chat sessions table
+    # Chat sessions table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS chat_sessions (
             id SERIAL PRIMARY KEY,

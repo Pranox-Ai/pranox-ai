@@ -284,6 +284,8 @@ let stickToBottom     = true;
 let chats             = [];
 let currentChat       = [];
 let currentChatIdx    = -1;
+let currentSessionId  = null;
+const IS_LOGGED_IN    = "{{ 'true' if user else 'false' }}" === "true";
 
 try { chats = JSON.parse(localStorage.getItem("pranoxChats") || "[]"); } catch(e) { chats = []; }
 
@@ -336,22 +338,86 @@ function saveChats() {
 function renderHistory() {
   const el = document.getElementById("historyList");
   el.innerHTML = "";
-  if (!chats.length) { el.innerHTML = `<p class="no-history">No chats yet</p>`; return; }
-  [...chats].reverse().forEach((chat, ri) => {
-    const index   = chats.length - 1 - ri;
-    const first   = chat.find(m => m.type === "user");
-    const preview = (first?.text || first?.attachments?.[0]?.name || "Chat").replace(/<[^>]+>/g,"").slice(0, 32);
-    const div     = document.createElement("div");
-    div.className = "history-item" + (index === currentChatIdx ? " active" : "");
-    div.innerHTML = `
-      <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-      <span class="hist-text">${escapeHtml(preview)}…</span>
-      <button class="hist-del" onclick="deleteChat(${index},event)" title="Delete">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-      </button>`;
-    div.onclick = e => { if (!e.target.closest(".hist-del")) loadChat(index); };
-    el.appendChild(div);
-  });
+  if (IS_LOGGED_IN) {
+    loadDBSessions(20);
+  } else {
+    if (!chats.length) { el.innerHTML = `<p class="no-history">No chats yet</p>`; return; }
+    [...chats].reverse().forEach((chat, ri) => {
+      const index   = chats.length - 1 - ri;
+      const first   = chat.find(m => m.type === "user");
+      const preview = (first?.text || first?.attachments?.[0]?.name || "Chat").replace(/<[^>]+>/g,"").slice(0, 32);
+      const div     = document.createElement("div");
+      div.className = "history-item" + (index === currentChatIdx ? " active" : "");
+      div.innerHTML = `
+        <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span class="hist-text">${escapeHtml(preview)}…</span>
+        <button class="hist-del" onclick="deleteChat(${index},event)" title="Delete">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>`;
+      div.onclick = e => { if (!e.target.closest(".hist-del")) loadChat(index); };
+      el.appendChild(div);
+    });
+  }
+}
+
+async function loadDBSessions(limit=20) {
+  const el = document.getElementById("historyList");
+  try {
+    const res  = await fetch(`/api/sessions?limit=${limit}`);
+    const data = await res.json();
+    el.innerHTML = "";
+    if (!data.sessions.length) {
+      el.innerHTML = `<p class="no-history">No chats yet</p>`;
+      return;
+    }
+    data.sessions.forEach(s => {
+      const div = document.createElement("div");
+      div.className = "history-item" + (s.session_id === currentSessionId ? " active" : "");
+      div.innerHTML = `
+        <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span class="hist-text">${escapeHtml((s.title||"Chat").slice(0,32))}…</span>
+        <button class="hist-del" onclick="deleteDBSession('${s.session_id}',event)" title="Delete">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>`;
+      div.onclick = e => { if (!e.target.closest(".hist-del")) loadDBChat(s.session_id, s.title); };
+      el.appendChild(div);
+    });
+    if (data.sessions.length === limit) {
+      const btn = document.createElement("button");
+      btn.className = "view-all-btn";
+      btn.textContent = "View all →";
+      btn.onclick = () => loadDBSessions(200);
+      el.appendChild(btn);
+    }
+  } catch(e) {
+    el.innerHTML = `<p class="no-history">Couldn't load history</p>`;
+  }
+}
+
+async function loadDBChat(session_id, title) {
+  messagesEl.innerHTML = "";
+  currentSessionId = session_id;
+  hideWelcome();
+  try {
+    const res  = await fetch(`/api/sessions/${session_id}`);
+    const data = await res.json();
+    data.messages.forEach(m => addMessage(m.message, m.role === "user" ? "user" : "ai", false, []));
+  } catch(e) {
+    addMessage("Couldn't load this chat. Please try again.", "ai", false, []);
+  }
+  closeSidebar(); renderHistory(); scrollToBottom(true);
+}
+
+async function deleteDBSession(session_id, e) {
+  e.stopPropagation();
+  if (!confirm("Delete this chat?")) return;
+  await fetch(`/api/sessions/${session_id}`, {method:"DELETE"});
+  if (currentSessionId === session_id) {
+    currentSessionId = null;
+    messagesEl.innerHTML = "";
+    showWelcome();
+  }
+  renderHistory();
 }
 
 function deleteChat(index, e) {
@@ -374,7 +440,7 @@ function newChat() {
   if (currentChat.length && currentChatIdx === -1) {
     chats.push([...currentChat]); currentChatIdx = chats.length-1; saveChats();
   }
-  messagesEl.innerHTML = ""; currentChat=[]; currentChatIdx=-1;
+  messagesEl.innerHTML = ""; currentChat=[]; currentChatIdx=-1; currentSessionId=null;
   showWelcome(); closeSidebar(); renderHistory(); resetComposer();
 }
 
@@ -826,7 +892,7 @@ async function sendMessage() {
       const res = await fetch("/api/chat", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({message: outgoingText, effort: selectedEffort})
+        body: JSON.stringify({message: outgoingText, effort: selectedEffort, session_id: currentSessionId})
       });
       const data = await res.json();
       reply = data.reply || "No response received.";
@@ -1512,6 +1578,8 @@ body > footer, footer{margin-top:0!important;padding-top:8px!important;padding-b
 #sendBtn:active{transform:scale(.93)}
 #sendBtn:disabled{opacity:.55;cursor:not-allowed}
 .disclaimer{text-align:center;font-size:12px;color:var(--text3);margin-top:5px;line-height:1.25}
+.view-all-btn{width:100%;background:none;border:none;color:#7c6ef7;font-size:12px;padding:8px 14px;text-align:left;cursor:pointer;opacity:0.8;}
+.view-all-btn:hover{opacity:1;}
 
 /* ── MODAL ── */
 .img-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);z-index:2000;align-items:center;justify-content:center;animation:fadeIn .2s ease}
