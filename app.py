@@ -826,7 +826,9 @@ def api_chat():
         cur.execute("""
             INSERT INTO chat_sessions(user_email, session_id, title, updated_at)
             VALUES (%s, %s, %s, NOW())
-            ON CONFLICT (session_id) DO UPDATE SET updated_at=NOW()
+            ON CONFLICT (session_id) DO UPDATE SET
+                    title=EXCLUDED.title,
+                     updated_at=NOW()
         """, (user_email, chat_session_id, chat_title))
 
         # Save message
