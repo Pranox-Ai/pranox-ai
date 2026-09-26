@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — Pranox AI</title>
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<meta name="theme-color" content="#000000">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0YR6H1ZC0D"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-0YR6H1ZC0D');</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#020617,#0f172a);color:white;min-height:100vh;}
+
+/* ── NAVBAR ── */
+.navbar{background:#020617;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1f2937;position:sticky;top:0;z-index:100;}
+.logo{font-size:18px;font-weight:700;color:#a2a2a2;text-decoration:none;}
+.nav-links a{color:#415ebe;margin-left:20px;text-decoration:none;font-size:14px;}
+.nav-links a:hover{color:white;}
+.menu-toggle{display:none;font-size:22px;cursor:pointer;background:none;border:none;color:white;}
+@media(max-width:768px){
+  .menu-toggle{display:block;}
+  .nav-links{display:none;flex-direction:column;position:absolute;top:56px;left:0;width:100%;background:#020617;padding:16px 24px;border-bottom:1px solid #1f2937;}
+  .nav-links.active{display:flex;}
+  .nav-links a{margin:10px 0;}
+}
+
+/* ── PAGE LAYOUT ── */
+.page{max-width:780px;margin:0 auto;padding:40px 20px 80px;}
+.page-title{font-size:26px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:14px;color:#6b7280;margin-bottom:36px;}
+
+/* ── SECTION CARD ── */
+.card{background:#0d1527;border:1px solid #1f2937;border-radius:14px;margin-bottom:20px;overflow:hidden;}
+.card-header{padding:18px 22px;border-bottom:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center;}
+.card-title{font-size:15px;font-weight:600;color:#e2e8f0;}
+.card-sub{font-size:12px;color:#6b7280;margin-top:2px;}
+.card-body{padding:20px 22px;}
+
+/* ── PROFILE SECTION ── */
+.profile-row{display:flex;align-items:center;gap:18px;}
+.avatar{width:64px;height:64px;border-radius:50%;border:2px solid #1f2937;object-fit:cover;}
+.avatar-fallback{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;}
+.profile-info .pname{font-size:17px;font-weight:600;color:#e2e8f0;}
+.profile-info .pemail{font-size:13px;color:#6b7280;margin-top:3px;}
+.profile-badge{display:inline-flex;align-items:center;gap:5px;background:#0f2040;border:1px solid #1e3a5f;border-radius:20px;padding:4px 12px;font-size:12px;color:#60a5fa;margin-top:8px;}
+
+/* ── MEMORY ITEMS ── */
+.memory-list{display:flex;flex-direction:column;gap:10px;}
+.memory-item{display:flex;align-items:center;justify-content:space-between;background:#111827;border:1px solid #1f2937;border-radius:10px;padding:12px 16px;transition:border-color .2s;}
+.memory-item:hover{border-color:#374151;}
+.mem-key{font-size:11px;color:#6366f1;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.mem-val{font-size:14px;color:#e2e8f0;}
+.mem-del{background:none;border:none;color:#374151;cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;transition:color .2s;}
+.mem-del:hover{color:#ef4444;}
+.no-memory{text-align:center;padding:32px 0;color:#374151;font-size:14px;}
+.no-memory-icon{font-size:32px;margin-bottom:8px;}
+.loading{text-align:center;padding:24px;color:#6b7280;font-size:14px;}
+
+/* ── DANGER ZONE ── */
+.danger-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #1f2937;}
+.danger-row:last-child{border-bottom:none;}
+.danger-label{font-size:14px;color:#e2e8f0;}
+.danger-desc{font-size:12px;color:#6b7280;margin-top:2px;}
+.btn-danger{background:#1a0a0a;border:1px solid #7f1d1d;color:#ef4444;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;transition:all .2s;white-space:nowrap;}
+.btn-danger:hover{background:#7f1d1d;color:white;}
+.btn-sm{background:#0d1f3c;border:1px solid #1e3a5f;color:#60a5fa;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;transition:all .2s;}
+.btn-sm:hover{background:#1e3a5f;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2535;border:1px solid #2d4a6b;color:#e2e8f0;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:all .3s;z-index:999;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:#166534;background:#0a2018;color:#4ade80;}
+.toast.error{border-color:#7f1d1d;background:#1a0a0a;color:#ef4444;}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:#1f2937;margin:4px 0;}
+
+/* ── STATS ROW ── */
+.stats-row{display:flex;gap:16px;flex-wrap:wrap;}
+.stat-box{flex:1;min-width:120px;background:#111827;border:1px solid #1f2937;border-radius:10px;padding:14px 16px;text-align:center;}
+.stat-num{font-size:22px;font-weight:700;color:#6366f1;}
+.stat-label{font-size:12px;color:#6b7280;margin-top:3px;}
+
+/* ── SECTION HEADING ── */
+.sec-label{font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a class="logo" href="/dashboard">PRANOX AI</a>
+  <button class="menu-toggle" onclick="document.getElementById('navLinks').classList.toggle('active')">☰</button>
+  <div class="nav-links" id="navLinks">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/email">Email</a>
+    <a href="/resume">Resume</a>
+    <a href="/chat">AI Chat</a>
+    <a href="/deepsearch">Deep Research</a>
+    <a href="/logout">Logout</a>
+  </div>
+</nav>
+
+<!-- PAGE -->
+<div class="page">
+  <div class="page-title">Settings</div>
+  <div class="page-sub">Manage your account, memory, and preferences</div>
+
+  <!-- PROFILE CARD -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Account</div>
+        <div class="card-sub">Your Google account connected to Pranox AI</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="profile-row">
+        {% if user.picture %}
+        <img class="avatar" src="{{ user.picture }}" alt="Profile">
+        {% else %}
+        <div class="avatar-fallback">{{ user.name[0] | upper }}</div>
+        {% endif %}
+        <div class="profile-info">
+          <div class="pname">{{ user.name }}</div>
+          <div class="pemail">{{ user.email }}</div>
+          <div class="profile-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.64A2 2 0 012 1h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+            Google Account
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY CARD -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">What Pranox Remembers</div>
+        <div class="card-sub">Facts Pranox AI has learned about you from your conversations</div>
+      </div>
+      <button class="btn-sm" onclick="refreshMemory()">Refresh</button>
+    </div>
+    <div class="card-body">
+      <div class="memory-list" id="memoryList">
+        <div class="loading">Loading memory...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Data & Privacy</div>
+        <div class="card-sub">Manage or delete your data</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="danger-row">
+        <div>
+          <div class="danger-label">Clear all memory</div>
+          <div class="danger-desc">Pranox will forget everything it learned about you</div>
+        </div>
+        <button class="btn-danger" onclick="clearAllMemory()">Clear memory</button>
+      </div>
+      <div class="danger-row">
+        <div>
+          <div class="danger-label">Delete all chat history</div>
+          <div class="danger-desc">Permanently removes all your conversations from Pranox AI</div>
+        </div>
+        <button class="btn-danger" onclick="deleteAllChats()">Delete chats</button>
+      </div>
+      <div class="danger-row">
+        <div>
+          <div class="danger-label">Sign out</div>
+          <div class="danger-desc">Sign out of your Pranox AI account</div>
+        </div>
+        <a href="/logout"><button class="btn-sm">Sign out</button></a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- FOOTER -->
+<footer style="text-align:center;padding:20px;color:#374151;font-size:13px;">
+  © 2026 Pranox AI •
+  <a href="/privacy" style="color:#415ebe;">Privacy</a> •
+  <a href="/terms" style="color:#415ebe;">Terms</a>
+</footer>
+
+<script>
+// ── TOAST ──
+function showToast(msg, type="success") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = "toast", 2800);
+}
+
+// ── LOAD MEMORY ──
+async function loadMemory() {
+  const list = document.getElementById("memoryList");
+  try {
+    const res  = await fetch("/api/memory");
+    const data = await res.json();
+    if (!data.memory.length) {
+      list.innerHTML = `
+        <div class="no-memory">
+          <div class="no-memory-icon">🧠</div>
+          <div>No memory yet</div>
+          <div style="font-size:12px;color:#4b5563;margin-top:6px;">Start chatting and Pranox will remember things about you</div>
+        </div>`;
+      return;
+    }
+    list.innerHTML = data.memory.map(m => `
+      <div class="memory-item" id="mem-${m.key}">
+        <div>
+          <div class="mem-key">${escHtml(m.key)}</div>
+          <div class="mem-val">${escHtml(m.value)}</div>
+        </div>
+        <button class="mem-del" onclick="deleteMemory('${escHtml(m.key)}')" title="Forget this">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+      </div>
+    `).join("");
+  } catch(e) {
+    list.innerHTML = `<div class="no-memory">Couldn't load memory. Please refresh.</div>`;
+  }
+}
+
+function refreshMemory() { loadMemory(); showToast("Memory refreshed"); }
+
+// ── DELETE ONE MEMORY ──
+async function deleteMemory(key) {
+  if (!confirm(`Forget "${key}"?`)) return;
+  try {
+    await fetch(`/api/memory/${encodeURIComponent(key)}`, {method:"DELETE"});
+    document.getElementById(`mem-${key}`)?.remove();
+    const list = document.getElementById("memoryList");
+    if (!list.children.length) loadMemory();
+    showToast(`Forgot "${key}"`);
+  } catch(e) { showToast("Failed to delete", "error"); }
+}
+
+// ── CLEAR ALL MEMORY ──
+async function clearAllMemory() {
+  if (!confirm("Clear everything Pranox remembers about you? This cannot be undone.")) return;
+  try {
+    await fetch("/api/memory", {method:"DELETE"});
+    loadMemory();
+    showToast("All memory cleared");
+  } catch(e) { showToast("Failed to clear memory", "error"); }
+}
+
+// ── DELETE ALL CHATS ──
+async function deleteAllChats() {
+  if (!confirm("Delete ALL your chat history permanently? This cannot be undone.")) return;
+  try {
+    await fetch("/api/sessions/all", {method:"DELETE"});
+    showToast("All chats deleted");
+  } catch(e) { showToast("Failed to delete chats", "error"); }
+}
+
+// ── ESCAPE HTML ──
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── INIT ──
+loadMemory();
+</script>
+</body>
+</html>

@@ -1630,6 +1630,61 @@ def debug_search():
     })
 
 # ═══════════════════════════════════════════════════════
+#  SETTINGS ROUTES
+# ═══════════════════════════════════════════════════════
+
+@app.route("/settings")
+def settings():
+    if "user" not in session:
+        return redirect("/")
+    return render_template("settings.html", user=session["user"])
+
+@app.route("/api/memory")
+def get_user_memory():
+    if "user" not in session:
+        return jsonify({"memory": []})
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT key, value, updated_at FROM user_memory WHERE user_email=%s ORDER BY updated_at DESC", (user_email,))
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify({"memory": [dict(r) for r in rows]})
+    finally:
+        db.close()
+
+@app.route("/api/memory/<key>", methods=["DELETE"])
+def delete_memory_item(key):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM user_memory WHERE user_email=%s AND key=%s", (user_email, key))
+        db.commit()
+        cur.close()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+@app.route("/api/memory", methods=["DELETE"])
+def delete_all_memory():
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_email = session["user"]["email"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM user_memory WHERE user_email=%s", (user_email,))
+        db.commit()
+        cur.close()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+# ═══════════════════════════════════════════════════════
 #  CHAT SESSION ROUTES
 # ═══════════════════════════════════════════════════════
 
