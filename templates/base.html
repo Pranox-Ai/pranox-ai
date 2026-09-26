@@ -12,6 +12,11 @@
 <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
 <meta name="theme-color" content="#000000">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pranox AI">
 <meta name="description" content="Pranox AI - Write emails, build resumes, and use AI tools instantly.">
 <meta property="og:title" content="Pranox AI">
 <meta property="og:description" content="Write emails, build resumes, and use AI tools instantly.">
@@ -204,6 +209,12 @@ function toggleMenu(){
 </div>
 
 </footer>
-
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/static/sw.js")
+    .then(() => console.log("PWA ready"))
+    .catch(e => console.log("SW error", e));
+}
+</script>
 </body>
 </html>

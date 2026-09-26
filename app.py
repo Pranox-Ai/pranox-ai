@@ -914,7 +914,7 @@ def api_chat():
         db.commit()
         cur.close()
 
-        return jsonify({"reply": reply})
+        return jsonify({"reply": reply, "session_id": chat_session_id})
 
     except Exception as e:
         print("CHAT ERROR:", e)

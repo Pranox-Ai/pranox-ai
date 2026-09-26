@@ -896,6 +896,7 @@ async function sendMessage() {
       });
       const data = await res.json();
       reply = data.reply || "No response received.";
+      if (data.session_id) currentSessionId = data.session_id;
     }
   } catch {
     reply = "⚠️ Network error. Please check your connection and try again.";
