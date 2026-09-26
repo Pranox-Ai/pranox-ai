@@ -498,63 +498,152 @@
 
 <script>
 /* ── CHAR COUNTER ── */
-const topicArea  = document.getElementById('topicArea');
-const charCount  = document.getElementById('charCount');
+const topicArea = document.getElementById('topicArea');
+const charCount = document.getElementById('charCount');
 function updateCount(){
-  if(!topicArea || !charCount) return;
+  if(!topicArea||!charCount) return;
   const len = topicArea.value.length;
-  charCount.textContent = len + ' / 600';
+  charCount.textContent = len+' / 600';
   charCount.style.color = len > 550 ? '#f87171' : '';
 }
 if(topicArea){ topicArea.addEventListener('input', updateCount); updateCount(); }
 
-/* ── FORM LOADING STATE ── */
+/* ── STREAMING EMAIL GENERATION ── */
 const emailForm = document.getElementById('emailForm');
 const submitBtn = document.getElementById('submitBtn');
+
 if(emailForm){
-  emailForm.addEventListener('submit', function(){
+  emailForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    const topic  = document.getElementById('topicArea').value.trim();
+    const tone   = document.querySelector('input[name="tone"]:checked')?.value || 'Professional';
+    const length = document.querySelector('input[name="length"]:checked')?.value || 'Medium';
+
+    if(!topic){ alert('Please describe your email first.'); return; }
+
+    // Show loading state
     if(submitBtn){ submitBtn.classList.add('loading'); submitBtn.disabled = true; }
+
+    // Show output box
+    let outputWrap = document.getElementById('outputWrap');
+    let outputBox  = document.getElementById('outputBox');
+    let wordLbl    = document.getElementById('wordCountLabel');
+    let rawEl      = document.getElementById('emailRaw');
+
+    if(!outputWrap){
+      // Create output elements dynamically if not present
+      const wrap = document.createElement('div');
+      wrap.className = 'em-output-wrap';
+      wrap.id = 'outputWrap';
+      wrap.innerHTML = `
+        <div class="em-output-header">
+          <div class="em-output-title"><span class="em-output-dot"></span>Generated Email</div>
+          <div class="em-output-actions">
+            <button class="em-action-btn" id="copyBtn" onclick="copyEmail()">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+        <div class="em-output-box" id="outputBox"></div>
+        <div class="em-output-meta"><span id="wordCountLabel"></span><span>Pranox AI · Email Writer</span></div>
+        <div id="emailRaw" style="display:none"></div>`;
+      emailForm.parentElement.appendChild(wrap);
+      outputWrap = document.getElementById('outputWrap');
+      outputBox  = document.getElementById('outputBox');
+      wordLbl    = document.getElementById('wordCountLabel');
+      rawEl      = document.getElementById('emailRaw');
+    }
+
+    outputBox.textContent = '';
+    if(rawEl) rawEl.textContent = '';
+    outputWrap.style.display = 'block';
+    outputWrap.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+    // Add cursor
+    const cursor = document.createElement('span');
+    cursor.className = 'em-cursor';
+    outputBox.appendChild(cursor);
+
+    let fullText = '';
+
+    try {
+      const res = await fetch('/api/email/stream', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({topic, tone, length})
+      });
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = '';
+
+      while(true){
+        const {done, value} = await reader.read();
+        if(done) break;
+        buffer += decoder.decode(value, {stream:true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for(const line of lines){
+          if(!line.startsWith('data:')) continue;
+          const raw = line.slice(5).trim();
+          if(raw === '[DONE]'){
+            cursor.remove();
+            if(wordLbl){
+              const wc = fullText.trim().split(/\s+/).length;
+              wordLbl.textContent = wc + ' words';
+            }
+            if(rawEl) rawEl.textContent = fullText;
+            break;
+          }
+          try{
+            const d = JSON.parse(raw);
+            if(d.token){
+              fullText += d.token;
+              const node = document.createTextNode(d.token);
+              outputBox.insertBefore(node, cursor);
+            }
+            if(d.error){
+              cursor.remove();
+              outputBox.textContent = 'Error: ' + d.error;
+            }
+          }catch{}
+        }
+      }
+    } catch(err){
+      outputBox.textContent = 'Network error. Please try again.';
+      cursor.remove();
+    } finally {
+      if(submitBtn){ submitBtn.classList.remove('loading'); submitBtn.disabled = false; }
+    }
   });
 }
 
-/* ── TYPING ANIMATION ── */
-const rawEl   = document.getElementById('emailRaw');
-const outBox  = document.getElementById('outputBox');
-const wordLbl = document.getElementById('wordCountLabel');
-
-if(rawEl && outBox){
-  const fullText = rawEl.textContent || rawEl.innerText;
+/* ── TYPING ANIMATION for server-rendered email (page reload fallback) ── */
+const rawElInit = document.getElementById('emailRaw');
+const outBoxInit = document.getElementById('outputBox');
+if(rawElInit && outBoxInit && rawElInit.textContent.trim() && !outBoxInit.textContent.trim()){
+  const fullText = rawElInit.textContent || rawElInit.innerText;
   let idx = 0;
   const cursor = document.createElement('span');
   cursor.className = 'em-cursor';
-  outBox.appendChild(cursor);
-
-  // word count
+  outBoxInit.appendChild(cursor);
+  const wordLbl = document.getElementById('wordCountLabel');
   const words = fullText.trim().split(/\s+/).length;
   if(wordLbl) wordLbl.textContent = words + ' words';
-
-  // type word-by-word (chunks for speed realism)
-  const CHUNK = 3; // chars per frame
+  const CHUNK = 3;
   function typeStep(){
     if(idx < fullText.length){
-      const end  = Math.min(idx + CHUNK, fullText.length);
+      const end  = Math.min(idx+CHUNK, fullText.length);
       const node = document.createTextNode(fullText.slice(idx, end));
-      outBox.insertBefore(node, cursor);
+      outBoxInit.insertBefore(node, cursor);
       idx = end;
-      // slight speed variation for realism
-      setTimeout(typeStep, 8 + Math.random() * 14);
-    } else {
-      cursor.remove();
-    }
+      setTimeout(typeStep, 8+Math.random()*14);
+    } else { cursor.remove(); }
   }
-  // small delay before starting
   setTimeout(typeStep, 300);
-
-  // scroll output into view
-  setTimeout(()=>{
-    const wrap = document.getElementById('outputWrap');
-    if(wrap) wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
-  }, 200);
+  setTimeout(()=>{ const w = document.getElementById('outputWrap'); if(w) w.scrollIntoView({behavior:'smooth',block:'nearest'}); }, 200);
 }
 
 /* ── COPY ── */
@@ -564,11 +653,9 @@ function copyEmail(){
   const text = rawEl.textContent || rawEl.innerText;
   navigator.clipboard.writeText(text.trim()).then(()=>{
     const btn = document.getElementById('copyBtn');
-    if(btn){ btn.classList.add('copied'); btn.innerHTML = '✓ &nbsp;Copied!'; }
-    setTimeout(()=>{
-      if(btn){ btn.classList.remove('copied'); btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy'; }
-    }, 2200);
-  }).catch(()=> alert('Copy failed.'));
+    if(btn){ btn.classList.add('copied'); btn.innerHTML='✓ &nbsp;Copied!'; }
+    setTimeout(()=>{ if(btn){ btn.classList.remove('copied'); btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy'; }}, 2200);
+  }).catch(()=>alert('Copy failed.'));
 }
 </script>
 

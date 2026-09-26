@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>500 — Server Error · Pranox AI</title>
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+<meta name="theme-color" content="#020617">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#020617,#0f172a);color:white;min-height:100vh;display:flex;flex-direction:column;}
+
+/* NAVBAR */
+.navbar{background:#020617;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1f2937;}
+.logo{font-size:18px;font-weight:700;color:#a2a2a2;text-decoration:none;}
+.nav-links a{color:#415ebe;margin-left:20px;text-decoration:none;font-size:14px;}
+.nav-links a:hover{color:white;}
+
+/* AMBIENT */
+.orb{position:fixed;border-radius:50%;filter:blur(80px);opacity:0.07;pointer-events:none;}
+.orb-1{width:500px;height:500px;background:#ef4444;top:-100px;left:-100px;}
+.orb-2{width:400px;height:400px;background:#f97316;bottom:-100px;right:-100px;}
+
+/* MAIN */
+.page{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;position:relative;z-index:1;}
+
+.error-code{font-size:120px;font-weight:800;line-height:1;background:linear-gradient(135deg,#ef4444,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;}
+.error-title{font-size:26px;font-weight:700;color:#e2e8f0;margin-bottom:12px;}
+.error-desc{font-size:15px;color:#6b7280;max-width:420px;line-height:1.6;margin-bottom:36px;}
+
+.btn-group{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.btn-primary{background:linear-gradient(135deg,#ef4444,#f97316);color:white;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:opacity .2s;}
+.btn-primary:hover{opacity:.85;}
+.btn-secondary{background:transparent;color:#94a3b8;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:500;border:1px solid #1f2937;transition:all .2s;}
+.btn-secondary:hover{border-color:#374151;color:white;}
+
+/* STATUS BOX */
+.status-box{margin-top:48px;padding:24px 32px;background:rgba(13,18,30,0.8);border:1px solid #1f2937;border-radius:14px;max-width:420px;text-align:left;}
+.status-title{font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;}
+.status-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1f2937;font-size:14px;color:#94a3b8;}
+.status-row:last-child{border-bottom:none;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-green{background:#10b981;}
+.dot-red{background:#ef4444;}
+.status-label{flex:1;}
+.retry-note{margin-top:20px;font-size:13px;color:#4b5563;text-align:center;line-height:1.5;}
+
+/* FOOTER */
+footer{text-align:center;padding:20px;color:#374151;font-size:13px;}
+footer a{color:#415ebe;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<nav class="navbar">
+  <a class="logo" href="/">PRANOX AI</a>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/chat">AI Chat</a>
+    <a href="/deepsearch">Research</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="error-code">500</div>
+  <div class="error-title">Something went wrong</div>
+  <div class="error-desc">Our server ran into an unexpected issue. This is on us — not you. Please try again in a moment.</div>
+
+  <div class="btn-group">
+    <a href="javascript:location.reload()" class="btn-primary">Try again</a>
+    <a href="/" class="btn-secondary">Go home</a>
+  </div>
+
+  <div class="status-box">
+    <div class="status-title">System status</div>
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div class="status-label">AI Chat</div>
+      <span style="font-size:12px;color:#10b981;">Operational</span>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div class="status-label">Deep Research</div>
+      <span style="font-size:12px;color:#10b981;">Operational</span>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div class="status-label">Email Writer</div>
+      <span style="font-size:12px;color:#10b981;">Operational</span>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-red"></div>
+      <div class="status-label">Current page</div>
+      <span style="font-size:12px;color:#ef4444;">Error</span>
+    </div>
+    <div class="retry-note">If this keeps happening, contact us at<br><a href="mailto:pranoxoffical@gmail.com" style="color:#415ebe;">pranoxoffical@gmail.com</a></div>
+  </div>
+</div>
+
+<footer>
+  © 2026 Pranox AI •
+  <a href="/privacy">Privacy</a> •
+  <a href="/terms">Terms</a> •
+  <a href="/status">Status</a>
+</footer>
+
+</body>
+</html>

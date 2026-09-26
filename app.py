@@ -654,6 +654,69 @@ def email():
     return render_template("email.html", email=output)
 
 # ═══════════════════════════════════════════════════════
+#  EMAIL STREAM ROUTE
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/email/stream", methods=["POST"])
+@limiter.limit("10 per minute")
+def email_stream():
+    if "user" not in session:
+        return jsonify({"error": "Login required"}), 401
+
+    data   = request.json or {}
+    topic  = data.get("topic", "").strip()
+    tone   = data.get("tone", "Professional").strip()
+    length = data.get("length", "Medium").strip()
+
+    if not topic:
+        return jsonify({"error": "Please enter a topic"}), 400
+
+    length_guide = {
+        "Short":  "Write a concise email of 3-4 short paragraphs (around 100-150 words).",
+        "Medium": "Write a well-developed email of 4-6 paragraphs (around 200-300 words).",
+        "Long":   "Write a detailed, thorough email of 6-8 paragraphs (around 350-500 words).",
+    }.get(length, "Write a well-developed email of 4-6 paragraphs.")
+
+    system_prompt = (
+        "You are an expert professional email writer with 15+ years of experience. "
+        "RULES:\n"
+        "- Write a COMPLETE, READY-TO-SEND email — include Subject line, greeting, body, and sign-off.\n"
+        "- Use the exact tone and intent described by the user.\n"
+        "- NO markdown symbols (* # _ ` ~). Plain text only.\n"
+        "- Do NOT add meta-commentary. Just write the email.\n"
+        "- Make it sound natural, human, and purposeful — never generic."
+    )
+    user_prompt = (
+        f"Write a {tone.lower()} email for the following requirement:\n\n"
+        f"{topic}\n\n{length_guide}"
+    )
+
+    def generate():
+        try:
+            stream = client.chat.completions.create(
+                model=MODELS[0],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt}
+                ],
+                max_tokens=1800,
+                stream=True
+            )
+            for chunk in stream:
+                token = chunk.choices[0].delta.content or ""
+                if token:
+                    yield f"data: {json.dumps({'token': token})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+# ═══════════════════════════════════════════════════════
 #  RESUME ROUTE  —  REPLACE THIS BLOCK IN app.py
 #  Only this route is changed. Nothing else is touched.
 # ═══════════════════════════════════════════════════════
@@ -744,11 +807,28 @@ def api_chat():
 
         cur = db.cursor()
         # Save session
+                # Generate clean title for new sessions only
+        is_new_session = not request.json.get("session_id")
+        if is_new_session:
+            try:
+                title_completion = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=[{"role":"user","content":f"Generate a short 4-5 word title for a chat that starts with this message. Return ONLY the title, no quotes, no punctuation at end:\n\n{user_message[:200]}"}],
+                    max_tokens=20,
+                    temperature=0.3
+                )
+                chat_title = title_completion.choices[0].message.content.strip()[:60]
+            except:
+                chat_title = user_message[:60]
+        else:
+            chat_title = user_message[:60]
+
         cur.execute("""
             INSERT INTO chat_sessions(user_email, session_id, title, updated_at)
             VALUES (%s, %s, %s, NOW())
             ON CONFLICT (session_id) DO UPDATE SET updated_at=NOW()
-        """, (user_email, chat_session_id, user_message[:60]))
+        """, (user_email, chat_session_id, chat_title))
+
         # Save message
         cur.execute(
             "INSERT INTO chats(user_email,session_id,role,message) VALUES (%s,%s,%s,%s)",
@@ -1875,6 +1955,17 @@ def sitemap():
 def robots():
     return send_from_directory("static", "robots.txt")
 
+# ═══════════════════════════════════════════════════════
+#  ERROR HANDLERS
+# ═══════════════════════════════════════════════════════
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("404.html"), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("500.html"), 500
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
