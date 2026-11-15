@@ -5,6 +5,7 @@ import re
 import json
 import tempfile
 import time
+import threading
 import requests
 from db import get_db, init_db
 from io import BytesIO
@@ -784,7 +785,31 @@ def resume():
         output = re.sub(r"\n{3,}", "\n\n", output).strip()
 
     return render_template("resume.html", resume=output)
-
+#Helper
+def _set_ai_title(session_id, user_message):
+    """Runs in background so the reply isn't delayed."""
+    try:
+        c = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[{"role": "user", "content": f"Generate a short 4-5 word title for a chat that starts with this message. Return ONLY the title, no quotes, no punctuation at end:\n\n{user_message[:200]}"}],
+            max_tokens=150,
+            temperature=0.3,
+        )
+        t = (c.choices[0].message.content or "").strip().strip('"\'')[:60]
+        print(f"[TITLE] generated: '{t}'")
+        if not t:
+            return
+        d = get_db()
+        try:
+            cur = d.cursor()
+            cur.execute("UPDATE chat_sessions SET title=%s WHERE session_id=%s", (t, session_id))
+            d.commit()
+            cur.close()
+        finally:
+            d.close()
+    except Exception as e:
+        print("[TITLE ERROR]", e)
+        
 # ═══════════════════════════════════════════════════════
 #  MAIN CHAT API
 # ═══════════════════════════════════════════════════════
@@ -807,29 +832,12 @@ def api_chat():
 
         cur = db.cursor()
         # Save session
-                # Generate clean title for new sessions only
         is_new_session = not request.json.get("session_id")
-        if is_new_session:
-            try:
-                title_completion = client.chat.completions.create(
-                    model="openai/gpt-oss-20b",
-                    messages=[{"role":"user","content":f"Generate a short 4-5 word title for a chat that starts with this message. Return ONLY the title, no quotes, no punctuation at end:\n\n{user_message[:200]}"}],
-                    max_tokens=20,
-                    temperature=0.3
-                )
-                chat_title = title_completion.choices[0].message.content.strip()[:60]
-            except:
-                chat_title = user_message[:60]
-        else:
-            chat_title = user_message[:60]
-
         cur.execute("""
             INSERT INTO chat_sessions(user_email, session_id, title, updated_at)
             VALUES (%s, %s, %s, NOW())
-            ON CONFLICT (session_id) DO UPDATE SET
-                    title=EXCLUDED.title,
-                     updated_at=NOW()
-        """, (user_email, chat_session_id, chat_title))
+            ON CONFLICT (session_id) DO UPDATE SET updated_at = NOW()
+        """, (user_email, chat_session_id, user_message[:60]))
 
         # Save message
         cur.execute(
@@ -839,6 +847,9 @@ def api_chat():
         db.commit()
         cur.close()
 
+        if is_new_session:
+            threading.Thread(target=_set_ai_title, args=(chat_session_id, user_message), daemon=True).start()
+            
         # Load memory
         memory = get_memory(user_email)
 

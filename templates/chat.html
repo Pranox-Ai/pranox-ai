@@ -337,10 +337,10 @@ function saveChats() {
 
 function renderHistory() {
   const el = document.getElementById("historyList");
-  el.innerHTML = "";
-  if (IS_LOGGED_IN) {
+    if (IS_LOGGED_IN) {
     loadDBSessions(20);
-  } else {
+    } else {
+    el.innerHTML = "";
     if (!chats.length) { el.innerHTML = `<p class="no-history">No chats yet</p>`; return; }
     [...chats].reverse().forEach((chat, ri) => {
       const index   = chats.length - 1 - ri;
@@ -360,37 +360,42 @@ function renderHistory() {
   }
 }
 
-async function loadDBSessions(limit=20) {
+let sessionsCache = null;
+
+function paintSessions(sessions, limit) {
   const el = document.getElementById("historyList");
+  el.innerHTML = "";
+  if (!sessions.length) { el.innerHTML = `<p class="no-history">No chats yet</p>`; return; }
+  sessions.forEach(s => {
+    const div = document.createElement("div");
+    div.className = "history-item" + (s.session_id === currentSessionId ? " active" : "");
+    div.innerHTML = `
+      <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span class="hist-text">${escapeHtml((s.title||"Chat").slice(0,45))}</span>
+      <button class="hist-del" onclick="deleteDBSession('${s.session_id}',event)" title="Delete">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>`;
+    div.onclick = e => { if (!e.target.closest(".hist-del")) loadDBChat(s.session_id, s.title); };
+    el.appendChild(div);
+  });
+  if (sessions.length === limit) {
+    const btn = document.createElement("button");
+    btn.className = "view-all-btn";
+    btn.textContent = "View all →";
+    btn.onclick = () => loadDBSessions(200);
+    el.appendChild(btn);
+  }
+}
+
+async function loadDBSessions(limit=20) {
+  if (sessionsCache) paintSessions(sessionsCache.slice(0, limit), limit);   // instant
   try {
     const res  = await fetch(`/api/sessions?limit=${limit}`);
     const data = await res.json();
-    el.innerHTML = "";
-    if (!data.sessions.length) {
-      el.innerHTML = `<p class="no-history">No chats yet</p>`;
-      return;
-    }
-    data.sessions.forEach(s => {
-      const div = document.createElement("div");
-      div.className = "history-item" + (s.session_id === currentSessionId ? " active" : "");
-      div.innerHTML = `
-        <svg class="hist-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <span class="hist-text">${escapeHtml((s.title||"Chat").slice(0,45))}</span>
-        <button class="hist-del" onclick="deleteDBSession('${s.session_id}',event)" title="Delete">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-        </button>`;
-      div.onclick = e => { if (!e.target.closest(".hist-del")) loadDBChat(s.session_id, s.title); };
-      el.appendChild(div);
-    });
-    if (data.sessions.length === limit) {
-      const btn = document.createElement("button");
-      btn.className = "view-all-btn";
-      btn.textContent = "View all →";
-      btn.onclick = () => loadDBSessions(200);
-      el.appendChild(btn);
-    }
+    sessionsCache = data.sessions;
+    paintSessions(sessionsCache, limit);
   } catch(e) {
-    el.innerHTML = `<p class="no-history">Couldn't load history</p>`;
+    if (!sessionsCache) document.getElementById("historyList").innerHTML = `<p class="no-history">Couldn't load history</p>`;
   }
 }
 
@@ -896,7 +901,11 @@ async function sendMessage() {
       });
       const data = await res.json();
       reply = data.reply || "No response received.";
-      if (data.session_id) currentSessionId = data.session_id;
+            if (data.session_id) {
+        const wasNew = !currentSessionId;
+        currentSessionId = data.session_id;
+        if (wasNew) { setTimeout(renderHistory, 2500); setTimeout(renderHistory, 6000); }
+      }
     }
   } catch {
     reply = "⚠️ Network error. Please check your connection and try again.";
